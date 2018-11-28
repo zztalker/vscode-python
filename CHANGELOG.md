@@ -1,5 +1,128 @@
 # Changelog
 
+## 2018.11.0-rc (28 Nov 2018)
+
+### Thanks
+
+Thanks to the following projects which we fully rely on to provide some of
+our features:
+- [isort 4.3.4](https://pypi.org/project/isort/4.3.4/)
+- [jedi 0.13.1](https://pypi.org/project/jedi/0.13.1/)
+  and [parso 0.3.1](https://pypi.org/project/parso/0.3.1/)
+- [Microsoft Python Language Server](https://github.com/microsoft/python-language-server)
+- [ptvsd](https://pypi.org/project/ptvsd/)
+- [exuberant ctags](http://ctags.sourceforge.net/) (user-installed)
+- [rope](https://pypi.org/project/rope/) (user-installed)
+
+Also thanks to the various projects we provide integrations with which help
+make this extension useful:
+- Debugging support:
+  [Django](https://pypi.org/project/Django/),
+  [Flask](https://pypi.org/project/Flask/),
+  [gevent](https://pypi.org/project/gevent/),
+  [Jinja](https://pypi.org/project/Jinja/),
+  [Pyramid](https://pypi.org/project/pyramid/),
+  [PySpark](https://pypi.org/project/pyspark/),
+  [Scrapy](https://pypi.org/project/Scrapy/),
+  [Watson](https://pypi.org/project/Watson/)
+- Formatting:
+  [autopep8](https://pypi.org/project/autopep8/),
+  [black](https://pypi.org/project/black/),
+  [yapf](https://pypi.org/project/yapf/)
+- Interpreter support:
+  [conda](https://conda.io/),
+  [direnv](https://direnv.net/),
+  [pipenv](https://pypi.org/project/pipenv/),
+  [pyenv](https://github.com/pyenv/pyenv),
+  [venv](https://docs.python.org/3/library/venv.html#module-venv),
+  [virtualenv](https://pypi.org/project/virtualenv/)
+- Linting:
+  [bandit](https://pypi.org/project/bandit/),
+  [flake8](https://pypi.org/project/flake8/),
+  [mypy](https://pypi.org/project/mypy/),
+  [prospector](https://pypi.org/project/prospector/),
+  [pylint](https://pypi.org/project/pylint/),
+  [pydocstyle](https://pypi.org/project/pydocstyle/),
+  [pylama](https://pypi.org/project/pylama/)
+- Testing:
+  [nose](https://pypi.org/project/nose/),
+  [pytest](https://pypi.org/project/pytest/),
+  [unittest](https://docs.python.org/3/library/unittest.html#module-unittest)
+
+And finally thanks to the [Python](https://www.python.org/) development team and
+community for creating a fantastic programming language and community to be a
+part of!
+
+### Enhancements
+
+1. Update Jedi to 0.13.1 and parso 0.3.1.
+   ([#2667](https://github.com/Microsoft/vscode-python/issues/2667))
+1. Make diagnostic message actionable when opening a workspace with no currently selected Python interpreter.
+   ([#2983](https://github.com/Microsoft/vscode-python/issues/2983))
+1. Expose an API that can be used by other extensions to interact with the Python Extension.
+   ([#3121](https://github.com/Microsoft/vscode-python/issues/3121))
+1. Updated the language server to [0.1.65](https://github.com/Microsoft/python-language-server/releases/tag/2018.11.1):
+   - Improved `formatOnType` so it handles mismatched braces better
+   ([#3482](https://github.com/Microsoft/vscode-python/issues/3482))
+
+### Fixes
+
+1. Have `ctags` use the `--extras` option instead of `--extra`.
+   (thanks to [Brandy Sandrowicz](https://github.com/bsandrow))
+   ([#793](https://github.com/Microsoft/vscode-python/issues/793))
+1. Always use bundled version of [`ptvsd`](https://github.com/microsoft/ptvsd), unless specified.
+   To use a custom version of `ptvsd` in the debugger, add `customDebugger` into your `launch.json` configuration as follows:
+   ```json
+       "type": "python",
+       "request": "launch",
+       "customDebugger": true
+   ```
+   ([#3283](https://github.com/Microsoft/vscode-python/issues/3283))
+1. Fix problems with virtual environments not matching the loaded python when running cells.
+   ([#3294](https://github.com/Microsoft/vscode-python/issues/3294))
+1. Add button for interrupting the jupyter kernel
+   ([#3314](https://github.com/Microsoft/vscode-python/issues/3314))
+1. Auto select `Python Interpreter` prior to validation of interpreters and changes to messages displayed.
+   ([#3326](https://github.com/Microsoft/vscode-python/issues/3326))
+1. Fix Jupyter server connection issues involving IP addresses, base_url, and missing tokens
+   ([#3332](https://github.com/Microsoft/vscode-python/issues/3332))
+1. Make `nbconvert` in a installation not prevent notebooks from starting.
+   ([#3343](https://github.com/Microsoft/vscode-python/issues/3343))
+1. Re-run Jupyter notebook setup when the kernel is restarted. This correctly picks up dark color themes for matplotlib.
+   ([#3418](https://github.com/Microsoft/vscode-python/issues/3418))
+1. Update the language server to [0.1.65](https://github.com/Microsoft/python-language-server/releases/tag/2018.11.1):
+   - Fixed `null` reference exception when executing "Find symbol in workspace"
+   - Fixed `null` argument exception that could happen when a function used tuples
+   - Fixed issue when variables in nested list comprehensions were marked as undefined
+   - Fixed exception that could be thrown with certain generic syntax
+   ([#3482](https://github.com/Microsoft/vscode-python/issues/3482))
+
+### Code Health
+
+1. Added basic integration tests for the new Lanaguage Server.
+   ([#2041](https://github.com/Microsoft/vscode-python/issues/2041))
+1. Add smoke tests for the extension.
+   ([#3021](https://github.com/Microsoft/vscode-python/issues/3021))
+1. Improvements to the `webpack configuration` file used to build the Data Science UI components.
+   Added pre-build validations to ensure all npm modules used by Data Science UI components are registered.
+   ([#3122](https://github.com/Microsoft/vscode-python/issues/3122))
+1. Removed `IsTestExecution` guard from around data science banner calls
+   ([#3246](https://github.com/Microsoft/vscode-python/issues/3246))
+1. Unit tests for `CodeLensProvider` and `CodeWatcher`
+   ([#3264](https://github.com/Microsoft/vscode-python/issues/3264))
+1. Use `EXTENSION_ROOT_DIR` instead of `__dirname` in preparation for bundling of extension.
+   ([#3317](https://github.com/Microsoft/vscode-python/issues/3317))
+1. Add YAML file specification for CI builds
+   ([#3350](https://github.com/Microsoft/vscode-python/issues/3350))
+1. Stop running CI tests against the `master` branch of ptvsd.
+   ([#3414](https://github.com/Microsoft/vscode-python/issues/3414))
+1. Be more aggresive in searching for a Python that can run Kupyter
+   (make sure to cleanup any kernelspecs that are created during this process).
+   ([#3433](https://github.com/Microsoft/vscode-python/issues/3433))
+
+
+
+
 ## 2018.10.1 (09 Nov 2018)
 
 ### Fixes
