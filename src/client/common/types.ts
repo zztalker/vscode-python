@@ -293,6 +293,8 @@ export interface IDataScienceSettings {
     showCellInputCode: boolean;
     collapseCellInputCodeByDefault: boolean;
     maxOutputSize? : number;
+    markdownRegularExpression? : string;
+    codeRegularExpression? : string;
 }
 
 export const IConfigurationService = Symbol('IConfigurationService');

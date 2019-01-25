@@ -5,7 +5,8 @@ import { inject, injectable } from 'inversify';
 import { CodeLens, Command, Position, Range, Selection, TextDocument, TextEditorRevealType } from 'vscode';
 
 import { IApplicationShell, IDocumentManager } from '../../common/application/types';
-import { ILogger } from '../../common/types';
+import { IFileSystem } from '../../common/platform/types';
+import { IConfigurationService, IDataScienceSettings, ILogger } from '../../common/types';
 import * as localize from '../../common/utils/localize';
 import { captureTelemetry } from '../../telemetry';
 import { generateCellRanges } from '../cellFactory';
@@ -19,21 +20,25 @@ export class CodeWatcher implements ICodeWatcher {
     private version: number = -1;
     private fileName: string = '';
     private codeLenses: CodeLens[] = [];
+    private cachedSettings: IDataScienceSettings | undefined;
 
     constructor(@inject(IApplicationShell) private applicationShell: IApplicationShell,
                 @inject(ILogger) private logger: ILogger,
                 @inject(IHistoryProvider) private historyProvider : IHistoryProvider,
+                @inject(IFileSystem) private fileSystem: IFileSystem,
+                @inject(IConfigurationService) private configService: IConfigurationService,
                 @inject(IDocumentManager) private documentManager : IDocumentManager) {}
 
-    public addFile(document: TextDocument) {
+    public setDocument(document: TextDocument) {
         this.document = document;
 
         // Cache these, we don't want to pull an old version if the document is updated
         this.fileName = document.fileName;
         this.version = document.version;
 
-        // Get document cells here
-        const cells = generateCellRanges(document);
+        // Get document cells here. Make a copy of our settings.
+        this.cachedSettings = JSON.parse(JSON.stringify(this.configService.getSettings().datascience));
+        const cells = generateCellRanges(document, this.cachedSettings);
 
         this.codeLenses = [];
         cells.forEach(cell => {
@@ -58,6 +63,10 @@ export class CodeWatcher implements ICodeWatcher {
 
     public getVersion() {
         return this.version;
+    }
+
+    public getCachedSettings() : IDataScienceSettings | undefined {
+        return this.cachedSettings;
     }
 
     public getCodeLenses() {
