@@ -71,7 +71,7 @@ part of!
 1. Use Pylint message names instead of codes
    (thanks to [Roman Kornev](https://github.com/RomanKornev/))
    ([#2906](https://github.com/Microsoft/vscode-python/issues/2906))
-1. Add ability to enter python code directly into the Python Interactive window
+1. Add ability to enter Python code directly into the Python Interactive window
    ([#3101](https://github.com/Microsoft/vscode-python/issues/3101))
 1. Allow interactive window inputs to either be collapsed by default or totally hidden
    ([#3266](https://github.com/Microsoft/vscode-python/issues/3266))
@@ -79,7 +79,7 @@ part of!
    ([#3268](https://github.com/Microsoft/vscode-python/issues/3268))
 1. Indent on enter after line continuations.
    ([#3284](https://github.com/Microsoft/vscode-python/issues/3284))
-1. Improvements to automatic selection of the python interpreter.
+1. Improvements to automatic selection of the Python interpreter.
    ([#3369](https://github.com/Microsoft/vscode-python/issues/3369))
 1. Add support for column numbers for problems returned by `mypy`.
    (thanks [Eric Traut](https://github.com/erictraut))
@@ -90,7 +90,7 @@ part of!
    ([#3641](https://github.com/Microsoft/vscode-python/issues/3641))
 1. Improvements to message displayed when linter is not installed
    ([#3659](https://github.com/Microsoft/vscode-python/issues/3659))
-1. Improvements to message displayed when python path is invalid (in launch.json)
+1. Improvements to message displayed when Python path is invalid (in launch.json)
    ([#3661](https://github.com/Microsoft/vscode-python/issues/3661))
 1. Add the Jupyter Server URI to the Interactive Window info cell
    ([#3668](https://github.com/Microsoft/vscode-python/issues/3668))
@@ -117,7 +117,7 @@ part of!
    ([#4086](https://github.com/Microsoft/vscode-python/issues/4086))
 1. Make sure showing a plain Python Interactive window lists out the sys info
    ([#4088](https://github.com/Microsoft/vscode-python/issues/4088))
-1. Fix python interactive window up/down arrows in the input prompt to behave like a terminal.
+1. Fix Python interactive window up/down arrows in the input prompt to behave like a terminal.
    ([#4092](https://github.com/Microsoft/vscode-python/issues/4092))
 1. Handle stdout changes with updates to pytest 4.1.x series (without breaking 4.0.x series parsing).
    ([#4099](https://github.com/Microsoft/vscode-python/issues/4099))
@@ -233,7 +233,7 @@ part of!
    ([#3899](https://github.com/Microsoft/vscode-python/issues/3899))
 1. Add telemetry to check if global interpreter is used in workspace.
    ([#3901](https://github.com/Microsoft/vscode-python/issues/3901))
-1. Make sure to search for the best python when launching the non default interpreter.
+1. Make sure to search for the best Python when launching the non default interpreter.
    ([#3916](https://github.com/Microsoft/vscode-python/issues/3916))
 1. Add tests for expand / collapse and hiding of cell inputs mid run
    ([#3982](https://github.com/Microsoft/vscode-python/issues/3982))
