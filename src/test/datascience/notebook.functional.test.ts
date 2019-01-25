@@ -45,6 +45,7 @@ import { isOs, OSType } from '../common';
 import { sleep } from '../core';
 import { DataScienceIocContainer } from './dataScienceIocContainer';
 import { SupportedCommands } from './mockJupyterManager';
+import { MockJupyterSession } from './mockJupyterSession';
 
 // tslint:disable:no-any no-multiline-string max-func-body-length no-console max-classes-per-file
 suite('Jupyter notebook tests', () => {
@@ -206,11 +207,11 @@ suite('Jupyter notebook tests', () => {
         });
     }
 
-    async function createNotebookServer(useDefaultConfig: boolean, expectFailure?: boolean): Promise<INotebookServer | undefined> {
+    async function createNotebookServer(useDefaultConfig: boolean, expectFailure?: boolean, useDarkTheme?: boolean): Promise<INotebookServer | undefined> {
         // Catch exceptions. Throw a specific assertion if the promise fails
         try {
             const testDir = path.join(EXTENSION_ROOT_DIR, 'src', 'test', 'datascience');
-            const server = await jupyterExecution.connectToNotebookServer(undefined, useDefaultConfig, undefined, testDir);
+            const server = await jupyterExecution.connectToNotebookServer(undefined, useDarkTheme, useDefaultConfig, undefined, testDir);
             if (expectFailure) {
                 assert.ok(false, `Expected server to not be created`);
             }
@@ -258,7 +259,7 @@ suite('Jupyter notebook tests', () => {
             const uri = connString as string;
 
             // We have a connection string here, so try to connect jupyterExecution to the notebook server
-            const server = await jupyterExecution.connectToNotebookServer(uri!, true);
+            const server = await jupyterExecution.connectToNotebookServer(uri!, false, true);
             if (!server) {
                 assert.fail('Failed to connect to remote server');
             }
@@ -474,7 +475,7 @@ suite('Jupyter notebook tests', () => {
         }
 
         // Try different timeouts, canceling after the timeout on each
-        assert.ok(await testCancelableMethod((t: CancellationToken) => jupyterExecution.connectToNotebookServer(undefined, true, t), 'Cancel did not cancel start after {0}ms'));
+        assert.ok(await testCancelableMethod((t: CancellationToken) => jupyterExecution.connectToNotebookServer(undefined, false, true, t), 'Cancel did not cancel start after {0}ms'));
 
         if (ioc.mockJupyter) {
             ioc.mockJupyter.setProcessDelay(undefined);
@@ -482,7 +483,7 @@ suite('Jupyter notebook tests', () => {
 
         // Make sure doing normal start still works
         const nonCancelSource = new CancellationTokenSource();
-        const server = await jupyterExecution.connectToNotebookServer(undefined, true, nonCancelSource.token);
+        const server = await jupyterExecution.connectToNotebookServer(undefined, false, true, nonCancelSource.token);
         assert.ok(server, 'Server not found with a cancel token that does not cancel');
 
         // Make sure can run some code too
@@ -751,6 +752,26 @@ plt.show()`,
             assert.ok(server, 'Never connected to a default server with a bad default config');
 
             await verifySimple(server, `a=1${os.EOL}a`, 1);
+        }
+    });
+
+    runTest('Theme modifies execution', async () => {
+        if (ioc.mockJupyter) {
+            let server = await createNotebookServer(true, false, false);
+            let session = (server as any)['session'] as MockJupyterSession;
+
+            const light = '%matplotlib inline\nimport matplotlib.pyplot as plt';
+            const dark = '%matplotlib inline\nimport matplotlib.pyplot as plt\nfrom matplotlib import style\nstyle.use(\'dark_background\')';
+
+            assert.ok(session.getExecutes().indexOf(light) >= 0, 'light not found');
+            assert.ok(session.getExecutes().indexOf(dark) < 0, 'dark found when not allowed');
+            await server.dispose();
+
+            server = await createNotebookServer(true, false, true);
+            session = (server as any)['session'] as MockJupyterSession;
+            assert.ok(session.getExecutes().indexOf(dark) >= 0, 'dark not found');
+            assert.ok(session.getExecutes().indexOf(light) < 0, 'light found when not allowed');
+            await server.dispose();
         }
     });
 
