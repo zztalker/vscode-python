@@ -22,7 +22,6 @@ import { createDocument } from './helpers';
 
 suite('DataScience Code Watcher Unit Tests', () => {
     let codeWatcher: CodeWatcher;
-    let commandManager: TypeMoq.IMock<ICommandManager>;
     let appShell: TypeMoq.IMock<IApplicationShell>;
     let logger: TypeMoq.IMock<ILogger>;
     let historyProvider: TypeMoq.IMock<IHistoryProvider>;
