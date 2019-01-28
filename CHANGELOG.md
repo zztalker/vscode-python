@@ -55,6 +55,8 @@ part of!
 
 ### Enhancements
 
+1. Add the capability to have custom regex's for cell/markdown matching
+   ([#4065](https://github.com/Microsoft/vscode-python/issues/4065))
 1. Perform all validation checks in the background
    ([#3019](https://github.com/Microsoft/vscode-python/issues/3019))
 1. Watermark for Python Interactive input prompt
@@ -103,6 +105,14 @@ part of!
 
 ### Fixes
 
+1. Have the new export commands use our directory change code
+   ([#4140](https://github.com/Microsoft/vscode-python/issues/4140))
+1. Theme should not be exported without output when doing an export.
+   ([#4141](https://github.com/Microsoft/vscode-python/issues/4141))
+1. Deleting all cells should not remove the input prompt
+   ([#4152](https://github.com/Microsoft/vscode-python/issues/4152))
+1. Fix ctrl+c to work in code that has already been entered
+   ([#4168](https://github.com/Microsoft/vscode-python/issues/4168))
 1. Auto-select virtual environment in multi-root workspaces
    ([#3501](https://github.com/Microsoft/vscode-python/issues/3501))
 1. Validate interpreter in multi-root workspaces
@@ -187,6 +197,8 @@ part of!
 
 ### Code Health
 
+1. Fix build issue with code.tsx
+   ([#4156](https://github.com/Microsoft/vscode-python/issues/4156))
 1. Expose an event to notify changes to settings instead of casting settings to concrete class.
    ([#642](https://github.com/Microsoft/vscode-python/issues/642))
 1. Created system test to ensure terminal gets activated with anaconda environment
