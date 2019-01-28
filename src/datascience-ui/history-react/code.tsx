@@ -48,7 +48,7 @@ export class Code extends React.Component<ICodeProps, ICodeState> {
         this.state = {focused: false, cursorLeft: 0, cursorTop: 0, cursorBottom: 0, charUnderCursor: '', allowWatermark: true};
     }
 
-    public componentDidUpdate = () => {
+    public componentDidUpdate = (prevProps: Readonly<ICodeProps>, prevState: Readonly<ICodeState>, snapshot?: {}) => {
         // Force our new value. the RCM control doesn't do this correctly
         if (this.codeMirror && this.props.readOnly && this.codeMirror.getValue() !== this.props.code) {
             this.codeMirror.setValue(this.props.code);
