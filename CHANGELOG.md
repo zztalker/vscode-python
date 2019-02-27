@@ -1,5 +1,15 @@
 # Changelog
 
+
+## 2019.2.1 (27 Feb 2019)
+
+### Fixes
+
+
+1. Exclude files `travis*.log`, `pythonFiles/tests/**`, `types/**` from the extension.
+   ([#4554](https://github.com/Microsoft/vscode-python/issues/4554))
+   ([#4566](https://github.com/Microsoft/vscode-python/issues/4566))
+
 ## 2019.2.0 (26 Feb 2019)
 
 ### Thanks
