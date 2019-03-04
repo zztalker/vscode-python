@@ -103,8 +103,10 @@ export enum Telemetry {
     SubmitCellThroughInput = 'DATASCIENCE.SUBMITCELLFROMREPL',
     ConnectLocalJupyter = 'DATASCIENCE.CONNECTLOCALJUPYTER',
     ConnectRemoteJupyter = 'DATASCIENCE.CONNECTREMOTEJUPYTER',
-    ConnectFailedJupyter = 'DATASCIENCE.CONNECTFAILEDJUPYTER'
-}
+    ConnectFailedJupyter = 'DATASCIENCE.CONNECTFAILEDJUPYTER',
+    ShiftEnterBannerShown = 'DATASCIENCE.SHIFTENTER_BANNER_SHOWN',
+    EnableInteractiveShiftEnter = 'DATASCIENCE.ENABLE_INTERACTIVE_SHIFT_ENTER'
+ }
 
 export namespace HelpLinks {
     export const PythonInteractiveHelpLink = 'https://aka.ms/pyaiinstall';
