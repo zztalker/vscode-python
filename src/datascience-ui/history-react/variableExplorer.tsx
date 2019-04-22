@@ -53,7 +53,7 @@ export class VariableExplorer extends React.Component<IVariableExplorerProps, IV
         const columns = [
             {key: 'name', name: getLocString('DataScience.variableExplorerNameColumn', 'Name'), type: 'string', width: 120, formatter: <VariableExplorerCellFormatter cellStyle={CellStyle.variable} />},
             {key: 'type', name: getLocString('DataScience.variableExplorerTypeColumn', 'Type'), type: 'string', width: 120},
-            {key: 'size', name: getLocString('DataScience.variableExplorerSizeColumn', 'Size'), type: 'number', width: 120, formatter: <VariableExplorerCellFormatter cellStyle={CellStyle.numeric} />},
+            {key: 'size', name: getLocString('DataScience.variableExplorerSizeColumn', 'Count'), type: 'string', width: 120, formatter: <VariableExplorerCellFormatter cellStyle={CellStyle.numeric} />},
             {key: 'value', name: getLocString('DataScience.variableExplorerValueColumn', 'Value'), type: 'string', width: 300},
             {key: 'buttons', name: '', type: 'boolean', width: 34, formatter: <VariableExplorerButtonCellFormatter showDataExplorer={this.props.showDataExplorer} baseTheme={this.props.baseTheme} /> }
         ];
@@ -92,6 +92,7 @@ export class VariableExplorer extends React.Component<IVariableExplorerProps, IV
                                 minHeight = {this.state.gridHeight}
                                 headerRowHeight = {this.state.fontSize + 9}
                                 rowHeight = {this.state.fontSize + 9}
+                                onRowDoubleClick = {this.rowDoubleClick}
                             />
                         </div>
                     </div>
@@ -125,7 +126,7 @@ export class VariableExplorer extends React.Component<IVariableExplorerProps, IV
     // Help to keep us independent of main history window state if we choose to break out the variable explorer
     public newVariablesData(newVariables: IJupyterVariable[]) {
         const newGridRows = newVariables.map(newVar => {
-            return { buttons: {name: newVar.name, supportsDataExplorer: newVar.supportsDataExplorer}, name: newVar.name, type: newVar.type, size: newVar.size, value: getLocString('DataScience.variableLoadingValue', 'Loading...')};
+            return { buttons: {name: newVar.name, supportsDataExplorer: newVar.supportsDataExplorer}, name: newVar.name, type: newVar.type, size: '', value: getLocString('DataScience.variableLoadingValue', 'Loading...')};
         });
 
         this.setState({ gridRows: newGridRows});
@@ -136,7 +137,19 @@ export class VariableExplorer extends React.Component<IVariableExplorerProps, IV
         const newGridRows = this.state.gridRows.slice();
         for (let i = 0; i < newGridRows.length; i = i + 1) {
             if (newGridRows[i].name === newVariable.name) {
-                const newGridRow = {...newGridRows[i], value: newVariable.value};
+
+                // For object with shape, use that for size
+                // for object with length use that for size
+                // If it doesn't have either, then just leave it out
+                let newSize = '';
+                if (newVariable.shape && newVariable.shape !== '') {
+                    newSize = newVariable.shape;
+                } else if (newVariable.count) {
+                    newSize = newVariable.count.toString();
+                }
+
+                const newGridRow = {...newGridRows[i], value: newVariable.value, size: newSize};
+
                 newGridRows[i] = newGridRow;
             }
         }
@@ -154,6 +167,14 @@ export class VariableExplorer extends React.Component<IVariableExplorerProps, IV
 
         // Notify of the toggle, reverse it as the state is not updated yet
         this.props.variableExplorerToggled(!this.state.open);
+    }
+
+    private rowDoubleClick = (_rowIndex: number, row: IGridRow) => {
+        // On row double click, see if data explorer is supported and open it if it is
+        if (row.buttons && row.buttons.supportsDataExplorer !== undefined
+            && row.buttons.name && row.buttons.supportsDataExplorer) {
+            this.props.showDataExplorer(row.buttons.name);
+        }
     }
 
     private updateHeight = () => {
