@@ -1,5 +1,13 @@
 # Changelog
 
+## 2019.4.1 (24 April 2019)
+
+### Fixes
+
+1. Remove trailing commas in JSON files.
+   (thanks [Romain](https://github.com/quarthex))
+   ([#5437](https://github.com/Microsoft/vscode-python/issues/5437))
+
 ## 2019.4.0 (23 April 2019)
 
 ### Enhancements
