@@ -361,6 +361,31 @@ function getParentTestFolder(tests: Tests, item: TestFolder | TestFile): TestFol
 }
 
 /**
+ * Returns the parent test folder give a given test file.
+ *
+ * @param {Tests} tests
+ * @param {TestFile} file
+ * @returns {(TestFolder | undefined)}
+ */
+function getParentTestFolderForFile(tests: Tests, file: TestFile): TestFolder | undefined {
+    return tests.testFolders.find(folder => folder.testFiles.some(item => item === file));
+}
+
+/**
+ * Returns the parent test folder for a given test folder.
+ *
+ * @param {Tests} tests
+ * @param {TestFolder} folder
+ * @returns {(TestFolder | undefined)}
+ */
+function getParentTestFolderForFolder(tests: Tests, folder: TestFolder): TestFolder | undefined {
+    if (tests.rootTestFolders.indexOf(folder) >= 0) {
+        return;
+    }
+    return tests.testFolders.find(item => item.folders.some(child => child === folder));
+}
+
+/**
  * Gets the parent test file for a test item.
  *
  * @param {Tests} tests
@@ -393,31 +418,6 @@ export function getParentSuite(tests: Tests, suite: TestSuite | TestFunction): T
         parent = getParent(tests, parent);
     }
     return;
-}
-
-/**
- * Returns the parent test folder give a given test file.
- *
- * @param {Tests} tests
- * @param {TestFile} file
- * @returns {(TestFolder | undefined)}
- */
-function getParentTestFolderForFile(tests: Tests, file: TestFile): TestFolder | undefined {
-    return tests.testFolders.find(folder => folder.testFiles.some(item => item === file));
-}
-
-/**
- * Returns the parent test folder for a given test folder.
- *
- * @param {Tests} tests
- * @param {TestFolder} folder
- * @returns {(TestFolder | undefined)}
- */
-function getParentTestFolderForFolder(tests: Tests, folder: TestFolder): TestFolder | undefined {
-    if (tests.rootTestFolders.indexOf(folder) >= 0) {
-        return;
-    }
-    return tests.testFolders.find(item => item.folders.some(child => child === folder));
 }
 
 /**
