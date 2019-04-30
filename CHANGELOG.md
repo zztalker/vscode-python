@@ -1,6 +1,6 @@
 # Changelog
 
-## 2019.4.2 (29 April 2019)
+## 2019.4.2 (30 April 2019)
 
 ### Fixes
 
