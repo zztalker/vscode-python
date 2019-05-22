@@ -75,6 +75,12 @@
    ([#3568](https://github.com/Microsoft/vscode-python/issues/3568))
 1. Fix perf issues with long collections and variable explorer
    ([#5511](https://github.com/Microsoft/vscode-python/issues/5511))
+1. Update ptvsd to [4.2.10](https://github.com/Microsoft/ptvsd/releases/tag/v4.2.10).
+    * No longer switch off getpass on import.
+    * Fixes a crash on evaluate request.
+    * Fix a issue with running no-debug.
+    * Fixes issue with forwarding sys.stdin.read().
+    * Remove sys.prefix form library roots.
 
 ### Code Health
 
