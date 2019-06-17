@@ -6,6 +6,7 @@ import { inject, injectable } from 'inversify';
 import * as os from 'os';
 import * as path from 'path';
 import * as uuid from 'uuid/v4';
+import { Uri } from 'vscode';
 
 import { IWorkspaceService } from '../../common/application/types';
 import { IFileSystem, IPlatformService } from '../../common/platform/types';
@@ -33,13 +34,13 @@ export class JupyterExporter implements INotebookExporter {
         noop();
     }
 
-    public async translateToNotebook(cells: ICell[], changeDirectory?: string): Promise<nbformat.INotebookContent | undefined> {
+    public async translateToNotebook(resource: Uri | undefined, cells: ICell[], changeDirectory?: string): Promise<nbformat.INotebookContent | undefined> {
         // If requested, add in a change directory cell to fix relative paths
         if (changeDirectory) {
             cells = await this.addDirectoryChangeCell(cells, changeDirectory);
         }
 
-        const pythonNumber = await this.extractPythonMainVersion();
+        const pythonNumber = await this.extractPythonMainVersion(resource);
 
         // Use this to build our metadata object
         const metadata: nbformat.INotebookMetadata = {
@@ -180,9 +181,9 @@ export class JupyterExporter implements INotebookExporter {
         return source;
     }
 
-    private extractPythonMainVersion = async (): Promise<number> => {
+    private async extractPythonMainVersion(resource: Uri | undefined): Promise<number> {
         // Use the active interpreter
-        const usableInterpreter = await this.jupyterExecution.getUsableJupyterPython();
+        const usableInterpreter = await this.jupyterExecution.getUsableJupyterPython(resource);
         return usableInterpreter && usableInterpreter.version ? usableInterpreter.version.major : 3;
     }
 }

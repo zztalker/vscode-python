@@ -9,7 +9,7 @@ import * as fs from 'fs-extra';
 import { Observable } from 'rxjs/Observable';
 import { Subscriber } from 'rxjs/Subscriber';
 import * as uuid from 'uuid/v4';
-import { Disposable } from 'vscode';
+import { Disposable, Uri } from 'vscode';
 import { CancellationToken } from 'vscode-jsonrpc';
 
 import { ILiveShareApi } from '../../common/application/types';
@@ -132,6 +132,7 @@ export class JupyterServerBase implements INotebookServer {
     private connectPromise: Deferred<INotebookServerLaunchInfo> = createDeferred<INotebookServerLaunchInfo>();
     private connectionInfoDisconnectHandler: Disposable | undefined;
     private serverExitCode: number | undefined;
+    private pythonVersion: string | undefined;
 
     constructor(
         _liveShare: ILiveShareApi,
@@ -419,6 +420,22 @@ export class JupyterServerBase implements INotebookServer {
 
         // Default is just say session was disposed
         throw new Error(localize.DataScience.sessionDisposed());
+    }
+
+    public get startupResource() : Uri | undefined {
+        return this.launchInfo ? this.launchInfo.resource : undefined;
+    }
+
+    public async getPythonVersion() : Promise<string> {
+        if (!this.pythonVersion) {
+            // tslint:disable-next-line:no-multiline-string
+            const versionCells = await this.executeSilently(`import sys\r\nsys.version`);
+
+            // Should be streamed
+            this.pythonVersion = versionCells.length > 0 ? this.extractStreamOutput(versionCells[0]).trimQuotes() : '';
+        }
+
+        return this.pythonVersion;
     }
 
     private finishUncompletedCells() {

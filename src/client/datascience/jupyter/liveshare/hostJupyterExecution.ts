@@ -129,23 +129,23 @@ export class HostJupyterExecution
         return this.serverCache.get(options);
     }
 
-    private onRemoteIsNotebookSupported = (_args: any[], cancellation: CancellationToken): Promise<any> => {
+    private onRemoteIsNotebookSupported = (args: any[], cancellation: CancellationToken): Promise<any> => {
         // Just call local
-        return this.isNotebookSupported(cancellation);
+        return this.isNotebookSupported(args[0], cancellation);
     }
 
-    private onRemoteIsImportSupported = (_args: any[], cancellation: CancellationToken): Promise<any> => {
+    private onRemoteIsImportSupported = (args: any[], cancellation: CancellationToken): Promise<any> => {
         // Just call local
-        return this.isImportSupported(cancellation);
+        return this.isImportSupported(args[0], cancellation);
     }
 
-    private onRemoteIsKernelCreateSupported = (_args: any[], cancellation: CancellationToken): Promise<any> => {
+    private onRemoteIsKernelCreateSupported = (args: any[], cancellation: CancellationToken): Promise<any> => {
         // Just call local
-        return this.isKernelCreateSupported(cancellation);
+        return this.isKernelCreateSupported(args[0], cancellation);
     }
-    private onRemoteIsKernelSpecSupported = (_args: any[], cancellation: CancellationToken): Promise<any> => {
+    private onRemoteIsKernelSpecSupported = (args: any[], cancellation: CancellationToken): Promise<any> => {
         // Just call local
-        return this.isKernelSpecSupported(cancellation);
+        return this.isKernelSpecSupported(args[0], cancellation);
     }
 
     private onRemoteConnectToNotebookServer = async (args: any[], cancellation: CancellationToken): Promise<IConnection | undefined> => {
@@ -170,8 +170,8 @@ export class HostJupyterExecution
         }
     }
 
-    private onRemoteGetUsableJupyterPython = (_args: any[], cancellation: CancellationToken): Promise<any> => {
+    private onRemoteGetUsableJupyterPython = (args: any[], cancellation: CancellationToken): Promise<any> => {
         // Just call local
-        return this.getUsableJupyterPython(cancellation);
+        return this.getUsableJupyterPython(args[0], cancellation);
     }
 }

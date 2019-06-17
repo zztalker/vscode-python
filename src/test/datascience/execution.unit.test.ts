@@ -12,7 +12,7 @@ import { anyString, anything, instance, match, mock, when } from 'ts-mockito';
 import { Matcher } from 'ts-mockito/lib/matcher/type/Matcher';
 import * as TypeMoq from 'typemoq';
 import * as uuid from 'uuid/v4';
-import { CancellationToken, ConfigurationChangeEvent, Disposable, EventEmitter } from 'vscode';
+import { CancellationToken, ConfigurationChangeEvent, Disposable, EventEmitter, Uri } from 'vscode';
 
 import { IWorkspaceService } from '../../client/common/application/types';
 import { WorkspaceService } from '../../client/common/application/workspace';
@@ -74,6 +74,15 @@ class MockJupyterServer implements INotebookServer {
         }
         return Promise.reject('invalid server startup');
     }
+
+    public get startupResource() : Uri | undefined {
+        return undefined;
+    }
+
+    public getPythonVersion() : Promise<string> {
+        return Promise.resolve('3.7.3');
+    }
+
     public getCurrentState(): Promise<ICell[]> {
         throw new Error('Method not implemented');
     }
@@ -598,11 +607,11 @@ suite('Jupyter Execution', async () => {
 
     test('Working notebook and commands found', async () => {
         const execution = createExecution(workingPython);
-        await assert.eventually.equal(execution.isNotebookSupported(), true, 'Notebook not supported');
-        await assert.eventually.equal(execution.isImportSupported(), true, 'Import not supported');
-        await assert.eventually.equal(execution.isKernelSpecSupported(), true, 'Kernel Spec not supported');
-        await assert.eventually.equal(execution.isKernelCreateSupported(), true, 'Kernel Create not supported');
-        const usableInterpreter = await execution.getUsableJupyterPython();
+        await assert.eventually.equal(execution.isNotebookSupported(undefined), true, 'Notebook not supported');
+        await assert.eventually.equal(execution.isImportSupported(undefined), true, 'Import not supported');
+        await assert.eventually.equal(execution.isKernelSpecSupported(undefined), true, 'Kernel Spec not supported');
+        await assert.eventually.equal(execution.isKernelCreateSupported(undefined), true, 'Kernel Create not supported');
+        const usableInterpreter = await execution.getUsableJupyterPython(undefined);
         assert.isOk(usableInterpreter, 'Usable intepreter not found');
         await assert.isFulfilled(execution.connectToNotebookServer(), 'Should be able to start a server');
     }).timeout(10000);
@@ -626,11 +635,11 @@ suite('Jupyter Execution', async () => {
 
     test('Other than active works', async () => {
         const execution = createExecution(missingNotebookPython);
-        await assert.eventually.equal(execution.isNotebookSupported(), true, 'Notebook not supported');
-        await assert.eventually.equal(execution.isImportSupported(), true, 'Import not supported');
-        await assert.eventually.equal(execution.isKernelSpecSupported(), true, 'Kernel Spec not supported');
-        await assert.eventually.equal(execution.isKernelCreateSupported(), true, 'Kernel Create not supported');
-        const usableInterpreter = await execution.getUsableJupyterPython();
+        await assert.eventually.equal(execution.isNotebookSupported(undefined), true, 'Notebook not supported');
+        await assert.eventually.equal(execution.isImportSupported(undefined), true, 'Import not supported');
+        await assert.eventually.equal(execution.isKernelSpecSupported(undefined), true, 'Kernel Spec not supported');
+        await assert.eventually.equal(execution.isKernelCreateSupported(undefined), true, 'Kernel Create not supported');
+        const usableInterpreter = await execution.getUsableJupyterPython(undefined);
         assert.isOk(usableInterpreter, 'Usable intepreter not found');
         if (usableInterpreter) {
             assert.notEqual(usableInterpreter.path, missingNotebookPython.path);
@@ -640,8 +649,8 @@ suite('Jupyter Execution', async () => {
     test('Missing kernel python still finds interpreter', async () => {
         const execution = createExecution(missingKernelPython);
         when(interpreterService.getActiveInterpreter()).thenResolve(missingKernelPython);
-        await assert.eventually.equal(execution.isNotebookSupported(), true, 'Notebook not supported');
-        const usableInterpreter = await execution.getUsableJupyterPython();
+        await assert.eventually.equal(execution.isNotebookSupported(undefined), true, 'Notebook not supported');
+        const usableInterpreter = await execution.getUsableJupyterPython(undefined);
         assert.isOk(usableInterpreter, 'Usable intepreter not found');
         if (usableInterpreter) { // Linter
             assert.equal(usableInterpreter.path, missingKernelPython.path);
@@ -653,8 +662,8 @@ suite('Jupyter Execution', async () => {
     test('Other than active finds closest match', async () => {
         const execution = createExecution(missingNotebookPython);
         when(interpreterService.getActiveInterpreter()).thenResolve(missingNotebookPython);
-        await assert.eventually.equal(execution.isNotebookSupported(), true, 'Notebook not supported');
-        const usableInterpreter = await execution.getUsableJupyterPython();
+        await assert.eventually.equal(execution.isNotebookSupported(undefined), true, 'Notebook not supported');
+        const usableInterpreter = await execution.getUsableJupyterPython(undefined);
         assert.isOk(usableInterpreter, 'Usable intepreter not found');
         if (usableInterpreter) { // Linter
             assert.notEqual(usableInterpreter.path, missingNotebookPython.path);
@@ -668,7 +677,7 @@ suite('Jupyter Execution', async () => {
             }
         };
         configChangeEvent.fire(evt);
-        await assert.eventually.equal(execution.isNotebookSupported(), false, 'Notebook should not be supported after config change');
+        await assert.eventually.equal(execution.isNotebookSupported(undefined), false, 'Notebook should not be supported after config change');
     }).timeout(10000);
 
     test('Kernelspec is deleted on exit', async () => {

@@ -3,10 +3,10 @@
 'use strict';
 import { inject, injectable } from 'inversify';
 import * as uuid from 'uuid/v4';
-import { Disposable, Event, EventEmitter } from 'vscode';
+import { Disposable, Event, EventEmitter, Uri } from 'vscode';
 import * as vsls from 'vsls/vscode';
 
-import { ILiveShareApi } from '../../common/application/types';
+import { IDocumentManager, ILiveShareApi } from '../../common/application/types';
 import { IAsyncDisposable, IAsyncDisposableRegistry, IConfigurationService, IDisposableRegistry } from '../../common/types';
 import { createDeferred, Deferred } from '../../common/utils/async';
 import * as localize from '../../common/utils/localize';
@@ -34,7 +34,8 @@ export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
         @inject(IServiceContainer) private serviceContainer: IServiceContainer,
         @inject(IAsyncDisposableRegistry) asyncRegistry : IAsyncDisposableRegistry,
         @inject(IDisposableRegistry) private disposables: IDisposableRegistry,
-        @inject(IConfigurationService) private configService: IConfigurationService
+        @inject(IConfigurationService) private configService: IConfigurationService,
+        @inject(IDocumentManager) private documentManager : IDocumentManager
         ) {
         asyncRegistry.push(this);
 
@@ -61,13 +62,16 @@ export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
         return this.executedCode.event;
     }
 
-    public async getOrCreateActive() : Promise<IHistory> {
+    public async getOrCreateActive(resource?: Uri) : Promise<IHistory> {
+        // Compute the file we're launching from. Either it's passed in or the current active document.
+        const fileUri = resource ? resource : this.getActiveResource();
+
         if (!this.activeHistory) {
-            await this.create();
+            await this.create(fileUri);
         }
 
         // Make sure all other providers have an active history.
-        await this.synchronizeCreate();
+        await this.synchronizeCreate(fileUri);
 
         // Now that all of our peers have sync'd, return the history to use.
         if (this.activeHistory) {
@@ -77,7 +81,7 @@ export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
         throw new Error(localize.DataScience.pythonInteractiveCreateFailed());
     }
 
-    public async getNotebookOptions() : Promise<INotebookServerOptions> {
+    public async getNotebookOptions(resource?: Uri) : Promise<INotebookServerOptions> {
         // Find the settings that we are going to launch our server with
         const settings = this.configService.getSettings();
         let serverURI: string | undefined = settings.datascience.jupyterServerURI;
@@ -88,7 +92,11 @@ export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
             serverURI = undefined;
         }
 
+        // Compute the file we're launching from. Either it's passed in or the current active document.
+        const fileUri = resource ? resource : this.getActiveResource();
+
         return {
+            resource: fileUri,
             uri: serverURI,
             useDefaultConfig,
             purpose: Identifiers.HistoryPurpose
@@ -99,7 +107,7 @@ export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
         return this.postOffice.dispose();
     }
 
-    private async create() : Promise<void> {
+    private async create(resource: Uri | undefined) : Promise<void> {
         // Set it as soon as we create it. The .ctor for the history window
         // may cause a subclass to talk to the IHistoryProvider to get the active history.
         this.activeHistory = this.serviceContainer.get<IHistory>(IHistory);
@@ -108,7 +116,13 @@ export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
         this.disposables.push(handler);
         this.activeHistoryExecuteHandler = this.activeHistory.onExecutedCode(this.onHistoryExecute);
         this.disposables.push(this.activeHistoryExecuteHandler);
-        await this.activeHistory.ready;
+        await this.activeHistory.load(resource);
+    }
+
+    private getActiveResource() : Uri | undefined {
+        return this.documentManager.activeTextEditor ?
+            Uri.file(this.documentManager.activeTextEditor.document.fileName) :
+            undefined;
     }
 
     private onPeerCountChanged(newCount: number) {
@@ -125,8 +139,8 @@ export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
         if (args.length > 0 && args[0].toString() !== this.id) {
             // The other side is creating a history window. Create on this side. We don't need to show
             // it as the running of new code should do that.
-            if (!this.activeHistory) {
-                await this.create();
+            if (!this.activeHistory && args.length > 1) {
+                await this.create(args[1]);
             }
 
             // Tell the requestor that we got its message (it should be waiting for all peers to sync)
@@ -137,9 +151,9 @@ export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
     // tslint:disable-next-line:no-any
     private onRemoteSync(...args: any[]) {
         // Should be a single arg, the originator of the create
-        if (args.length > 1 && args[0].toString() === this.id) {
+        if (args.length > 2 && args[0].toString() === this.id) {
             // Update our pending wait count on the matching pending sync
-            const key = args[1].toString();
+            const key = args[2].toString();
             const sync = this.pendingSyncs.get(key);
             if (sync) {
                 sync.count -= 1;
@@ -161,7 +175,7 @@ export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
         }
     }
 
-    private async synchronizeCreate() : Promise<void> {
+    private async synchronizeCreate(resource: Uri | undefined) : Promise<void> {
         // Create a new pending wait if necessary
         if (this.postOffice.peerCount > 0 || this.postOffice.role === vsls.Role.Guest) {
             const key = uuid();
@@ -169,7 +183,7 @@ export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
             this.pendingSyncs.set(key, { count: this.postOffice.peerCount, waitable });
 
             // Make sure all providers have an active history
-            await this.postOffice.postCommand(LiveShareCommands.historyCreate, this.id, key);
+            await this.postOffice.postCommand(LiveShareCommands.historyCreate, this.id, resource, key);
 
             // Wait for the waitable to be signaled or the peer count on the post office to change
             await waitable.promise;

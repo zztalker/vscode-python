@@ -6,7 +6,7 @@ import { expect } from 'chai';
 import rewiremock from 'rewiremock';
 import * as typemoq from 'typemoq';
 
-import { IApplicationShell } from '../../client/common/application/types';
+import { IApplicationShell, IDocumentManager } from '../../client/common/application/types';
 import {
     IConfigurationService,
     IDataScienceSettings,
@@ -145,7 +145,7 @@ function loadBanner(
     config.setup(c => c.getSettings(typemoq.It.isAny())).returns(() => pythonSettings.object);
 
     // Config Jupyter
-    jupyterExecution.setup(j => j.isNotebookSupported()).returns(() => {
+    jupyterExecution.setup(j => j.isNotebookSupported(undefined)).returns(() => {
         return Promise.resolve(jupyterFound);
     }).verifiable(executionCalled ? typemoq.Times.once() : typemoq.Times.never());
 
@@ -164,5 +164,9 @@ function loadBanner(
         .returns(() => Promise.resolve())
         .verifiable(configCalled ? typemoq.Times.once() : typemoq.Times.never());
 
-    return new InteractiveShiftEnterBanner(appShell.object, persistService.object, jupyterExecution.object, config.object);
+    // Document manager
+    const docManager = typemoq.Mock.ofType<IDocumentManager>();
+    docManager.setup(d => d.activeTextEditor).returns(() => undefined);
+
+    return new InteractiveShiftEnterBanner(appShell.object, persistService.object, jupyterExecution.object, config.object, docManager.object);
 }

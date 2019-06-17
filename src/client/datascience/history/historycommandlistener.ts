@@ -157,13 +157,13 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
                                 directoryChange = uri.fsPath;
                             }
 
-                            const notebook = await this.jupyterExporter.translateToNotebook(cells, directoryChange);
+                            const notebook = await this.jupyterExporter.translateToNotebook(Uri.file(file), cells, directoryChange);
                             await this.fileSystem.writeFile(uri.fsPath, JSON.stringify(notebook));
                         }
                     }, localize.DataScience.exportingFormat(), file);
 
                     // When all done, show a notice that it completed.
-                    const openQuestion = (await this.jupyterExecution.isSpawnSupported()) ? localize.DataScience.exportOpenQuestion() : undefined;
+                    const openQuestion = (await this.jupyterExecution.isSpawnSupported(undefined)) ? localize.DataScience.exportOpenQuestion() : undefined;
                     if (uri && uri.fsPath) {
                         this.showInformationMessage(localize.DataScience.exportDialogComplete().format(uri.fsPath), openQuestion).then((str: string | undefined) => {
                             if (str === openQuestion) {
@@ -179,7 +179,7 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
 
     @captureTelemetry(Telemetry.ExportPythonFileAndOutput, undefined, false)
     private async exportFileAndOutput(file: string): Promise<Uri | undefined> {
-        if (file && file.length > 0 && this.jupyterExecution.isNotebookSupported()) {
+        if (file && file.length > 0 && this.jupyterExecution.isNotebookSupported(Uri.file(file))) {
             // If the current file is the active editor, then generate cells from the document.
             const activeEditor = this.documentManager.activeTextEditor;
             if (activeEditor && activeEditor.document && this.fileSystem.arePathsSame(activeEditor.document.fileName, file)) {
@@ -197,7 +197,7 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
                         // Then wait with status that lets the user cancel
                         await this.waitForStatus(() => {
                             try {
-                                return this.exportCellsWithOutput(ranges, activeEditor.document, output, cancelSource.token);
+                                return this.exportCellsWithOutput(ranges, activeEditor.document, file, output, cancelSource.token);
                             } catch (err) {
                                 if (!(err instanceof CancellationError)) {
                                     this.showInformationMessage(localize.DataScience.exportDialogFailed().format(err));
@@ -209,7 +209,7 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
                         }, true);
 
                         // When all done, show a notice that it completed.
-                        const openQuestion = (await this.jupyterExecution.isSpawnSupported()) ? localize.DataScience.exportOpenQuestion() : undefined;
+                        const openQuestion = (await this.jupyterExecution.isSpawnSupported(Uri.file(file))) ? localize.DataScience.exportOpenQuestion() : undefined;
                         this.showInformationMessage(localize.DataScience.exportDialogComplete().format(output), openQuestion).then((str: string | undefined) => {
                             if (str === openQuestion && output) {
                                 // If the user wants to, open the notebook they just generated.
@@ -226,7 +226,7 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
         }
     }
 
-    private async exportCellsWithOutput(ranges: {range: Range; title: string}[], document: TextDocument, file: string, cancelToken: CancellationToken) : Promise<void> {
+    private async exportCellsWithOutput(ranges: {range: Range; title: string}[], document: TextDocument, input: string, file: string, cancelToken: CancellationToken) : Promise<void> {
         let server: INotebookServer | undefined;
         try {
             const settings = this.configuration.getSettings();
@@ -234,7 +234,7 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
 
             // Try starting a server. Purpose should be unique so we
             // create a brand new one.
-            server = await this.jupyterExecution.connectToNotebookServer({ useDefaultConfig, purpose: uuid()}, cancelToken);
+            server = await this.jupyterExecution.connectToNotebookServer({ resource: Uri.file(input), useDefaultConfig, purpose: uuid()}, cancelToken);
 
             // If that works, then execute all of the cells.
             const cells = Array.prototype.concat(... await Promise.all(ranges.map(r => {
@@ -248,7 +248,7 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
                 directoryChange = file;
             }
 
-            const notebook = await this.jupyterExporter.translateToNotebook(cells, directoryChange);
+            const notebook = await this.jupyterExporter.translateToNotebook(Uri.file(input), cells, directoryChange);
             await this.fileSystem.writeFile(file, JSON.stringify(notebook));
 
         } finally {

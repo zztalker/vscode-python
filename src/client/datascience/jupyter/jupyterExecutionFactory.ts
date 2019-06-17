@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 'use strict';
 import { inject, injectable } from 'inversify';
-import { CancellationToken, Event, EventEmitter } from 'vscode';
+import { CancellationToken, Event, EventEmitter, Uri } from 'vscode';
 
 import { ILiveShareApi, IWorkspaceService } from '../../common/application/types';
 import { IFileSystem } from '../../common/platform/types';
@@ -104,25 +104,25 @@ export class JupyterExecutionFactory implements IJupyterExecution, IAsyncDisposa
         return execution.dispose();
     }
 
-    public async isNotebookSupported(cancelToken?: CancellationToken): Promise<boolean> {
+    public async isNotebookSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean> {
         const execution = await this.executionFactory.get();
-        return execution.isNotebookSupported(cancelToken);
+        return execution.isNotebookSupported(resource, cancelToken);
     }
-    public async isImportSupported(cancelToken?: CancellationToken): Promise<boolean> {
+    public async isImportSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean> {
         const execution = await this.executionFactory.get();
-        return execution.isImportSupported(cancelToken);
+        return execution.isImportSupported(resource, cancelToken);
     }
-    public async isKernelCreateSupported(cancelToken?: CancellationToken): Promise<boolean> {
+    public async isKernelCreateSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean> {
         const execution = await this.executionFactory.get();
-        return execution.isKernelCreateSupported(cancelToken);
+        return execution.isKernelCreateSupported(resource, cancelToken);
     }
-    public async isKernelSpecSupported(cancelToken?: CancellationToken): Promise<boolean> {
+    public async isKernelSpecSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean> {
         const execution = await this.executionFactory.get();
-        return execution.isKernelSpecSupported(cancelToken);
+        return execution.isKernelSpecSupported(resource, cancelToken);
     }
-    public async isSpawnSupported(cancelToken?: CancellationToken): Promise<boolean> {
+    public async isSpawnSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean> {
         const execution = await this.executionFactory.get();
-        return execution.isSpawnSupported(cancelToken);
+        return execution.isSpawnSupported(resource, cancelToken);
     }
     public async connectToNotebookServer(options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer | undefined> {
         const execution = await this.executionFactory.get();
@@ -136,9 +136,9 @@ export class JupyterExecutionFactory implements IJupyterExecution, IAsyncDisposa
         const execution = await this.executionFactory.get();
         return execution.importNotebook(file, template);
     }
-    public async getUsableJupyterPython(cancelToken?: CancellationToken): Promise<PythonInterpreter | undefined> {
+    public async getUsableJupyterPython(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<PythonInterpreter | undefined> {
         const execution = await this.executionFactory.get();
-        return execution.getUsableJupyterPython(cancelToken);
+        return execution.getUsableJupyterPython(resource, cancelToken);
     }
     public async getServer(options?: INotebookServerOptions) : Promise<INotebookServer | undefined> {
         const execution = await this.executionFactory.get();

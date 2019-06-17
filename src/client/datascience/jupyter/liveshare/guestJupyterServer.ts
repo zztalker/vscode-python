@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 'use strict';
 import { Observable } from 'rxjs/Observable';
+import { Uri } from 'vscode';
 import { CancellationToken } from 'vscode-jsonrpc';
 import * as vsls from 'vsls/vscode';
 
@@ -17,6 +18,7 @@ import {
     IConnection,
     IDataScience,
     IJupyterSessionManager,
+    IMessageCell,
     INotebookCompletion,
     INotebookServer,
     INotebookServerLaunchInfo,
@@ -32,6 +34,7 @@ export class GuestJupyterServer
     private launchInfo : INotebookServerLaunchInfo | undefined;
     private responseQueue : ResponseQueue = new ResponseQueue();
     private connectPromise: Deferred<INotebookServerLaunchInfo> = createDeferred<INotebookServerLaunchInfo>();
+    private pythonVersion: string | undefined;
 
     constructor(
         liveShare: ILiveShareApi,
@@ -57,6 +60,10 @@ export class GuestJupyterServer
         if (service) {
             await service.request(LiveShareCommands.disposeServer, []);
         }
+    }
+
+    public get startupResource() : Uri | undefined {
+        return this.launchInfo ? this.launchInfo.resource : undefined;
     }
 
     public dispose(): Promise<void> {
@@ -159,6 +166,18 @@ export class GuestJupyterServer
             const result = await service.request(LiveShareCommands.getSysInfo, []);
             return (result as ICell);
         }
+    }
+
+    public async getPythonVersion() : Promise<string> {
+        if (!this.pythonVersion) {
+            const cell = await this.getSysInfo() as IMessageCell | undefined;
+            if (cell && cell.messages.length > 0) {
+                this.pythonVersion = cell.messages[0];
+            } else {
+                this.pythonVersion = '';
+            }
+        }
+        return this.pythonVersion;
     }
 
     public async getCompletion(_cellCode: string, _offsetInCode: number, _cancelToken?: CancellationToken) : Promise<INotebookCompletion> {

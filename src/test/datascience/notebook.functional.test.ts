@@ -185,7 +185,7 @@ suite('DataScience notebook tests', () => {
     function runTest(name: string, func: () => Promise<void>, _notebookProc?: ChildProcess) {
         test(name, async () => {
             console.log(`Starting test ${name} ...`);
-            if (await jupyterExecution.isNotebookSupported()) {
+            if (await jupyterExecution.isNotebookSupported(undefined)) {
                 return func();
             } else {
                 // tslint:disable-next-line:no-console
@@ -198,7 +198,7 @@ suite('DataScience notebook tests', () => {
         // Catch exceptions. Throw a specific assertion if the promise fails
         try {
             const testDir = path.join(EXTENSION_ROOT_DIR, 'src', 'test', 'datascience');
-            const server = await jupyterExecution.connectToNotebookServer({ usingDarkTheme, useDefaultConfig, workingDir: testDir, purpose: purpose ? purpose : '1' });
+            const server = await jupyterExecution.connectToNotebookServer({ resource: undefined, usingDarkTheme, useDefaultConfig, workingDir: testDir, purpose: purpose ? purpose : '1' });
             if (expectFailure) {
                 assert.ok(false, `Expected server to not be created`);
             }
@@ -253,7 +253,7 @@ suite('DataScience notebook tests', () => {
             const uri = connString as string;
 
             // We have a connection string here, so try to connect jupyterExecution to the notebook server
-            const server = await jupyterExecution.connectToNotebookServer({ uri, useDefaultConfig: true, purpose: '' });
+            const server = await jupyterExecution.connectToNotebookServer({ resource: undefined, uri, useDefaultConfig: true, purpose: '' });
             if (!server) {
                 assert.fail('Failed to connect to remote self cert server');
             } else {
@@ -285,7 +285,7 @@ suite('DataScience notebook tests', () => {
             const uri = connString as string;
 
             // We have a connection string here, so try to connect jupyterExecution to the notebook server
-            const server = await jupyterExecution.connectToNotebookServer({ uri, useDefaultConfig: true, purpose: '' });
+            const server = await jupyterExecution.connectToNotebookServer({ resource: undefined, uri, useDefaultConfig: true, purpose: '' });
             if (!server) {
                 assert.fail('Failed to connect to remote password server');
             } else {
@@ -317,7 +317,7 @@ suite('DataScience notebook tests', () => {
             const uri = connString as string;
 
             // We have a connection string here, so try to connect jupyterExecution to the notebook server
-            const server = await jupyterExecution.connectToNotebookServer({ uri, useDefaultConfig: true, purpose: '' });
+            const server = await jupyterExecution.connectToNotebookServer({ resource: undefined, uri, useDefaultConfig: true, purpose: '' });
             if (!server) {
                 assert.fail('Failed to connect to remote server');
             } else {
@@ -427,7 +427,7 @@ suite('DataScience notebook tests', () => {
         // Translate this into a notebook
         const exporter = ioc.serviceManager.get<INotebookExporter>(INotebookExporter);
         const newFolderPath = path.join(EXTENSION_ROOT_DIR, 'src', 'test', 'datascience', 'WorkspaceDir', 'WorkspaceSubDir', 'foo.ipynb');
-        const notebook = await exporter.translateToNotebook(cells, newFolderPath);
+        const notebook = await exporter.translateToNotebook(undefined, cells, newFolderPath);
         assert.ok(notebook, 'Translate to notebook is failing');
 
         // Make sure we added in our chdir
@@ -571,10 +571,10 @@ suite('DataScience notebook tests', () => {
         // Force a settings changed so that all of the cached data is cleared
         ioc.forceSettingsChanged('/usr/bin/test3/python');
 
-        assert.ok(await testCancelableMethod((t: CancellationToken) => jupyterExecution.getUsableJupyterPython(t), 'Cancel did not cancel getusable after {0}ms', true));
-        assert.ok(await testCancelableMethod((t: CancellationToken) => jupyterExecution.isNotebookSupported(t), 'Cancel did not cancel isNotebook after {0}ms', true));
-        assert.ok(await testCancelableMethod((t: CancellationToken) => jupyterExecution.isKernelCreateSupported(t), 'Cancel did not cancel isKernel after {0}ms', true));
-        assert.ok(await testCancelableMethod((t: CancellationToken) => jupyterExecution.isImportSupported(t), 'Cancel did not cancel isImport after {0}ms', true));
+        assert.ok(await testCancelableMethod((t: CancellationToken) => jupyterExecution.getUsableJupyterPython(undefined, t), 'Cancel did not cancel getusable after {0}ms', true));
+        assert.ok(await testCancelableMethod((t: CancellationToken) => jupyterExecution.isNotebookSupported(undefined, t), 'Cancel did not cancel isNotebook after {0}ms', true));
+        assert.ok(await testCancelableMethod((t: CancellationToken) => jupyterExecution.isKernelCreateSupported(undefined, t), 'Cancel did not cancel isKernel after {0}ms', true));
+        assert.ok(await testCancelableMethod((t: CancellationToken) => jupyterExecution.isImportSupported(undefined, t), 'Cancel did not cancel isImport after {0}ms', true));
     });
 
     async function interruptExecute(server: INotebookServer | undefined, code: string, interruptMs: number, sleepMs: number): Promise<InterruptResult> {

@@ -4,8 +4,8 @@
 'use strict';
 
 import { inject, injectable } from 'inversify';
-import { ConfigurationTarget } from 'vscode';
-import { IApplicationShell } from '../common/application/types';
+import { ConfigurationTarget, Uri } from 'vscode';
+import { IApplicationShell, IDocumentManager } from '../common/application/types';
 import '../common/extensions';
 import { IConfigurationService, IPersistentStateFactory,
     IPythonExtensionBanner } from '../common/types';
@@ -35,8 +35,9 @@ export class InteractiveShiftEnterBanner implements IPythonExtensionBanner {
         @inject(IApplicationShell) private appShell: IApplicationShell,
         @inject(IPersistentStateFactory) private persistentState: IPersistentStateFactory,
         @inject(IJupyterExecution) private jupyterExecution: IJupyterExecution,
-        @inject(IConfigurationService) private configuration: IConfigurationService)
-    {
+        @inject(IConfigurationService) private configuration: IConfigurationService,
+        @inject(IDocumentManager) private documentManager : IDocumentManager
+    ) {
         this.initialize();
     }
 
@@ -67,7 +68,8 @@ export class InteractiveShiftEnterBanner implements IPythonExtensionBanner {
 
         // This check is independent from shouldShowBanner, that just checks the persistent state.
         // The Jupyter check should only happen once and should disable the banner if it fails (don't reprompt and don't recheck)
-        const jupyterFound = await this.jupyterExecution.isNotebookSupported();
+        const resource = this.documentManager.activeTextEditor ? Uri.file(this.documentManager.activeTextEditor.document.fileName) : undefined;
+        const jupyterFound = await this.jupyterExecution.isNotebookSupported(resource);
         if (!jupyterFound) {
             await this.disableBanner();
             return;

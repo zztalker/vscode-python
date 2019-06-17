@@ -3,6 +3,7 @@
 'use strict';
 import { SpawnOptions } from 'child_process';
 import { inject, injectable } from 'inversify';
+import { Uri } from 'vscode';
 
 import {
     ExecutionResult,
@@ -25,10 +26,10 @@ class ProcessJupyterCommand implements IJupyterCommand {
     private interpreterPromise: Promise<PythonInterpreter | undefined>;
     private activationHelper: IEnvironmentActivationService;
 
-    constructor(exe: string, args: string[], processServiceFactory: IProcessServiceFactory, activationHelper: IEnvironmentActivationService, interpreterService: IInterpreterService) {
+    constructor(resource: Uri | undefined, exe: string, args: string[], processServiceFactory: IProcessServiceFactory, activationHelper: IEnvironmentActivationService, interpreterService: IInterpreterService) {
         this.exe = exe;
         this.requiredArgs = args;
-        this.launcherPromise = processServiceFactory.create();
+        this.launcherPromise = processServiceFactory.create(resource);
         this.activationHelper = activationHelper;
         this.interpreterPromise = interpreterService.getInterpreterDetails(this.exe).catch(_e => undefined);
     }
@@ -109,7 +110,7 @@ export class JupyterCommandFactory implements IJupyterCommandFactory {
         return new InterpreterJupyterCommand(args, this.executionFactory, interpreter);
     }
 
-    public createProcessCommand(exe: string, args: string[]): IJupyterCommand {
-        return new ProcessJupyterCommand(exe, args, this.processServiceFactory, this.activationHelper, this.interpreterService);
+    public createProcessCommand(resource: Uri | undefined, exe: string, args: string[]): IJupyterCommand {
+        return new ProcessJupyterCommand(resource, exe, args, this.processServiceFactory, this.activationHelper, this.interpreterService);
     }
 }

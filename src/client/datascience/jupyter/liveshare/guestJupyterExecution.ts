@@ -3,7 +3,7 @@
 'use strict';
 import { injectable } from 'inversify';
 import * as uuid from 'uuid/v4';
-import { CancellationToken } from 'vscode';
+import { CancellationToken, Uri } from 'vscode';
 
 import { ILiveShareApi, IWorkspaceService } from '../../../common/application/types';
 import { IFileSystem } from '../../../common/platform/types';
@@ -73,19 +73,19 @@ export class GuestJupyterExecution extends LiveShareParticipantGuest(JupyterExec
         await this.serverCache.dispose();
     }
 
-    public async isNotebookSupported(cancelToken?: CancellationToken): Promise<boolean> {
-        return this.checkSupported(LiveShareCommands.isNotebookSupported, cancelToken);
+    public async isNotebookSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean> {
+        return this.checkSupported(resource, LiveShareCommands.isNotebookSupported, cancelToken);
     }
-    public isImportSupported(cancelToken?: CancellationToken): Promise<boolean> {
-        return this.checkSupported(LiveShareCommands.isImportSupported, cancelToken);
+    public isImportSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean> {
+        return this.checkSupported(resource, LiveShareCommands.isImportSupported, cancelToken);
     }
-    public isKernelCreateSupported(cancelToken?: CancellationToken): Promise<boolean> {
-        return this.checkSupported(LiveShareCommands.isKernelCreateSupported, cancelToken);
+    public isKernelCreateSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean> {
+        return this.checkSupported(resource, LiveShareCommands.isKernelCreateSupported, cancelToken);
     }
-    public isKernelSpecSupported(cancelToken?: CancellationToken): Promise<boolean> {
-        return this.checkSupported(LiveShareCommands.isKernelSpecSupported, cancelToken);
+    public isKernelSpecSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean> {
+        return this.checkSupported(resource, LiveShareCommands.isKernelSpecSupported, cancelToken);
     }
-    public isSpawnSupported(_cancelToken?: CancellationToken): Promise<boolean> {
+    public isSpawnSupported(_resource: Uri | undefined, _cancelToken?: CancellationToken): Promise<boolean> {
         return Promise.resolve(false);
     }
     public async connectToNotebookServer(options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer> {
@@ -110,6 +110,7 @@ export class GuestJupyterExecution extends LiveShareParticipantGuest(JupyterExec
                 const newUri = `${connection.baseUrl}?token=${connection.token}`;
                 result = await super.connectToNotebookServer(
                     {
+                        resource: options && options.resource,
                         uri: newUri,
                         useDefaultConfig: options && options.useDefaultConfig,
                         workingDir: options ? options.workingDir : undefined,
@@ -134,10 +135,10 @@ export class GuestJupyterExecution extends LiveShareParticipantGuest(JupyterExec
         throw new Error(localize.DataScience.liveShareCannotSpawnNotebooks());
     }
 
-    public async getUsableJupyterPython(cancelToken?: CancellationToken): Promise<PythonInterpreter | undefined> {
+    public async getUsableJupyterPython(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<PythonInterpreter | undefined> {
         const service = await this.waitForService();
         if (service) {
-            return service.request(LiveShareCommands.getUsableJupyterPython, [], cancelToken);
+            return service.request(LiveShareCommands.getUsableJupyterPython, [resource], cancelToken);
         }
     }
 
@@ -145,12 +146,12 @@ export class GuestJupyterExecution extends LiveShareParticipantGuest(JupyterExec
         return this.serverCache.get(options);
     }
 
-    private async checkSupported(command: string, cancelToken?: CancellationToken) : Promise<boolean> {
+    private async checkSupported(resource: Uri | undefined, command: string, cancelToken?: CancellationToken) : Promise<boolean> {
         const service = await this.waitForService();
 
         // Make a remote call on the proxy
         if (service) {
-            const result = await service.request(command, [], cancelToken);
+            const result = await service.request(command, [resource], cancelToken);
             return result as boolean;
         }
 

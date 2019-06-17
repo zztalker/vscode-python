@@ -36,7 +36,7 @@ export function runMountedTest(name: string, testFunc: (wrapper: ReactWrapper<an
     test(name, async () => {
         const ioc = getIOC();
         const jupyterExecution = ioc.get<IJupyterExecution>(IJupyterExecution);
-        if (await jupyterExecution.isNotebookSupported()) {
+        if (await jupyterExecution.isNotebookSupported(undefined)) {
             addMockData(ioc, 'a=1\na', 1);
             const wrapper = mountWebView(ioc, <MainPanel baseTheme='vscode-light' codeTheme='light_vs' testMode={true} skipDefault={true} />);
             await testFunc(wrapper);

@@ -13,7 +13,8 @@ import {
     Event,
     Range,
     TextDocument,
-    TextEditor
+    TextEditor,
+    Uri
 } from 'vscode';
 
 import { ICommandManager } from '../common/application/types';
@@ -52,6 +53,7 @@ export enum InterruptResult {
 // Information used to launch a notebook server
 export interface INotebookServerLaunchInfo
 {
+    resource: Uri | undefined;
     connectionInfo: IConnection;
     currentInterpreter: PythonInterpreter | undefined;
     uri: string | undefined; // Different from the connectionInfo as this is the setting used, not the result
@@ -72,10 +74,12 @@ export interface INotebookCompletion {
 // Talks to a jupyter ipython kernel to retrieve data for cells
 export const INotebookServer = Symbol('INotebookServer');
 export interface INotebookServer extends IAsyncDisposable {
+    startupResource: Uri | undefined;
     connect(launchInfo: INotebookServerLaunchInfo, cancelToken?: CancellationToken) : Promise<void>;
     executeObservable(code: string, file: string, line: number, id: string, silent: boolean) : Observable<ICell[]>;
     execute(code: string, file: string, line: number, id: string, cancelToken?: CancellationToken, silent?: boolean) : Promise<ICell[]>;
     getCompletion(cellCode: string, offsetInCode: number, cancelToken?: CancellationToken) : Promise<INotebookCompletion>;
+    getPythonVersion() : Promise<string>;
     restartKernel(timeoutInMs: number) : Promise<void>;
     waitForIdle(timeoutInMs: number) : Promise<void>;
     shutdown() : Promise<void>;
@@ -89,6 +93,7 @@ export interface INotebookServer extends IAsyncDisposable {
 
 export interface INotebookServerOptions {
     uri?: string;
+    resource: Uri | undefined;
     usingDarkTheme?: boolean;
     useDefaultConfig?: boolean;
     workingDir?: string;
@@ -98,15 +103,15 @@ export interface INotebookServerOptions {
 export const IJupyterExecution = Symbol('IJupyterExecution');
 export interface IJupyterExecution extends IAsyncDisposable {
     sessionChanged: Event<void> ;
-    isNotebookSupported(cancelToken?: CancellationToken) : Promise<boolean>;
-    isImportSupported(cancelToken?: CancellationToken) : Promise<boolean>;
-    isKernelCreateSupported(cancelToken?: CancellationToken): Promise<boolean>;
-    isKernelSpecSupported(cancelToken?: CancellationToken): Promise<boolean>;
-    isSpawnSupported(cancelToken?: CancellationToken): Promise<boolean>;
+    isNotebookSupported(resource: Uri | undefined, cancelToken?: CancellationToken) : Promise<boolean>;
+    isImportSupported(resource: Uri | undefined, cancelToken?: CancellationToken) : Promise<boolean>;
+    isKernelCreateSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean>;
+    isKernelSpecSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean>;
+    isSpawnSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean>;
     connectToNotebookServer(options?: INotebookServerOptions, cancelToken?: CancellationToken) : Promise<INotebookServer | undefined>;
     spawnNotebook(file: string) : Promise<void>;
     importNotebook(file: string, template: string | undefined) : Promise<string>;
-    getUsableJupyterPython(cancelToken?: CancellationToken) : Promise<PythonInterpreter | undefined>;
+    getUsableJupyterPython(resource: Uri | undefined, cancelToken?: CancellationToken) : Promise<PythonInterpreter | undefined>;
     getServer(options?: INotebookServerOptions) : Promise<INotebookServer | undefined>;
 }
 
@@ -149,22 +154,22 @@ export interface INotebookImporter extends Disposable {
 
 export const INotebookExporter = Symbol('INotebookExporter');
 export interface INotebookExporter extends Disposable {
-    translateToNotebook(cells: ICell[], directoryChange?: string) : Promise<JSONObject | undefined>;
+    translateToNotebook(resource: Uri | undefined, cells: ICell[], directoryChange?: string) : Promise<JSONObject | undefined>;
 }
 
 export const IHistoryProvider = Symbol('IHistoryProvider');
 export interface IHistoryProvider {
     onExecutedCode: Event<string>;
     getActive() : IHistory | undefined;
-    getOrCreateActive(): Promise<IHistory>;
-    getNotebookOptions() : Promise<INotebookServerOptions>;
+    getOrCreateActive(resource?: Uri): Promise<IHistory>;
+    getNotebookOptions(resource?: Uri) : Promise<INotebookServerOptions>;
 }
 
 export const IHistory = Symbol('IHistory');
 export interface IHistory extends Disposable {
     closed: Event<IHistory>;
-    ready: Promise<void>;
     onExecutedCode: Event<string>;
+    load(resource: Uri | undefined): Promise<void>;
     show() : Promise<void>;
     addCode(code: string, file: string, line: number, editor?: TextEditor) : Promise<void>;
     // tslint:disable-next-line:no-any
@@ -298,7 +303,7 @@ export interface IJupyterCommand {
 export const IJupyterCommandFactory = Symbol('IJupyterCommandFactory');
 export interface IJupyterCommandFactory {
     createInterpreterCommand(args: string[], interpreter: PythonInterpreter) : IJupyterCommand;
-    createProcessCommand(exe: string, args: string[]) : IJupyterCommand;
+    createProcessCommand(resource: Uri | undefined, exe: string, args: string[]) : IJupyterCommand;
 }
 
 // Config settings we pass to our react code

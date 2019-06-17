@@ -5,6 +5,7 @@ import * as fs from 'fs-extra';
 import { inject, injectable } from 'inversify';
 import * as os from 'os';
 import * as path from 'path';
+import { Uri } from 'vscode';
 
 import { IWorkspaceService } from '../../common/application/types';
 import { IFileSystem, IPlatformService } from '../../common/platform/types';
@@ -55,7 +56,7 @@ export class JupyterImporter implements INotebookImporter {
         }
 
         // Use the jupyter nbconvert functionality to turn the notebook into a python file
-        if (await this.jupyterExecution.isImportSupported()) {
+        if (await this.jupyterExecution.isImportSupported(Uri.file(file))) {
             const fileOutput: string = await this.jupyterExecution.importNotebook(file, template);
             if (directoryChange) {
                 return this.addDirectoryChange(fileOutput, directoryChange);

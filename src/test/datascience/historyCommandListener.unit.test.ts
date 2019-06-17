@@ -186,7 +186,7 @@ suite('History command listener', async () => {
             pygments_lexer: `ipython${3}`,
             version: 3
         };
-        when(notebookExporter.translateToNotebook(anything())).thenResolve(
+        when(notebookExporter.translateToNotebook(anything(), anything())).thenResolve(
             {
                 cells: [],
                 nbformat: 4,
@@ -196,7 +196,7 @@ suite('History command listener', async () => {
         );
 
         if (jupyterExecution.isNotebookSupported) {
-            when(jupyterExecution.isNotebookSupported()).thenResolve(true);
+            when(jupyterExecution.isNotebookSupported(anything())).thenResolve(true);
         }
 
         documentManager.addDocument('#%%\r\nprint("code")', 'bar.ipynb');

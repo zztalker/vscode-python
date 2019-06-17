@@ -82,7 +82,7 @@ export enum SysInfoReason {
 @injectable()
 export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
     private disposed: boolean = false;
-    private loadPromise: Promise<void>;
+    private loadPromise: Promise<void> | undefined ;
     private interpreterChangedDisposable: Disposable;
     private closedEvent: EventEmitter<IHistory>;
     private unfinishedCells: ICell[] = [];
@@ -143,17 +143,17 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
         this.disposables.push(handler);
 
         // If our execution changes its liveshare session, we need to close our server
-        this.jupyterExecution.sessionChanged(() => this.loadPromise = this.reloadAfterShutdown());
-
-        // Load on a background thread.
-        this.loadPromise = this.load();
+        this.jupyterExecution.sessionChanged(() => this.loadPromise = this.reloadAfterShutdown(this.getActiveResource()));
 
         // For each listener sign up for their post events
         this.listeners.forEach(l => l.postMessage((e) => this.postMessageInternal(e.message, e.payload)));
     }
 
-    public get ready() : Promise<void> {
+    public load(resource: Uri | undefined) : Promise<void> {
         // We need this to ensure the history window is up and ready to receive messages.
+        if (!this.loadPromise) {
+            this.loadPromise = this.loadInternal(resource);
+        }
         return this.loadPromise;
     }
 
@@ -639,8 +639,9 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
         } catch (exc) {
             // If we get a kernel promise failure, then restarting timed out. Just shutdown and restart the entire server
             if (exc instanceof JupyterKernelPromiseFailedError && this.jupyterServer) {
+                const resource = this.jupyterServer.startupResource;
                 await this.jupyterServer.dispose();
-                await this.loadJupyterServer(true);
+                await this.loadJupyterServer(resource);
                 await this.addSysInfo(SysInfoReason.Restart);
             } else {
                 // Show the error message
@@ -687,7 +688,7 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
             this.submitCode(info.code, Identifiers.EmptyFileName, 0, info.id, undefined).ignoreErrors();
 
             // Activate the other side, and send as if came from a file
-            this.historyProvider.getOrCreateActive().then(_v => {
+            this.historyProvider.getOrCreateActive(undefined).then(_v => {
                 this.shareMessage(HistoryMessages.RemoteAddCode, {code: info.code, file: Identifiers.EmptyFileName, line: 0, id: info.id, originator: this.id});
             }).ignoreErrors();
         }
@@ -830,10 +831,10 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
 
     private onInterpreterChanged = () => {
         // Update our load promise. We need to restart the jupyter server
-        this.loadPromise = this.reloadWithNew();
+        this.loadPromise = this.reloadWithNew(this.getActiveResource());
     }
 
-    private async reloadWithNew() : Promise<void> {
+    private async reloadWithNew(resource: Uri | undefined) : Promise<void> {
         const status = this.setStatus(localize.DataScience.startingJupyter());
         try {
             // Not the same as reload, we need to actually dispose the server.
@@ -844,15 +845,23 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
                     this.jupyterServer = undefined;
                     await server.dispose();
                 }
+                this.loadPromise = undefined;
             }
-            await this.load();
+            await this.load(resource);
             await this.addSysInfo(SysInfoReason.New);
         } finally {
             status.dispose();
         }
     }
 
-    private async reloadAfterShutdown() : Promise<void> {
+    private getActiveResource() : Uri | undefined {
+        if (this.documentManager.activeTextEditor) {
+            return Uri.file(this.documentManager.activeTextEditor.document.fileName);
+        }
+        return undefined;
+    }
+
+    private async reloadAfterShutdown(resource: Uri | undefined) : Promise<void> {
         try {
             if (this.loadPromise) {
                 await this.loadPromise;
@@ -861,13 +870,14 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
                     this.jupyterServer = undefined;
                     server.shutdown().ignoreErrors(); // Don't care what happens as we're disconnected.
                 }
+                this.loadPromise = undefined;
             }
         } catch {
             // We just switched from host to guest mode. Don't really care
             // if closing the host server kills it.
             this.jupyterServer = undefined;
         }
-        return this.load();
+        return this.load(resource);
     }
 
     @captureTelemetry(Telemetry.GotoSourceCode, undefined, false)
@@ -968,12 +978,12 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
                 directoryChange = file;
             }
 
-            const notebook = await this.jupyterExporter.translateToNotebook(cells, directoryChange);
+            const notebook = await this.jupyterExporter.translateToNotebook(this.jupyterServer.startupResource, cells, directoryChange);
 
             try {
                 // tslint:disable-next-line: no-any
                 await this.fileSystem.writeFile(file, JSON.stringify(notebook), { encoding: 'utf8', flag: 'w' });
-                const openQuestion = (await this.jupyterExecution.isSpawnSupported()) ? localize.DataScience.exportOpenQuestion() : undefined;
+                const openQuestion = (await this.jupyterExecution.isSpawnSupported(undefined)) ? localize.DataScience.exportOpenQuestion() : undefined;
                 this.showInformationMessage(localize.DataScience.exportDialogComplete().format(file), openQuestion).then((str: string | undefined) => {
                     if (str && this.jupyterServer) {
                         // If the user wants to, open the notebook they just generated.
@@ -987,14 +997,14 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
         }
     }
 
-    private async loadJupyterServer(_restart?: boolean): Promise<void> {
+    private async loadJupyterServer(resource: Uri | undefined): Promise<void> {
         this.logger.logInformation('Getting jupyter server options ...');
 
         // Wait for the webpanel to pass back our current theme darkness
         const knownDark = await this.isDark();
 
         // Extract our options
-        const options = await this.historyProvider.getNotebookOptions();
+        const options = await this.historyProvider.getNotebookOptions(resource);
 
         this.logger.logInformation('Connecting to jupyter server ...');
 
@@ -1042,7 +1052,7 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
         switch (reason) {
             case SysInfoReason.Start:
                 // Message depends upon if ipykernel is supported or not.
-                if (!(await this.jupyterExecution.isKernelCreateSupported())) {
+                if (!this.jupyterServer || this.jupyterExecution.isKernelCreateSupported(this.jupyterServer.startupResource)) {
                     return localize.DataScience.pythonVersionHeaderNoPyKernel();
                 }
                 return localize.DataScience.pythonVersionHeader();
@@ -1104,11 +1114,11 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
         }
     }
 
-    private async checkUsable() : Promise<boolean> {
+    private async checkUsable(resource: Uri | undefined) : Promise<boolean> {
         let activeInterpreter : PythonInterpreter | undefined;
         try {
             activeInterpreter = await this.interpreterService.getActiveInterpreter();
-            const usableInterpreter = await this.jupyterExecution.getUsableJupyterPython();
+            const usableInterpreter = await this.jupyterExecution.getUsableJupyterPython(resource);
             if (usableInterpreter) {
                 // See if the usable interpreter is not our active one. If so, show a warning
                 // Only do this if not the guest in a liveshare session
@@ -1138,14 +1148,14 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
         }
     }
 
-    private load = async (): Promise<void> => {
+    private async loadInternal(resource: Uri | undefined): Promise<void> {
         // Status depends upon if we're about to connect to existing server or not.
-        const status = (await this.jupyterExecution.getServer(await this.historyProvider.getNotebookOptions())) ?
+        const status = (await this.jupyterExecution.getServer(await this.historyProvider.getNotebookOptions(resource))) ?
             this.setStatus(localize.DataScience.connectingToJupyter()) : this.setStatus(localize.DataScience.startingJupyter());
 
         // Check to see if we support ipykernel or not
         try {
-            const usable = await this.checkUsable();
+            const usable = await this.checkUsable(resource);
             if (!usable) {
                 // Not loading anymore
                 status.dispose();
@@ -1155,7 +1165,7 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
             }
 
             // Then load the jupyter server
-            await this.loadJupyterServer();
+            await this.loadJupyterServer(resource);
 
         } catch (e) {
             if (e instanceof JupyterSelfCertsError) {

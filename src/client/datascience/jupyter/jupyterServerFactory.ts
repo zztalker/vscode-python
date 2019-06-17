@@ -5,6 +5,7 @@ import '../../common/extensions';
 
 import { inject, injectable } from 'inversify';
 import { Observable } from 'rxjs/Observable';
+import { Uri } from 'vscode';
 import { CancellationToken } from 'vscode-jsonrpc';
 
 import { ILiveShareApi } from '../../common/application/types';
@@ -72,6 +73,10 @@ export class JupyterServerFactory implements INotebookServer {
         this.launchInfo = launchInfo;
         const server = await this.serverFactory.get();
         return server.connect(launchInfo, cancelToken);
+    }
+
+    public get startupResource() : Uri | undefined {
+        return this.launchInfo ? this.launchInfo.resource : undefined;
     }
 
     public async shutdown(): Promise<void> {
@@ -156,5 +161,10 @@ export class JupyterServerFactory implements INotebookServer {
     public async getCompletion(cellCode: string, offsetInCode: number, cancelToken?: CancellationToken) : Promise<INotebookCompletion> {
         const server = await this.serverFactory.get();
         return server.getCompletion(cellCode, offsetInCode, cancelToken);
+    }
+
+    public async getPythonVersion() : Promise<string> {
+        const server = await this.serverFactory.get();
+        return server.getPythonVersion();
     }
 }
