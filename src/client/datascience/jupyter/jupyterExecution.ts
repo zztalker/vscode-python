@@ -132,7 +132,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
             let result: INotebookServer | undefined;
             let startInfo: { connection: IConnection; kernelSpec: IJupyterKernelSpec | undefined } | undefined;
             traceInfo(`Connecting to ${options ? options.purpose : 'unknown type of'} server`);
-            const interpreter = await this.interpreterService.getActiveInterpreter();
+            const interpreter = await this.interpreterService.getActiveInterpreter(options && options.resource);
 
             // Try to connect to our jupyter process. Check our setting for the number of tries
             let tryCount = 0;
@@ -254,7 +254,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
             const enumerator = connection ? () => this.sessionManager.getActiveKernelSpecs(connection) : () => this.enumerateSpecs(resource, cancelToken);
 
             // Then find our match
-            return this.findSpecMatch(enumerator);
+            return this.findSpecMatch(resource, enumerator);
         } catch (e) {
             // ECONNREFUSED seems to happen here. Log the error, but don't let it bubble out. We don't really need a kernel spec
             this.logger.logWarning(e);
@@ -583,10 +583,10 @@ export class JupyterExecutionBase implements IJupyterExecution {
     }
 
     //tslint:disable-next-line:cyclomatic-complexity
-    private findSpecMatch = async (enumerator: () => Promise<(IJupyterKernelSpec | undefined)[]>): Promise<IJupyterKernelSpec | undefined> => {
+    private async findSpecMatch(resource: Uri | undefined, enumerator: () => Promise<(IJupyterKernelSpec | undefined)[]>): Promise<IJupyterKernelSpec | undefined> {
         // Extract our current python information that the user has picked.
         // We'll match against this.
-        const info = await this.interpreterService.getActiveInterpreter();
+        const info = await this.interpreterService.getActiveInterpreter(resource);
         let bestScore = 0;
         let bestSpec: IJupyterKernelSpec | undefined;
 
@@ -714,9 +714,9 @@ export class JupyterExecutionBase implements IJupyterExecution {
             const exists = await this.doesModuleExist(resource, command, interpreter, cancelToken);
 
             if (exists === ModuleExistsResult.FoundJupyter) {
-                return this.commandFactory.createInterpreterCommand(['-m', 'jupyter', command], interpreter);
+                return this.commandFactory.createInterpreterCommand(resource, ['-m', 'jupyter', command], interpreter);
             } else if (exists === ModuleExistsResult.Found) {
-                return this.commandFactory.createInterpreterCommand(['-m', command], interpreter);
+                return this.commandFactory.createInterpreterCommand(resource, ['-m', command], interpreter);
             }
         }
 
@@ -782,7 +782,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
             // Not found, try to find it.
 
             // First we look in the current interpreter
-            const current = await this.interpreterService.getActiveInterpreter();
+            const current = await this.interpreterService.getActiveInterpreter(resource);
             let found = current ? await this.findInterpreterCommand(resource, command, current, cancelToken) : undefined;
             if (!found) {
                 traceInfo(`Active interpreter does not support ${command}. Interpreter is ${current ? current.displayName : 'undefined'}.`);

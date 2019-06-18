@@ -257,16 +257,16 @@ export class CondaService implements ICondaService {
         if (envsPos > 0) {
             // This should be where the original python was run from when the environment was created.
             const originalPath = interpreterDir.slice(0, envsPos);
-            let condaPath = path.join(originalPath, condaExe);
+            let envCondaPath = path.join(originalPath, condaExe);
 
-            if (await this.fileSystem.fileExists(condaPath)) {
-                return condaPath;
+            if (await this.fileSystem.fileExists(envCondaPath)) {
+                return envCondaPath;
             }
 
             // Also look in the scripts directory here too.
-            condaPath = path.join(originalPath, scriptsDir, condaExe);
-            if (await this.fileSystem.fileExists(condaPath)) {
-                return condaPath;
+            envCondaPath = path.join(originalPath, scriptsDir, condaExe);
+            if (await this.fileSystem.fileExists(envCondaPath)) {
+                return envCondaPath;
             }
         }
 

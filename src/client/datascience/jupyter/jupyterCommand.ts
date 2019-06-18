@@ -69,10 +69,10 @@ class InterpreterJupyterCommand implements IJupyterCommand {
     private interpreterPromise: Promise<PythonInterpreter | undefined>;
     private pythonLauncher: Promise<IPythonExecutionService>;
 
-    constructor(args: string[], pythonExecutionFactory: IPythonExecutionFactory, interpreter: PythonInterpreter) {
+    constructor(resource: Uri | undefined, args: string[], pythonExecutionFactory: IPythonExecutionFactory, interpreter: PythonInterpreter) {
         this.requiredArgs = args;
         this.interpreterPromise = Promise.resolve(interpreter);
-        this.pythonLauncher = pythonExecutionFactory.createActivatedEnvironment({ resource: undefined, interpreter, allowEnvironmentFetchExceptions: true });
+        this.pythonLauncher = pythonExecutionFactory.createActivatedEnvironment({ resource, interpreter, allowEnvironmentFetchExceptions: true });
     }
 
     public interpreter() : Promise<PythonInterpreter | undefined> {
@@ -106,8 +106,8 @@ export class JupyterCommandFactory implements IJupyterCommandFactory {
 
     }
 
-    public createInterpreterCommand(args: string[], interpreter: PythonInterpreter): IJupyterCommand {
-        return new InterpreterJupyterCommand(args, this.executionFactory, interpreter);
+    public createInterpreterCommand(resource: Uri | undefined, args: string[], interpreter: PythonInterpreter): IJupyterCommand {
+        return new InterpreterJupyterCommand(resource, args, this.executionFactory, interpreter);
     }
 
     public createProcessCommand(resource: Uri | undefined, exe: string, args: string[]): IJupyterCommand {

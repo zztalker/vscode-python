@@ -1052,7 +1052,7 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
         switch (reason) {
             case SysInfoReason.Start:
                 // Message depends upon if ipykernel is supported or not.
-                if (!this.jupyterServer || this.jupyterExecution.isKernelCreateSupported(this.jupyterServer.startupResource)) {
+                if (!this.jupyterServer || !(await this.jupyterExecution.isKernelCreateSupported(this.jupyterServer.startupResource))) {
                     return localize.DataScience.pythonVersionHeaderNoPyKernel();
                 }
                 return localize.DataScience.pythonVersionHeader();
@@ -1117,14 +1117,14 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
     private async checkUsable(resource: Uri | undefined) : Promise<boolean> {
         let activeInterpreter : PythonInterpreter | undefined;
         try {
-            activeInterpreter = await this.interpreterService.getActiveInterpreter();
+            activeInterpreter = await this.interpreterService.getActiveInterpreter(resource);
             const usableInterpreter = await this.jupyterExecution.getUsableJupyterPython(resource);
             if (usableInterpreter) {
                 // See if the usable interpreter is not our active one. If so, show a warning
                 // Only do this if not the guest in a liveshare session
                 const api = await this.liveShare.getApi();
                 if (!api || (api.session && api.session.role !== vsls.Role.Guest)) {
-                    const active = await this.interpreterService.getActiveInterpreter();
+                    const active = await this.interpreterService.getActiveInterpreter(resource);
                     const activeDisplayName = active ? active.displayName : undefined;
                     const activePath = active ? active.path : undefined;
                     const usableDisplayName = usableInterpreter ? usableInterpreter.displayName : undefined;
@@ -1150,41 +1150,47 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
 
     private async loadInternal(resource: Uri | undefined): Promise<void> {
         // Status depends upon if we're about to connect to existing server or not.
-        const status = (await this.jupyterExecution.getServer(await this.historyProvider.getNotebookOptions(resource))) ?
+        const existingServer = await this.jupyterExecution.getServer(await this.historyProvider.getNotebookOptions(resource));
+        const status = existingServer ?
             this.setStatus(localize.DataScience.connectingToJupyter()) : this.setStatus(localize.DataScience.startingJupyter());
 
-        // Check to see if we support ipykernel or not
-        try {
-            const usable = await this.checkUsable(resource);
-            if (!usable) {
-                // Not loading anymore
+        if (!existingServer) {
+            try {
+                // Check to see if we support ipykernel or not
+                const usable = await this.checkUsable(resource);
+                if (!usable) {
+                    // Not loading anymore
+                    status.dispose();
+
+                    // Indicate failing.
+                    throw new JupyterInstallError(localize.DataScience.jupyterNotSupported(), localize.DataScience.pythonInteractiveHelpLink());
+                }
+
+                // Then load the jupyter server
+                await this.loadJupyterServer(resource);
+
+            } catch (e) {
+                if (e instanceof JupyterSelfCertsError) {
+                    // On a self cert error, warn the user and ask if they want to change the setting
+                    const enableOption: string = localize.DataScience.jupyterSelfCertEnable();
+                    const closeOption: string = localize.DataScience.jupyterSelfCertClose();
+                    this.applicationShell.showErrorMessage(localize.DataScience.jupyterSelfCertFail().format(e.message), enableOption, closeOption).then(value => {
+                        if (value === enableOption) {
+                            sendTelemetryEvent(Telemetry.SelfCertsMessageEnabled);
+                            this.configuration.updateSetting('dataScience.allowUnauthorizedRemoteConnection', true, undefined, ConfigurationTarget.Workspace).ignoreErrors();
+                        } else if (value === closeOption) {
+                            sendTelemetryEvent(Telemetry.SelfCertsMessageClose);
+                        }
+                    });
+                    throw e;
+                } else {
+                    throw e;
+                }
+            } finally {
                 status.dispose();
-
-                // Indicate failing.
-                throw new JupyterInstallError(localize.DataScience.jupyterNotSupported(), localize.DataScience.pythonInteractiveHelpLink());
             }
-
-            // Then load the jupyter server
-            await this.loadJupyterServer(resource);
-
-        } catch (e) {
-            if (e instanceof JupyterSelfCertsError) {
-                // On a self cert error, warn the user and ask if they want to change the setting
-                const enableOption: string = localize.DataScience.jupyterSelfCertEnable();
-                const closeOption: string = localize.DataScience.jupyterSelfCertClose();
-                this.applicationShell.showErrorMessage(localize.DataScience.jupyterSelfCertFail().format(e.message), enableOption, closeOption).then(value => {
-                    if (value === enableOption) {
-                        sendTelemetryEvent(Telemetry.SelfCertsMessageEnabled);
-                        this.configuration.updateSetting('dataScience.allowUnauthorizedRemoteConnection', true, undefined, ConfigurationTarget.Workspace).ignoreErrors();
-                    } else if (value === closeOption) {
-                        sendTelemetryEvent(Telemetry.SelfCertsMessageClose);
-                    }
-                });
-                throw e;
-            } else {
-                throw e;
-            }
-        } finally {
+        } else {
+            this.jupyterServer = existingServer;
             status.dispose();
         }
     }
