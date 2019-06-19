@@ -13,7 +13,7 @@ import * as localize from '../../common/utils/localize';
 import { IServiceContainer } from '../../ioc/types';
 import { Identifiers, LiveShare, LiveShareCommands, Settings } from '../constants';
 import { PostOffice } from '../liveshare/postOffice';
-import { IHistory, IHistoryProvider, INotebookServerOptions } from '../types';
+import { IInteractiveWindow, IInteractiveWindowProvider, INotebookServerOptions } from '../types';
 
 interface ISyncData {
     count: number;
@@ -21,14 +21,14 @@ interface ISyncData {
 }
 
 @injectable()
-export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
+export class InteractiveWindowProvider implements IInteractiveWindowProvider, IAsyncDisposable {
 
-    private activeHistory : IHistory | undefined;
+    private activeInteractiveWindow : IInteractiveWindow | undefined;
     private postOffice : PostOffice;
     private id: string;
     private pendingSyncs : Map<string, ISyncData> = new Map<string, ISyncData>();
     private executedCode: EventEmitter<string> = new EventEmitter<string>();
-    private activeHistoryExecuteHandler: Disposable | undefined;
+    private activeInteractiveWindowExecuteHandler: Disposable | undefined;
     constructor(
         @inject(ILiveShareApi) liveShare: ILiveShareApi,
         @inject(IServiceContainer) private serviceContainer: IServiceContainer,
@@ -39,43 +39,43 @@ export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
         ) {
         asyncRegistry.push(this);
 
-        // Create a post office so we can make sure history windows are created at the same time
+        // Create a post office so we can make sure interactive windows are created at the same time
         // on both sides.
-        this.postOffice = new PostOffice(LiveShare.HistoryProviderService, liveShare);
+        this.postOffice = new PostOffice(LiveShare.InteractiveWindowProviderService, liveShare);
 
         // Listen for peer changes
         this.postOffice.peerCountChanged((n) => this.onPeerCountChanged(n));
 
         // Listen for messages so we force a create on both sides.
-        this.postOffice.registerCallback(LiveShareCommands.historyCreate, this.onRemoteCreate, this).ignoreErrors();
-        this.postOffice.registerCallback(LiveShareCommands.historyCreateSync, this.onRemoteSync, this).ignoreErrors();
+        this.postOffice.registerCallback(LiveShareCommands.interactiveWindowCreate, this.onRemoteCreate, this).ignoreErrors();
+        this.postOffice.registerCallback(LiveShareCommands.interactiveWindowCreateSync, this.onRemoteSync, this).ignoreErrors();
 
         // Make a unique id so we can tell who sends a message
         this.id = uuid();
     }
 
-    public getActive() : IHistory | undefined {
-        return this.activeHistory;
+    public getActive() : IInteractiveWindow | undefined {
+        return this.activeInteractiveWindow;
     }
 
     public get onExecutedCode() : Event<string> {
         return this.executedCode.event;
     }
 
-    public async getOrCreateActive(resource?: Uri) : Promise<IHistory> {
+    public async getOrCreateActive(resource?: Uri) : Promise<IInteractiveWindow> {
         // Compute the file we're launching from. Either it's passed in or the current active document.
         const fileUri = resource ? resource : this.getActiveResource();
 
-        if (!this.activeHistory) {
+        if (!this.activeInteractiveWindow) {
             await this.create(fileUri);
         }
 
-        // Make sure all other providers have an active history.
+        // Make sure all other providers have an active InteractiveWindow.
         await this.synchronizeCreate(fileUri);
 
-        // Now that all of our peers have sync'd, return the history to use.
-        if (this.activeHistory) {
-            return this.activeHistory;
+        // Now that all of our peers have sync'd, return the interactive window to use.
+        if (this.activeInteractiveWindow) {
+            return this.activeInteractiveWindow;
         }
 
         throw new Error(localize.DataScience.pythonInteractiveCreateFailed());
@@ -96,7 +96,7 @@ export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
             resource,
             uri: serverURI,
             useDefaultConfig,
-            purpose: Identifiers.HistoryPurpose
+            purpose: Identifiers.InteractiveWindowPurpose
         };
     }
 
@@ -105,15 +105,15 @@ export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
     }
 
     private async create(resource: Uri | undefined) : Promise<void> {
-        // Set it as soon as we create it. The .ctor for the history window
-        // may cause a subclass to talk to the IHistoryProvider to get the active history.
-        this.activeHistory = this.serviceContainer.get<IHistory>(IHistory);
-        const handler = this.activeHistory.closed(this.onHistoryClosed);
-        this.disposables.push(this.activeHistory);
+        // Set it as soon as we create it. The .ctor for the InteractiveWindow window
+        // may cause a subclass to talk to the IInteractiveWindowProvider to get the active InteractiveWindow.
+        this.activeInteractiveWindow = this.serviceContainer.get<IInteractiveWindow>(IInteractiveWindow);
+        const handler = this.activeInteractiveWindow.closed(this.onInteractiveWindowClosed);
+        this.disposables.push(this.activeInteractiveWindow);
         this.disposables.push(handler);
-        this.activeHistoryExecuteHandler = this.activeHistory.onExecutedCode(this.onHistoryExecute);
-        this.disposables.push(this.activeHistoryExecuteHandler);
-        await this.activeHistory.load(resource);
+        this.activeInteractiveWindowExecuteHandler = this.activeInteractiveWindow.onExecutedCode(this.onInteractiveWindowExecute);
+        this.disposables.push(this.activeInteractiveWindowExecuteHandler);
+        await this.activeInteractiveWindow.load(resource);
     }
 
     private getActiveResource() : Uri | undefined {
@@ -134,14 +134,14 @@ export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
     private async onRemoteCreate(...args: any[]) {
         // Should be a single arg, the originator of the create
         if (args.length > 0 && args[0].toString() !== this.id) {
-            // The other side is creating a history window. Create on this side. We don't need to show
+            // The other side is creating a interactive window. Create on this side. We don't need to show
             // it as the running of new code should do that.
-            if (!this.activeHistory && args.length > 1) {
+            if (!this.activeInteractiveWindow && args.length > 1) {
                 await this.create(args[1]);
             }
 
             // Tell the requestor that we got its message (it should be waiting for all peers to sync)
-            this.postOffice.postCommand(LiveShareCommands.historyCreateSync, ...args).ignoreErrors();
+            this.postOffice.postCommand(LiveShareCommands.interactiveWindowCreateSync, ...args).ignoreErrors();
         }
     }
 
@@ -154,20 +154,15 @@ export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
             const sync = this.pendingSyncs.get(key);
             if (sync) {
                 sync.count -= 1;
-                if (sync.count <= 0) {
                     sync.waitable.resolve();
                     this.pendingSyncs.delete(key);
-                }
-            }
-        }
-    }
 
-    private onHistoryClosed = (history: IHistory) => {
-        if (this.activeHistory === history) {
-            this.activeHistory = undefined;
-            if (this.activeHistoryExecuteHandler) {
-                this.activeHistoryExecuteHandler.dispose();
-                this.activeHistoryExecuteHandler = undefined;
+    private onInteractiveWindowClosed = (interactiveWindow: IInteractiveWindow) => {
+        if (this.activeInteractiveWindow === interactiveWindow) {
+            this.activeInteractiveWindow = undefined;
+            if (this.activeInteractiveWindowExecuteHandler) {
+                this.activeInteractiveWindowExecuteHandler.dispose();
+                this.activeInteractiveWindowExecuteHandler = undefined;
             }
         }
     }
@@ -179,15 +174,15 @@ export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
             const waitable = createDeferred<void>();
             this.pendingSyncs.set(key, { count: this.postOffice.peerCount, waitable });
 
-            // Make sure all providers have an active history
-            await this.postOffice.postCommand(LiveShareCommands.historyCreate, this.id, resource, key);
+            // Make sure all providers have an active InteractiveWindow
+            await this.postOffice.postCommand(LiveShareCommands.InteractiveWindowCreate, this.id, resource, key);
 
             // Wait for the waitable to be signaled or the peer count on the post office to change
             await waitable.promise;
         }
     }
 
-    private onHistoryExecute = (code: string) => {
+    private onInteractiveWindowExecute = (code: string) => {
         this.executedCode.fire(code);
     }
 
