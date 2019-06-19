@@ -184,6 +184,6 @@ export class JupyterExporter implements INotebookExporter {
     private async extractPythonMainVersion(resource: Uri | undefined): Promise<number> {
         // Use the active interpreter
         const usableInterpreter = await this.versionCache.get(resource);
-        return usableInterpreter && usableInterpreter.version ? usableInterpreter.version.major : 3;
+        return usableInterpreter && usableInterpreter.interpreter && usableInterpreter.interpreter.version ? usableInterpreter.interpreter.version.major : 3;
     }
 }

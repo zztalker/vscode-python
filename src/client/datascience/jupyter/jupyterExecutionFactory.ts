@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 'use strict';
 import { inject, injectable } from 'inversify';
-import { CancellationToken, Event, EventEmitter, Uri } from 'vscode';
+import { CancellationToken, Event, EventEmitter } from 'vscode';
 
 import { ILiveShareApi, IWorkspaceService } from '../../common/application/types';
 import { IFileSystem } from '../../common/platform/types';
@@ -14,19 +14,19 @@ import {
     IDisposableRegistry,
     ILogger
 } from '../../common/types';
-import { IInterpreterService, IKnownSearchPathsForInterpreters, PythonInterpreter } from '../../interpreter/contracts';
+import { IInterpreterService, IKnownSearchPathsForInterpreters } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
 import {
     IJupyterCommandFactory,
     IJupyterExecution,
     IJupyterSessionManager,
+    IJupyterVersion,
     INotebookServer,
     INotebookServerOptions
 } from '../types';
 import { GuestJupyterExecution } from './liveshare/guestJupyterExecution';
 import { HostJupyterExecution } from './liveshare/hostJupyterExecution';
 import { IRoleBasedObject, RoleBasedFactory } from './liveshare/roleBasedFactory';
-import { IJupyterVersion } from '../types';
 
 interface IJupyterExecutionInterface extends IRoleBasedObject, IJupyterExecution {
 
@@ -97,6 +97,11 @@ export class JupyterExecutionFactory implements IJupyterExecution, IAsyncDisposa
 
     public get sessionChanged() : Event<void> {
         return this.sessionChangedEventEmitter.event;
+    }
+
+    public async enumerateVersions(serverURI?: string) : Promise<IJupyterVersion[]> {
+        const execution = await this.executionFactory.get();
+        return execution.enumerateVersions(serverURI);
     }
 
     public async dispose() : Promise<void> {

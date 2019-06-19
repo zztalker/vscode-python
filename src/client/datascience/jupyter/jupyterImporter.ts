@@ -12,8 +12,8 @@ import { IFileSystem, IPlatformService } from '../../common/platform/types';
 import { IConfigurationService, IDisposableRegistry } from '../../common/types';
 import * as localize from '../../common/utils/localize';
 import { noop } from '../../common/utils/misc';
-import { CodeSnippits } from '../constants';
-import { IJupyterExecution, INotebookImporter } from '../types';
+import { CodeSnippits, JupyterCommands } from '../constants';
+import { IJupyterExecution, INotebookImporter, IJupyterCommandFactory } from '../types';
 
 @injectable()
 export class JupyterImporter implements INotebookImporter {
@@ -39,6 +39,7 @@ export class JupyterImporter implements INotebookImporter {
         @inject(IDisposableRegistry) private disposableRegistry: IDisposableRegistry,
         @inject(IConfigurationService) private configuration: IConfigurationService,
         @inject(IJupyterExecution) private jupyterExecution: IJupyterExecution,
+        @inject(IJupyterCommandFactory) private commandFactory: IJupyterCommandFactory,
         @inject(IWorkspaceService) private workspaceService: IWorkspaceService,
         @inject(IPlatformService) private readonly platform: IPlatformService
         ) {
@@ -56,7 +57,7 @@ export class JupyterImporter implements INotebookImporter {
         }
 
         // Use the jupyter nbconvert functionality to turn the notebook into a python file
-        if (await this.jupyterExecution.isImportSupported(Uri.file(file))) {
+        if (await this.commandFactory.getBestCommand(Uri.file(file), JupyterCommands.ConvertCommand)) {
             const fileOutput: string = await this.jupyterExecution.importNotebook(file, template);
             if (directoryChange) {
                 return this.addDirectoryChange(fileOutput, directoryChange);

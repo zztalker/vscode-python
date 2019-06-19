@@ -15,7 +15,7 @@ import { Disposable } from 'vscode';
 import { createDeferred } from '../../client/common/utils/async';
 import { Identifiers } from '../../client/datascience/constants';
 import { DataViewerMessages } from '../../client/datascience/data-viewing/types';
-import { IDataViewer, IDataViewerProvider, IHistoryProvider, IJupyterExecution } from '../../client/datascience/types';
+import { IDataViewer, IDataViewerProvider, IHistoryProvider, IJupyterExecution, IJupyterVersionCache } from '../../client/datascience/types';
 import { MainPanel } from '../../datascience-ui/data-explorer/mainPanel';
 import { ReactSlickGrid } from '../../datascience-ui/data-explorer/reactSlickGrid';
 import { noop } from '../core';
@@ -90,7 +90,10 @@ suite('DataScience DataViewer tests', () => {
     async function injectCode(code: string) : Promise<void> {
         const exec = ioc.get<IJupyterExecution>(IJupyterExecution);
         const historyProvider = ioc.get<IHistoryProvider>(IHistoryProvider);
-        const server = await exec.connectToNotebookServer(await historyProvider.getNotebookOptions());
+        const versionCache = ioc.get<IJupyterVersionCache>(IJupyterVersionCache);
+        const jupyterVersion = await versionCache.get(undefined);
+        assert.ok(jupyterVersion, 'No jupyter version found');
+        const server = await exec.connectToNotebookServer(jupyterVersion!, await historyProvider.getNotebookOptions());
         if (server) {
             const cells = await server.execute(code, Identifiers.EmptyFileName, 0, uuid());
             assert.equal(cells.length, 1, `Wrong number of cells returned`);

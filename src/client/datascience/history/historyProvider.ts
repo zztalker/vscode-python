@@ -81,7 +81,7 @@ export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
         throw new Error(localize.DataScience.pythonInteractiveCreateFailed());
     }
 
-    public async getNotebookOptions() : Promise<INotebookServerOptions> {
+    public async getNotebookOptions(resource: Uri | undefined) : Promise<INotebookServerOptions> {
         // Find the settings that we are going to launch our server with
         const settings = this.configService.getSettings();
         let serverURI: string | undefined = settings.datascience.jupyterServerURI;
@@ -93,6 +93,7 @@ export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
         }
 
         return {
+            resource,
             uri: serverURI,
             useDefaultConfig,
             purpose: Identifiers.HistoryPurpose

@@ -3,7 +3,7 @@
 'use strict';
 import { injectable } from 'inversify';
 import * as uuid from 'uuid/v4';
-import { CancellationToken, Uri } from 'vscode';
+import { CancellationToken } from 'vscode';
 
 import { ILiveShareApi, IWorkspaceService } from '../../../common/application/types';
 import { IFileSystem } from '../../../common/platform/types';
@@ -11,13 +11,14 @@ import { IProcessServiceFactory, IPythonExecutionFactory } from '../../../common
 import { IAsyncDisposableRegistry, IConfigurationService, IDisposableRegistry, ILogger } from '../../../common/types';
 import * as localize from '../../../common/utils/localize';
 import { noop } from '../../../common/utils/misc';
-import { IInterpreterService, IKnownSearchPathsForInterpreters, PythonInterpreter } from '../../../interpreter/contracts';
+import { IInterpreterService, IKnownSearchPathsForInterpreters } from '../../../interpreter/contracts';
 import { IServiceContainer } from '../../../ioc/types';
 import { LiveShare, LiveShareCommands } from '../../constants';
 import {
     IConnection,
     IJupyterCommandFactory,
     IJupyterSessionManager,
+    IJupyterVersion,
     INotebookServer,
     INotebookServerOptions
 } from '../../types';
@@ -73,22 +74,7 @@ export class GuestJupyterExecution extends LiveShareParticipantGuest(JupyterExec
         await this.serverCache.dispose();
     }
 
-    public async isNotebookSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean> {
-        return this.checkSupported(resource, LiveShareCommands.isNotebookSupported, cancelToken);
-    }
-    public isImportSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean> {
-        return this.checkSupported(resource, LiveShareCommands.isImportSupported, cancelToken);
-    }
-    public isKernelCreateSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean> {
-        return this.checkSupported(resource, LiveShareCommands.isKernelCreateSupported, cancelToken);
-    }
-    public isKernelSpecSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean> {
-        return this.checkSupported(resource, LiveShareCommands.isKernelSpecSupported, cancelToken);
-    }
-    public isSpawnSupported(_resource: Uri | undefined, _cancelToken?: CancellationToken): Promise<boolean> {
-        return Promise.resolve(false);
-    }
-    public async connectToNotebookServer(options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer> {
+    public async connectToNotebookServer(version: IJupyterVersion, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer> {
         let result: INotebookServer | undefined = await this.serverCache.get(options);
 
         // See if we already have this server or not.
@@ -102,13 +88,14 @@ export class GuestJupyterExecution extends LiveShareParticipantGuest(JupyterExec
             const purpose = options ? options.purpose : uuid();
             const connection: IConnection = await service.request(
                 LiveShareCommands.connectToNotebookServer,
-                [options],
+                [version, options],
                 cancelToken);
 
             // If that works, then treat this as a remote server and connect to it
             if (connection && connection.baseUrl) {
                 const newUri = `${connection.baseUrl}?token=${connection.token}`;
                 result = await super.connectToNotebookServer(
+                    version,
                     {
                         resource: options && options.resource,
                         uri: newUri,
@@ -130,31 +117,24 @@ export class GuestJupyterExecution extends LiveShareParticipantGuest(JupyterExec
 
         return result;
     }
-    public spawnNotebook(_file: string): Promise<void> {
+
+    public async enumerateVersions(serverURI?: string) : Promise<IJupyterVersion[]> {
+        const service = await this.waitForService();
+        if (service) {
+            return service.request(
+                LiveShareCommands.enumerateVersions,
+                [serverURI]);
+        }
+
+        return [];
+    }
+
+    public spawnNotebook(_version: IJupyterVersion, _file: string): Promise<void> {
         // Not supported in liveshare
         throw new Error(localize.DataScience.liveShareCannotSpawnNotebooks());
     }
 
-    public async getUsableJupyterPython(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<PythonInterpreter | undefined> {
-        const service = await this.waitForService();
-        if (service) {
-            return service.request(LiveShareCommands.getUsableJupyterPython, [resource], cancelToken);
-        }
-    }
-
     public async getServer(options?: INotebookServerOptions) : Promise<INotebookServer | undefined> {
         return this.serverCache.get(options);
-    }
-
-    private async checkSupported(resource: Uri | undefined, command: string, cancelToken?: CancellationToken) : Promise<boolean> {
-        const service = await this.waitForService();
-
-        // Make a remote call on the proxy
-        if (service) {
-            const result = await service.request(command, [resource], cancelToken);
-            return result as boolean;
-        }
-
-        return false;
     }
 }

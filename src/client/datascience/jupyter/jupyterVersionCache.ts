@@ -4,12 +4,11 @@
 import { inject, injectable } from 'inversify';
 
 import { Resource } from '../../../client/common/types';
-import { IWorkspaceService } from '../../common/application/types';
-import { IDisposableRegistry, IConfigurationService } from '../../common/types';
-import { IInterpreterService } from '../../interpreter/contracts';
-import { IJupyterExecution, IJupyterVersion, IJupyterVersionCache } from '../types';
+import { IConfigurationService, IDisposableRegistry } from '../../common/types';
 import { createDeferred, Deferred } from '../../common/utils/async';
+import { IInterpreterService } from '../../interpreter/contracts';
 import { Settings } from '../constants';
+import { IJupyterExecution, IJupyterVersion, IJupyterVersionCache } from '../types';
 
 @injectable()
 export class JupyterVersionCache implements IJupyterVersionCache {

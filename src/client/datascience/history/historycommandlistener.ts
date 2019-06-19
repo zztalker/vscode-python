@@ -240,7 +240,7 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
             // create a brand new one.
             const version = await this.jupyterVersionCache.get(Uri.file(input));
             if (version) {
-                server = await this.jupyterExecution.connectToNotebookServer(version, { useDefaultConfig, purpose: uuid() }, cancelToken);
+                server = await this.jupyterExecution.connectToNotebookServer(version, { resource: Uri.file(input), useDefaultConfig, purpose: uuid() }, cancelToken);
 
                 // If that works, then execute all of the cells.
                 const cells = Array.prototype.concat(... await Promise.all(ranges.map(r => {

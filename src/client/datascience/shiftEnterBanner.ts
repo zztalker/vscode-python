@@ -11,8 +11,8 @@ import { IConfigurationService, IPersistentStateFactory,
     IPythonExtensionBanner } from '../common/types';
 import * as localize from '../common/utils/localize';
 import { captureTelemetry, sendTelemetryEvent } from '../telemetry';
-import { Telemetry } from './constants';
-import { IJupyterExecution } from './types';
+import { Telemetry, JupyterCommands } from './constants';
+import { IJupyterExecution, IJupyterCommandFactory, IJupyterVersionCache } from './types';
 
 export enum InteractiveShiftEnterStateKeys {
     ShowBanner = 'InteractiveShiftEnterBanner'
@@ -34,7 +34,7 @@ export class InteractiveShiftEnterBanner implements IPythonExtensionBanner {
     constructor(
         @inject(IApplicationShell) private appShell: IApplicationShell,
         @inject(IPersistentStateFactory) private persistentState: IPersistentStateFactory,
-        @inject(IJupyterExecution) private jupyterExecution: IJupyterExecution,
+        @inject(IJupyterVersionCache) private versionCache: IJupyterVersionCache,
         @inject(IConfigurationService) private configuration: IConfigurationService,
         @inject(IDocumentManager) private documentManager : IDocumentManager
     ) {
@@ -69,7 +69,7 @@ export class InteractiveShiftEnterBanner implements IPythonExtensionBanner {
         // This check is independent from shouldShowBanner, that just checks the persistent state.
         // The Jupyter check should only happen once and should disable the banner if it fails (don't reprompt and don't recheck)
         const resource = this.documentManager.activeTextEditor ? Uri.file(this.documentManager.activeTextEditor.document.fileName) : undefined;
-        const jupyterFound = await this.jupyterExecution.isNotebookSupported(resource);
+        const jupyterFound = await this.versionCache.get(resource);
         if (!jupyterFound) {
             await this.disableBanner();
             return;

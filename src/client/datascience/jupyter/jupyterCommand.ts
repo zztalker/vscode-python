@@ -2,10 +2,8 @@
 // Licensed under the MIT License.
 'use strict';
 import { inject, injectable } from 'inversify';
-import { CancellationToken, Uri } from 'vscode';
-import * as fs from 'fs-extra';
-import * as os from 'os';
 import * as path from 'path';
+import { CancellationToken, Uri } from 'vscode';
 
 import { Cancellation } from '../../../client/common/cancellation';
 import { IWorkspaceService } from '../../common/application/types';
@@ -20,12 +18,11 @@ import {
     ObservableExecutionResult,
     SpawnOptions
 } from '../../common/process/types';
-import { IConfigurationService, IDisposableRegistry, IDisposable } from '../../common/types';
+import { IConfigurationService, IDisposable, IDisposableRegistry } from '../../common/types';
 import { IEnvironmentActivationService } from '../../interpreter/activation/types';
 import { IInterpreterService, IKnownSearchPathsForInterpreters, PythonInterpreter } from '../../interpreter/contracts';
 import { JupyterCommands, RegExpValues } from '../constants';
 import { IJupyterCommand, IJupyterCommandFactory } from '../types';
-import { string } from 'prop-types';
 
 // JupyterCommand objects represent some process that can be launched that should be guaranteed to work because it
 // was found by testing it previously
@@ -248,7 +245,6 @@ export class JupyterCommandFactory implements IJupyterCommandFactory, IDisposabl
     private generateInterpreterCommandKey(interpreter: PythonInterpreter, command: string) : string {
         return `${command}:${interpreter.path}:${interpreter.displayName ? interpreter.displayName : interpreter.envName}`;
     }
-
 
     private supportsSearchingForCommands(): boolean {
         if (this.configuration) {

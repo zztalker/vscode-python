@@ -14,13 +14,12 @@ import {
     Range,
     TextDocument,
     TextEditor,
-    Uri,
-    WorkspaceFolder
+    Uri
 } from 'vscode';
 
 import { ICommandManager } from '../common/application/types';
 import { ExecutionResult, ObservableExecutionResult, SpawnOptions } from '../common/process/types';
-import { IAsyncDisposable, IDataScienceSettings, IDisposable, Version } from '../common/types';
+import { IAsyncDisposable, IDataScienceSettings, IDisposable } from '../common/types';
 import { PythonInterpreter } from '../interpreter/contracts';
 
 // Main interface
@@ -54,6 +53,7 @@ export enum InterruptResult {
 // Information used to launch a notebook server
 export interface INotebookServerLaunchInfo
 {
+    resource: Uri | undefined;
     connectionInfo: IConnection;
     currentInterpreter: PythonInterpreter | undefined;
     uri: string | undefined; // Different from the connectionInfo as this is the setting used, not the result
@@ -93,6 +93,7 @@ export interface INotebookServer extends IAsyncDisposable {
 
 export interface INotebookServerOptions {
     uri?: string;
+    resource: Uri | undefined;
     usingDarkTheme?: boolean;
     useDefaultConfig?: boolean;
     workingDir?: string;

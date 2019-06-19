@@ -104,12 +104,8 @@ export class HostJupyterExecution
 
             // Register handlers for all of the supported remote calls
             if (service) {
-                service.onRequest(LiveShareCommands.isNotebookSupported, this.onRemoteIsNotebookSupported);
-                service.onRequest(LiveShareCommands.isImportSupported, this.onRemoteIsImportSupported);
-                service.onRequest(LiveShareCommands.isKernelCreateSupported, this.onRemoteIsKernelCreateSupported);
-                service.onRequest(LiveShareCommands.isKernelSpecSupported, this.onRemoteIsKernelSpecSupported);
                 service.onRequest(LiveShareCommands.connectToNotebookServer, this.onRemoteConnectToNotebookServer);
-                service.onRequest(LiveShareCommands.getUsableJupyterPython, this.onRemoteGetUsableJupyterPython);
+                service.onRequest(LiveShareCommands.enumerateVersions, this.onRemoteEnumerateVersions);
             }
         }
     }
@@ -130,28 +126,9 @@ export class HostJupyterExecution
         return this.serverCache.get(options);
     }
 
-    private onRemoteIsNotebookSupported = (args: any[], cancellation: CancellationToken): Promise<any> => {
-        // Just call local
-        return this.isNotebookSupported(args[0], cancellation);
-    }
-
-    private onRemoteIsImportSupported = (args: any[], cancellation: CancellationToken): Promise<any> => {
-        // Just call local
-        return this.isImportSupported(args[0], cancellation);
-    }
-
-    private onRemoteIsKernelCreateSupported = (args: any[], cancellation: CancellationToken): Promise<any> => {
-        // Just call local
-        return this.isKernelCreateSupported(args[0], cancellation);
-    }
-    private onRemoteIsKernelSpecSupported = (args: any[], cancellation: CancellationToken): Promise<any> => {
-        // Just call local
-        return this.isKernelSpecSupported(args[0], cancellation);
-    }
-
     private onRemoteConnectToNotebookServer = async (args: any[], cancellation: CancellationToken): Promise<IConnection | undefined> => {
         // Connect to the local server. THe local server should have started the port forwarding already
-        const localServer = await this.connectToNotebookServer(args[0] as INotebookServerOptions | undefined, cancellation);
+        const localServer = await this.connectToNotebookServer(args[0] as IJupyterVersion, args[1] as INotebookServerOptions | undefined, cancellation);
 
         // Extract the URI and token for the other side
         if (localServer) {
@@ -171,8 +148,8 @@ export class HostJupyterExecution
         }
     }
 
-    private onRemoteGetUsableJupyterPython = (args: any[], cancellation: CancellationToken): Promise<any> => {
-        // Just call local
-        return this.getUsableJupyterPython(args[0], cancellation);
+    private onRemoteEnumerateVersions = async (args: any[], _cancellation: CancellationToken): Promise<IJupyterVersion[]> => {
+        // Call locally with the args
+        return this.enumerateVersions(args[0]);
     }
 }

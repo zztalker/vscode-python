@@ -51,6 +51,7 @@ import {
     IJupyterVariable,
     IJupyterVariables,
     IJupyterVariablesResponse,
+    IJupyterVersionCache,
     IMessageCell,
     INotebookExporter,
     INotebookImporter,
@@ -61,7 +62,6 @@ import {
 } from '../types';
 import { WebViewHost } from '../webViewHost';
 import { HistoryMessageListener } from './historyMessageListener';
-import { IJupyterVersionCache } from '../types';
 import {
     HistoryMessages,
     IAddedSysInfo,
@@ -1007,7 +1007,7 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
         const knownDark = await this.isDark();
 
         // Extract our options
-        const options = await this.historyProvider.getNotebookOptions(resource);
+        const options = await this.historyProvider.getNotebookOptions();
 
         this.logger.logInformation('Connecting to jupyter server ...');
 

@@ -12,9 +12,9 @@ import { CancellationToken, Event, EventEmitter, Uri } from 'vscode';
 
 import { ILiveShareApi, IWorkspaceService } from '../../common/application/types';
 import { Cancellation, CancellationError } from '../../common/cancellation';
-import { traceInfo, traceWarning } from '../../common/logger';
+import { traceInfo } from '../../common/logger';
 import { IFileSystem, TemporaryDirectory } from '../../common/platform/types';
-import { IProcessService, IProcessServiceFactory, IPythonExecutionFactory, SpawnOptions } from '../../common/process/types';
+import { IProcessServiceFactory, IPythonExecutionFactory, SpawnOptions } from '../../common/process/types';
 import { IAsyncDisposableRegistry, IConfigurationService, IDisposableRegistry, ILogger } from '../../common/types';
 import * as localize from '../../common/utils/localize';
 import { noop } from '../../common/utils/misc';
@@ -25,7 +25,6 @@ import { captureTelemetry, sendTelemetryEvent } from '../../telemetry';
 import { JupyterCommands, RegExpValues, Telemetry } from '../constants';
 import {
     IConnection,
-    IJupyterCommand,
     IJupyterCommandFactory,
     IJupyterExecution,
     IJupyterKernelSpec,
@@ -101,6 +100,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
 
                     // Populate the launch info that we are starting our server with
                     const launchInfo: INotebookServerLaunchInfo = {
+                        resource: options && options.resource,
                         connectionInfo: startInfo.connection,
                         currentInterpreter: version.interpreter,
                         kernelSpec: startInfo.kernelSpec,
