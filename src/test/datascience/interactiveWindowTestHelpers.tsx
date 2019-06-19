@@ -10,9 +10,9 @@ import { CancellationToken } from 'vscode';
 
 import { EXTENSION_ROOT_DIR } from '../../client/common/constants';
 import { IDataScienceSettings } from '../../client/common/types';
-import { InteractiveWindowMessages } from '../../client/datascience/interactiveWindow/interactiveWindowTypes';
+import { InteractiveWindowMessages } from '../../client/datascience/interactive-window/interactiveWindowTypes';
 import { IInteractiveWindow, IRunnableJupyterCache } from '../../client/datascience/types';
-import { MainPanel } from '../../datascience-ui/interactiveWindow-react/MainPanel';
+import { MainPanel } from '../../datascience-ui/history-react/MainPanel';
 import { ImageButton } from '../../datascience-ui/react-common/imageButton';
 import { updateSettings } from '../../datascience-ui/react-common/settingsReactSide';
 import { DataScienceIocContainer } from './dataScienceIocContainer';

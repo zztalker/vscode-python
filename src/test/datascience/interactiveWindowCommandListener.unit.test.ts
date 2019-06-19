@@ -18,8 +18,8 @@ import { IFileSystem } from '../../client/common/platform/types';
 import { IConfigurationService, IDisposable, ILogger } from '../../client/common/types';
 import { generateCells } from '../../client/datascience/cellFactory';
 import { Commands } from '../../client/datascience/constants';
-import { InteractiveWindowCommandListener } from '../../client/datascience/InteractiveWindow/InteractiveWindowCommandlistener';
-import { InteractiveWindowProvider } from '../../client/datascience/InteractiveWindow/InteractiveWindowProvider';
+import { InteractiveWindowCommandListener } from '../../client/datascience/interactive-window/interactiveWindowCommandlistener';
+import { InteractiveWindowProvider } from '../../client/datascience/interactive-window/interactiveWindowProvider';
 import { JupyterExecutionFactory } from '../../client/datascience/jupyter/jupyterExecutionFactory';
 import { JupyterExporter } from '../../client/datascience/jupyter/jupyterExporter';
 import { JupyterImporter } from '../../client/datascience/jupyter/jupyterImporter';
@@ -169,8 +169,8 @@ suite('InteractiveWindow command listener', async () => {
         // mocks doesn't work with resolving things that also have promises, so use typemoq instead.
         interactiveWindow.setup(s => s.previewNotebook(TypeMoq.It.isAny())).returns(() => Promise.resolve());
 
-        when(InteractiveWindowProvider.getActive()).thenReturn(interactiveWindow.object);
-        when(InteractiveWindowProvider.getOrCreateActive()).thenResolve(interactiveWindow.object);
+        when(interactiveWindowProvider.getActive()).thenReturn(interactiveWindow.object);
+        when(interactiveWindowProvider.getOrCreateActive()).thenResolve(interactiveWindow.object);
         when(notebookImporter.importFromFile(anything())).thenResolve('imported');
         const metadata: nbformat.INotebookMetadata = {
             language_info: {
@@ -204,7 +204,7 @@ suite('InteractiveWindow command listener', async () => {
 
         const result = new InteractiveWindowCommandListener(
             disposableRegistry,
-            instance(InteractiveWindowProvider),
+            instance(interactiveWindowProvider),
             instance(notebookExporter),
             instance(jupyterExecution),
             documentManager,

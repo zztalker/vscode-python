@@ -96,7 +96,7 @@ export class InteractiveWindowProvider implements IInteractiveWindowProvider, IA
             resource,
             uri: serverURI,
             useDefaultConfig,
-            purpose: Identifiers.InteractiveWindowPurpose
+            purpose: Identifiers.HistoryPurpose
         };
     }
 
@@ -156,6 +156,9 @@ export class InteractiveWindowProvider implements IInteractiveWindowProvider, IA
                 sync.count -= 1;
                     sync.waitable.resolve();
                     this.pendingSyncs.delete(key);
+            }
+        }
+    }
 
     private onInteractiveWindowClosed = (interactiveWindow: IInteractiveWindow) => {
         if (this.activeInteractiveWindow === interactiveWindow) {
@@ -175,7 +178,7 @@ export class InteractiveWindowProvider implements IInteractiveWindowProvider, IA
             this.pendingSyncs.set(key, { count: this.postOffice.peerCount, waitable });
 
             // Make sure all providers have an active InteractiveWindow
-            await this.postOffice.postCommand(LiveShareCommands.InteractiveWindowCreate, this.id, resource, key);
+            await this.postOffice.postCommand(LiveShareCommands.interactiveWindowCreate, this.id, resource, key);
 
             // Wait for the waitable to be signaled or the peer count on the post office to change
             await waitable.promise;
