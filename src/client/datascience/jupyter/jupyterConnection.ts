@@ -41,19 +41,17 @@ class JupyterConnectionWaiter {
     private logger: ILogger;
     private fileSystem: IFileSystem;
     private notebook_dir: string;
-    private getServerInfo: (resource: Uri | undefined, cancelToken?: CancellationToken) => Promise<JupyterServerInfo[] | undefined>;
+    private getServerInfo: (cancelToken?: CancellationToken) => Promise<JupyterServerInfo[] | undefined>;
     private createConnection: (b: string, t: string, p: Disposable) => IConnection;
     private launchResult: ObservableExecutionResult<string>;
     private cancelToken: CancellationToken | undefined;
     private stderr: string[] = [];
     private connectionDisposed = false;
-    private resource: Uri | undefined;
 
     constructor(
         launchResult: ObservableExecutionResult<string>,
-        resource: Uri | undefined,
         notebookFile: string,
-        getServerInfo: (resource: Uri | undefined, cancelToken?: CancellationToken) => Promise<JupyterServerInfo[] | undefined>,
+        getServerInfo: (cancelToken?: CancellationToken) => Promise<JupyterServerInfo[] | undefined>,
         createConnection: (b: string, t: string, p: Disposable) => IConnection,
         serviceContainer: IServiceContainer,
         cancelToken?: CancellationToken
@@ -65,7 +63,6 @@ class JupyterConnectionWaiter {
         this.createConnection = createConnection;
         this.launchResult = launchResult;
         this.cancelToken = cancelToken;
-        this.resource = resource;
 
         // Cancel our start promise if a cancellation occurs
         if (cancelToken) {
@@ -173,7 +170,7 @@ class JupyterConnectionWaiter {
 
         if (httpMatch && this.notebook_dir && this.startPromise && !this.startPromise.completed && this.getServerInfo) {
             // .then so that we can keep from pushing aync up to the subscribed observable function
-            this.getServerInfo(this.resource, this.cancelToken)
+            this.getServerInfo(this.cancelToken)
                 .then(serverInfos => {
                     this.getJupyterURL(serverInfos, data);
                 })
@@ -243,9 +240,8 @@ export class JupyterConnection implements IConnection {
     }
 
     public static waitForConnection(
-        resource: Uri | undefined,
         notebookFile: string,
-        getServerInfo: (resource: Uri | undefined, cancelToken?: CancellationToken) => Promise<JupyterServerInfo[] | undefined>,
+        getServerInfo: (cancelToken?: CancellationToken) => Promise<JupyterServerInfo[] | undefined>,
         notebookExecution: ObservableExecutionResult<string>,
         serviceContainer: IServiceContainer,
         cancelToken?: CancellationToken
@@ -253,7 +249,6 @@ export class JupyterConnection implements IConnection {
         // Create our waiter. It will sit here and wait for the connection information from the jupyter process starting up.
         const waiter = new JupyterConnectionWaiter(
             notebookExecution,
-            resource,
             notebookFile,
             getServerInfo,
             (baseUrl: string, token: string, processDisposable: Disposable) => new JupyterConnection(baseUrl, token, processDisposable, notebookExecution.proc),

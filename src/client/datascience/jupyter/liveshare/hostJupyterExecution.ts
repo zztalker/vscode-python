@@ -20,7 +20,8 @@ import {
     IJupyterExecution,
     IJupyterSessionManager,
     INotebookServer,
-    INotebookServerOptions
+    INotebookServerOptions,
+    IJupyterVersion
 } from '../../types';
 import { JupyterExecutionBase } from '../jupyterExecution';
 import { LiveShareParticipantHost } from './liveShareParticipantMixin';
@@ -78,14 +79,14 @@ export class HostJupyterExecution
         }
     }
 
-    public async connectToNotebookServer(options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer | undefined> {
+    public async connectToNotebookServer(version: IJupyterVersion, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer | undefined> {
         // See if we have this server in our cache already or not
         let result = await this.serverCache.get(options);
         if (result) {
             return result;
         } else {
             // Create the server
-            result = await super.connectToNotebookServer(await this.serverCache.generateDefaultOptions(options), cancelToken);
+            result = await super.connectToNotebookServer(version, await this.serverCache.generateDefaultOptions(options), cancelToken);
 
             // Save in our cache
             if (result) {

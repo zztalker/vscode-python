@@ -14,12 +14,13 @@ import {
     Range,
     TextDocument,
     TextEditor,
-    Uri
+    Uri,
+    WorkspaceFolder
 } from 'vscode';
 
 import { ICommandManager } from '../common/application/types';
 import { ExecutionResult, ObservableExecutionResult, SpawnOptions } from '../common/process/types';
-import { IAsyncDisposable, IDataScienceSettings, IDisposable } from '../common/types';
+import { IAsyncDisposable, IDataScienceSettings, IDisposable, Version } from '../common/types';
 import { PythonInterpreter } from '../interpreter/contracts';
 
 // Main interface
@@ -53,7 +54,6 @@ export enum InterruptResult {
 // Information used to launch a notebook server
 export interface INotebookServerLaunchInfo
 {
-    resource: Uri | undefined;
     connectionInfo: IConnection;
     currentInterpreter: PythonInterpreter | undefined;
     uri: string | undefined; // Different from the connectionInfo as this is the setting used, not the result
@@ -93,7 +93,6 @@ export interface INotebookServer extends IAsyncDisposable {
 
 export interface INotebookServerOptions {
     uri?: string;
-    resource: Uri | undefined;
     usingDarkTheme?: boolean;
     useDefaultConfig?: boolean;
     workingDir?: string;
@@ -103,16 +102,25 @@ export interface INotebookServerOptions {
 export const IJupyterExecution = Symbol('IJupyterExecution');
 export interface IJupyterExecution extends IAsyncDisposable {
     sessionChanged: Event<void> ;
-    isNotebookSupported(resource: Uri | undefined, cancelToken?: CancellationToken) : Promise<boolean>;
-    isImportSupported(resource: Uri | undefined, cancelToken?: CancellationToken) : Promise<boolean>;
-    isKernelCreateSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean>;
-    isKernelSpecSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean>;
-    isSpawnSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean>;
-    connectToNotebookServer(options?: INotebookServerOptions, cancelToken?: CancellationToken) : Promise<INotebookServer | undefined>;
-    spawnNotebook(file: string) : Promise<void>;
+    enumerateVersions(serverURI?: string) : Promise<IJupyterVersion[]>;
+    connectToNotebookServer(version: IJupyterVersion, options?: INotebookServerOptions, cancelToken?: CancellationToken) : Promise<INotebookServer | undefined>;
+    spawnNotebook(version: IJupyterVersion, file: string) : Promise<void>;
     importNotebook(file: string, template: string | undefined) : Promise<string>;
-    getUsableJupyterPython(resource: Uri | undefined, cancelToken?: CancellationToken) : Promise<PythonInterpreter | undefined>;
     getServer(options?: INotebookServerOptions) : Promise<INotebookServer | undefined>;
+}
+
+export interface IJupyterVersion {
+    type: 'local' | 'remote';
+    name: string;
+    interpreter?: PythonInterpreter;
+    spec?: IJupyterKernelSpec;
+    launchCommand?: IJupyterCommand;
+}
+
+export const IJupyterVersionCache = Symbol('IJupyterVersionCache');
+export interface IJupyterVersionCache {
+    get(resource: Uri | undefined) : Promise<IJupyterVersion | undefined>;
+    getAll() : Promise<IJupyterVersion[]>;
 }
 
 export interface IJupyterPasswordConnectInfo {
@@ -302,8 +310,8 @@ export interface IJupyterCommand {
 
 export const IJupyterCommandFactory = Symbol('IJupyterCommandFactory');
 export interface IJupyterCommandFactory {
-    createInterpreterCommand(resource: Uri | undefined, args: string[], interpreter: PythonInterpreter) : IJupyterCommand;
-    createProcessCommand(resource: Uri | undefined, exe: string, args: string[]) : IJupyterCommand;
+    getBestCommand(resource: Uri | undefined, command: string, cancelToken?: CancellationToken): Promise<IJupyterCommand | undefined>;
+    getExactCommand(intrepreter: PythonInterpreter, command: string, cancelToken?: CancellationToken) : Promise<IJupyterCommand | undefined>;
 }
 
 // Config settings we pass to our react code

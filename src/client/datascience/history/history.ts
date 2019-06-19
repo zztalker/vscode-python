@@ -61,6 +61,7 @@ import {
 } from '../types';
 import { WebViewHost } from '../webViewHost';
 import { HistoryMessageListener } from './historyMessageListener';
+import { IJupyterVersionCache } from '../types';
 import {
     HistoryMessages,
     IAddedSysInfo,
@@ -115,7 +116,8 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
         @inject(IHistoryProvider) private historyProvider: IHistoryProvider,
         @inject(IDataViewerProvider) private dataExplorerProvider: IDataViewerProvider,
         @inject(IJupyterVariables) private jupyterVariables: IJupyterVariables,
-        @inject(INotebookImporter) private jupyterImporter: INotebookImporter
+        @inject(INotebookImporter) private jupyterImporter: INotebookImporter,
+        @inject(IJupyterVersionCache) private jupyterVersionCache: IJupyterVersionCache
         ) {
         super(
             configuration,
@@ -983,11 +985,12 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
             try {
                 // tslint:disable-next-line: no-any
                 await this.fileSystem.writeFile(file, JSON.stringify(notebook), { encoding: 'utf8', flag: 'w' });
-                const openQuestion = (await this.jupyterExecution.isSpawnSupported(undefined)) ? localize.DataScience.exportOpenQuestion() : undefined;
+                const jupyterVersion = await this.jupyterVersionCache.get(undefined);
+                const openQuestion = (jupyterVersion) ? localize.DataScience.exportOpenQuestion() : undefined;
                 this.showInformationMessage(localize.DataScience.exportDialogComplete().format(file), openQuestion).then((str: string | undefined) => {
-                    if (str && this.jupyterServer) {
+                    if (str && this.jupyterServer && jupyterVersion) {
                         // If the user wants to, open the notebook they just generated.
-                        this.jupyterExecution.spawnNotebook(file).ignoreErrors();
+                        this.jupyterExecution.spawnNotebook(jupyterVersion, file).ignoreErrors();
                     }
                 });
             } catch (exc) {
@@ -1008,8 +1011,10 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
 
         this.logger.logInformation('Connecting to jupyter server ...');
 
+        const version = await this.jupyterVersionCache.get(resource);
+
         // Now try to create a notebook server
-        this.jupyterServer = await this.jupyterExecution.connectToNotebookServer(options);
+        this.jupyterServer = version ? await this.jupyterExecution.connectToNotebookServer(version, options) : undefined;
 
         // Before we run any cells, update the dark setting
         if (this.jupyterServer) {
@@ -1051,10 +1056,6 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
     private async generateSysInfoMessage(reason: SysInfoReason): Promise<string> {
         switch (reason) {
             case SysInfoReason.Start:
-                // Message depends upon if ipykernel is supported or not.
-                if (!this.jupyterServer || !(await this.jupyterExecution.isKernelCreateSupported(this.jupyterServer.startupResource))) {
-                    return localize.DataScience.pythonVersionHeaderNoPyKernel();
-                }
                 return localize.DataScience.pythonVersionHeader();
                 break;
             case SysInfoReason.Restart:
@@ -1118,24 +1119,24 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
         let activeInterpreter : PythonInterpreter | undefined;
         try {
             activeInterpreter = await this.interpreterService.getActiveInterpreter(resource);
-            const usableInterpreter = await this.jupyterExecution.getUsableJupyterPython(resource);
-            if (usableInterpreter) {
-                // See if the usable interpreter is not our active one. If so, show a warning
+            const usableVersion = await this.jupyterVersionCache.get(resource);
+            if (usableVersion) {
+                // See if the usable version is not our active one. If so, show a warning
                 // Only do this if not the guest in a liveshare session
                 const api = await this.liveShare.getApi();
                 if (!api || (api.session && api.session.role !== vsls.Role.Guest)) {
                     const active = await this.interpreterService.getActiveInterpreter(resource);
                     const activeDisplayName = active ? active.displayName : undefined;
                     const activePath = active ? active.path : undefined;
-                    const usableDisplayName = usableInterpreter ? usableInterpreter.displayName : undefined;
-                    const usablePath = usableInterpreter ? usableInterpreter.path : undefined;
+                    const usableDisplayName = usableVersion ? usableVersion.name : undefined;
+                    const usablePath = usableVersion && usableVersion.interpreter ? usableVersion.interpreter.path : undefined;
                     if (activePath && usablePath && !this.fileSystem.arePathsSame(activePath, usablePath) && activeDisplayName && usableDisplayName) {
                         this.applicationShell.showWarningMessage(localize.DataScience.jupyterKernelNotSupportedOnActive().format(activeDisplayName, usableDisplayName));
                     }
                 }
             }
 
-            return usableInterpreter ? true : false;
+            return usableVersion ? true : false;
 
         } catch (e) {
             // Can't find a usable interpreter, show the error.

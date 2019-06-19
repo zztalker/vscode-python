@@ -23,6 +23,7 @@ import {
     IDataScienceCommandListener,
     IHistoryProvider,
     IJupyterExecution,
+    IJupyterVersionCache,
     INotebookExporter,
     INotebookImporter,
     INotebookServer,
@@ -42,7 +43,8 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
         @inject(ILogger) private logger: ILogger,
         @inject(IConfigurationService) private configuration: IConfigurationService,
         @inject(IStatusProvider) private statusProvider : IStatusProvider,
-        @inject(INotebookImporter) private jupyterImporter : INotebookImporter
+        @inject(INotebookImporter) private jupyterImporter : INotebookImporter,
+        @inject(IJupyterVersionCache) private jupyterVersionCache: IJupyterVersionCache
         ) {
         // Listen to document open commands. We want to ask the user if they want to import.
         const disposable = this.documentManager.onDidOpenTextDocument(this.onOpenedDocument);
@@ -163,12 +165,13 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
                     }, localize.DataScience.exportingFormat(), file);
 
                     // When all done, show a notice that it completed.
-                    const openQuestion = (await this.jupyterExecution.isSpawnSupported(undefined)) ? localize.DataScience.exportOpenQuestion() : undefined;
+                    const jupyterVersion = await this.jupyterVersionCache.get(undefined);
+                    const openQuestion = jupyterVersion ? localize.DataScience.exportOpenQuestion() : undefined;
                     if (uri && uri.fsPath) {
                         this.showInformationMessage(localize.DataScience.exportDialogComplete().format(uri.fsPath), openQuestion).then((str: string | undefined) => {
-                            if (str === openQuestion) {
+                            if (str === openQuestion && jupyterVersion) {
                                 // If the user wants to, open the notebook they just generated.
-                                this.jupyterExecution.spawnNotebook(uri.fsPath).ignoreErrors();
+                                this.jupyterExecution.spawnNotebook(jupyterVersion, uri.fsPath).ignoreErrors();
                             }
                         });
                     }
@@ -179,7 +182,8 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
 
     @captureTelemetry(Telemetry.ExportPythonFileAndOutput, undefined, false)
     private async exportFileAndOutput(file: string): Promise<Uri | undefined> {
-        if (file && file.length > 0 && this.jupyterExecution.isNotebookSupported(Uri.file(file))) {
+        const jupyterVersion = await this.jupyterVersionCache.get(Uri.file(file));
+        if (file && file.length > 0 && jupyterVersion) {
             // If the current file is the active editor, then generate cells from the document.
             const activeEditor = this.documentManager.activeTextEditor;
             if (activeEditor && activeEditor.document && this.fileSystem.arePathsSame(activeEditor.document.fileName, file)) {
@@ -209,11 +213,11 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
                         }, true);
 
                         // When all done, show a notice that it completed.
-                        const openQuestion = (await this.jupyterExecution.isSpawnSupported(Uri.file(file))) ? localize.DataScience.exportOpenQuestion() : undefined;
+                        const openQuestion = (jupyterVersion) ? localize.DataScience.exportOpenQuestion() : undefined;
                         this.showInformationMessage(localize.DataScience.exportDialogComplete().format(output), openQuestion).then((str: string | undefined) => {
                             if (str === openQuestion && output) {
                                 // If the user wants to, open the notebook they just generated.
-                                this.jupyterExecution.spawnNotebook(output).ignoreErrors();
+                                this.jupyterExecution.spawnNotebook(jupyterVersion, output).ignoreErrors();
                             }
                         });
 
@@ -234,22 +238,26 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
 
             // Try starting a server. Purpose should be unique so we
             // create a brand new one.
-            server = await this.jupyterExecution.connectToNotebookServer({ resource: Uri.file(input), useDefaultConfig, purpose: uuid()}, cancelToken);
+            const version = await this.jupyterVersionCache.get(Uri.file(input));
+            if (version) {
+                server = await this.jupyterExecution.connectToNotebookServer(version, { useDefaultConfig, purpose: uuid() }, cancelToken);
 
-            // If that works, then execute all of the cells.
-            const cells = Array.prototype.concat(... await Promise.all(ranges.map(r => {
+                // If that works, then execute all of the cells.
+                const cells = Array.prototype.concat(... await Promise.all(ranges.map(r => {
                     const code = document.getText(r.range);
                     return server ? server.execute(code, document.fileName, r.range.start.line, uuid(), cancelToken) : [];
                 })));
 
-            // Then save them to the file
-            let directoryChange;
-            if (settings.datascience.changeDirOnImportExport) {
-                directoryChange = file;
-            }
+                // Then save them to the file
+                let directoryChange;
+                if (settings.datascience.changeDirOnImportExport) {
+                    directoryChange = file;
+                }
 
-            const notebook = await this.jupyterExporter.translateToNotebook(Uri.file(input), cells, directoryChange);
-            await this.fileSystem.writeFile(file, JSON.stringify(notebook));
+                const notebook = await this.jupyterExporter.translateToNotebook(Uri.file(input), cells, directoryChange);
+                await this.fileSystem.writeFile(file, JSON.stringify(notebook));
+   
+            }
 
         } finally {
             if (server) {

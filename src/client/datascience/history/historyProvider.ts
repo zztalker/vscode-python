@@ -81,7 +81,7 @@ export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
         throw new Error(localize.DataScience.pythonInteractiveCreateFailed());
     }
 
-    public async getNotebookOptions(resource?: Uri) : Promise<INotebookServerOptions> {
+    public async getNotebookOptions() : Promise<INotebookServerOptions> {
         // Find the settings that we are going to launch our server with
         const settings = this.configService.getSettings();
         let serverURI: string | undefined = settings.datascience.jupyterServerURI;
@@ -92,11 +92,7 @@ export class HistoryProvider implements IHistoryProvider, IAsyncDisposable {
             serverURI = undefined;
         }
 
-        // Compute the file we're launching from. Either it's passed in or the current active document.
-        const fileUri = resource ? resource : this.getActiveResource();
-
         return {
-            resource: fileUri,
             uri: serverURI,
             useDefaultConfig,
             purpose: Identifiers.HistoryPurpose

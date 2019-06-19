@@ -26,6 +26,7 @@ import {
 import { GuestJupyterExecution } from './liveshare/guestJupyterExecution';
 import { HostJupyterExecution } from './liveshare/hostJupyterExecution';
 import { IRoleBasedObject, RoleBasedFactory } from './liveshare/roleBasedFactory';
+import { IJupyterVersion } from '../types';
 
 interface IJupyterExecutionInterface extends IRoleBasedObject, IJupyterExecution {
 
@@ -104,41 +105,17 @@ export class JupyterExecutionFactory implements IJupyterExecution, IAsyncDisposa
         return execution.dispose();
     }
 
-    public async isNotebookSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean> {
+    public async connectToNotebookServer(version: IJupyterVersion, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer | undefined> {
         const execution = await this.executionFactory.get();
-        return execution.isNotebookSupported(resource, cancelToken);
-    }
-    public async isImportSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean> {
-        const execution = await this.executionFactory.get();
-        return execution.isImportSupported(resource, cancelToken);
-    }
-    public async isKernelCreateSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean> {
-        const execution = await this.executionFactory.get();
-        return execution.isKernelCreateSupported(resource, cancelToken);
-    }
-    public async isKernelSpecSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean> {
-        const execution = await this.executionFactory.get();
-        return execution.isKernelSpecSupported(resource, cancelToken);
-    }
-    public async isSpawnSupported(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<boolean> {
-        const execution = await this.executionFactory.get();
-        return execution.isSpawnSupported(resource, cancelToken);
-    }
-    public async connectToNotebookServer(options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer | undefined> {
-        const execution = await this.executionFactory.get();
-        return execution.connectToNotebookServer(options, cancelToken);
+        return execution.connectToNotebookServer(version, options, cancelToken);
 }
-    public async spawnNotebook(file: string): Promise<void> {
+    public async spawnNotebook(version: IJupyterVersion, file: string): Promise<void> {
         const execution = await this.executionFactory.get();
-        return execution.spawnNotebook(file);
+        return execution.spawnNotebook(version, file);
     }
     public async importNotebook(file: string, template: string | undefined): Promise<string> {
         const execution = await this.executionFactory.get();
         return execution.importNotebook(file, template);
-    }
-    public async getUsableJupyterPython(resource: Uri | undefined, cancelToken?: CancellationToken): Promise<PythonInterpreter | undefined> {
-        const execution = await this.executionFactory.get();
-        return execution.getUsableJupyterPython(resource, cancelToken);
     }
     public async getServer(options?: INotebookServerOptions) : Promise<INotebookServer | undefined> {
         const execution = await this.executionFactory.get();
