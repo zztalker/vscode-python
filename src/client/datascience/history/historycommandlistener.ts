@@ -23,10 +23,10 @@ import {
     IDataScienceCommandListener,
     IHistoryProvider,
     IJupyterExecution,
-    IJupyterVersionCache,
     INotebookExporter,
     INotebookImporter,
     INotebookServer,
+    IRunnableJupyterCache,
     IStatusProvider
 } from '../types';
 
@@ -44,7 +44,7 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
         @inject(IConfigurationService) private configuration: IConfigurationService,
         @inject(IStatusProvider) private statusProvider : IStatusProvider,
         @inject(INotebookImporter) private jupyterImporter : INotebookImporter,
-        @inject(IJupyterVersionCache) private jupyterVersionCache: IJupyterVersionCache
+        @inject(IRunnableJupyterCache) private runnableCache: IRunnableJupyterCache
         ) {
         // Listen to document open commands. We want to ask the user if they want to import.
         const disposable = this.documentManager.onDidOpenTextDocument(this.onOpenedDocument);
@@ -165,7 +165,7 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
                     }, localize.DataScience.exportingFormat(), file);
 
                     // When all done, show a notice that it completed.
-                    const jupyterVersion = await this.jupyterVersionCache.get(undefined);
+                    const jupyterVersion = await this.runnableCache.get(undefined);
                     const openQuestion = jupyterVersion ? localize.DataScience.exportOpenQuestion() : undefined;
                     if (uri && uri.fsPath) {
                         this.showInformationMessage(localize.DataScience.exportDialogComplete().format(uri.fsPath), openQuestion).then((str: string | undefined) => {
@@ -182,7 +182,7 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
 
     @captureTelemetry(Telemetry.ExportPythonFileAndOutput, undefined, false)
     private async exportFileAndOutput(file: string): Promise<Uri | undefined> {
-        const jupyterVersion = await this.jupyterVersionCache.get(Uri.file(file));
+        const jupyterVersion = await this.runnableCache.get(Uri.file(file));
         if (file && file.length > 0 && jupyterVersion) {
             // If the current file is the active editor, then generate cells from the document.
             const activeEditor = this.documentManager.activeTextEditor;
@@ -238,7 +238,7 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
 
             // Try starting a server. Purpose should be unique so we
             // create a brand new one.
-            const version = await this.jupyterVersionCache.get(Uri.file(input));
+            const version = await this.runnableCache.get(Uri.file(input));
             if (version) {
                 server = await this.jupyterExecution.connectToNotebookServer(version, { resource: Uri.file(input), useDefaultConfig, purpose: uuid() }, cancelToken);
 
@@ -256,7 +256,6 @@ export class HistoryCommandListener implements IDataScienceCommandListener {
 
                 const notebook = await this.jupyterExporter.translateToNotebook(Uri.file(input), cells, directoryChange);
                 await this.fileSystem.writeFile(file, JSON.stringify(notebook));
-   
             }
 
         } finally {

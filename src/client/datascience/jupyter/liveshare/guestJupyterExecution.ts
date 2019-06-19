@@ -18,9 +18,9 @@ import {
     IConnection,
     IJupyterCommandFactory,
     IJupyterSessionManager,
-    IJupyterVersion,
     INotebookServer,
-    INotebookServerOptions
+    INotebookServerOptions,
+    IRunnableJupyter
 } from '../../types';
 import { JupyterConnectError } from '../jupyterConnectError';
 import { JupyterExecutionBase } from '../jupyterExecution';
@@ -74,7 +74,7 @@ export class GuestJupyterExecution extends LiveShareParticipantGuest(JupyterExec
         await this.serverCache.dispose();
     }
 
-    public async connectToNotebookServer(version: IJupyterVersion, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer> {
+    public async connectToNotebookServer(version: IRunnableJupyter, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer> {
         let result: INotebookServer | undefined = await this.serverCache.get(options);
 
         // See if we already have this server or not.
@@ -118,18 +118,18 @@ export class GuestJupyterExecution extends LiveShareParticipantGuest(JupyterExec
         return result;
     }
 
-    public async enumerateVersions(serverURI?: string) : Promise<IJupyterVersion[]> {
+    public async enumerateRunnableJupyters(serverURI?: string) : Promise<IRunnableJupyter[]> {
         const service = await this.waitForService();
         if (service) {
             return service.request(
-                LiveShareCommands.enumerateVersions,
+                LiveShareCommands.enumerateRunnableVersions,
                 [serverURI]);
         }
 
         return [];
     }
 
-    public spawnNotebook(_version: IJupyterVersion, _file: string): Promise<void> {
+    public spawnNotebook(_version: IRunnableJupyter, _file: string): Promise<void> {
         // Not supported in liveshare
         throw new Error(localize.DataScience.liveShareCannotSpawnNotebooks());
     }

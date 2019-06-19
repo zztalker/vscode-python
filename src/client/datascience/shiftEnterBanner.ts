@@ -1,18 +1,17 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-
 'use strict';
+import '../common/extensions';
 
 import { inject, injectable } from 'inversify';
 import { ConfigurationTarget, Uri } from 'vscode';
+
 import { IApplicationShell, IDocumentManager } from '../common/application/types';
-import '../common/extensions';
-import { IConfigurationService, IPersistentStateFactory,
-    IPythonExtensionBanner } from '../common/types';
+import { IConfigurationService, IPersistentStateFactory, IPythonExtensionBanner } from '../common/types';
 import * as localize from '../common/utils/localize';
 import { captureTelemetry, sendTelemetryEvent } from '../telemetry';
-import { Telemetry, JupyterCommands } from './constants';
-import { IJupyterExecution, IJupyterCommandFactory, IJupyterVersionCache } from './types';
+import { Telemetry } from './constants';
+import { IRunnableJupyterCache } from './types';
 
 export enum InteractiveShiftEnterStateKeys {
     ShowBanner = 'InteractiveShiftEnterBanner'
@@ -34,7 +33,7 @@ export class InteractiveShiftEnterBanner implements IPythonExtensionBanner {
     constructor(
         @inject(IApplicationShell) private appShell: IApplicationShell,
         @inject(IPersistentStateFactory) private persistentState: IPersistentStateFactory,
-        @inject(IJupyterVersionCache) private versionCache: IJupyterVersionCache,
+        @inject(IRunnableJupyterCache) private runnableCache: IRunnableJupyterCache,
         @inject(IConfigurationService) private configuration: IConfigurationService,
         @inject(IDocumentManager) private documentManager : IDocumentManager
     ) {
@@ -69,7 +68,7 @@ export class InteractiveShiftEnterBanner implements IPythonExtensionBanner {
         // This check is independent from shouldShowBanner, that just checks the persistent state.
         // The Jupyter check should only happen once and should disable the banner if it fails (don't reprompt and don't recheck)
         const resource = this.documentManager.activeTextEditor ? Uri.file(this.documentManager.activeTextEditor.document.fileName) : undefined;
-        const jupyterFound = await this.versionCache.get(resource);
+        const jupyterFound = await this.runnableCache.get(resource);
         if (!jupyterFound) {
             await this.disableBanner();
             return;

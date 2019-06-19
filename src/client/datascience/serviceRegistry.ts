@@ -25,7 +25,7 @@ import { JupyterPasswordConnect } from './jupyter/jupyterPasswordConnect';
 import { JupyterServerFactory } from './jupyter/jupyterServerFactory';
 import { JupyterSessionManager } from './jupyter/jupyterSessionManager';
 import { JupyterVariables } from './jupyter/jupyterVariables';
-import { JupyterVersionCache } from './jupyter/jupyterVersionCache';
+import { RunnableJupyterCache } from './jupyter/runnableJupyterCache';
 import { PlotViewer } from './plotting/plotViewer';
 import { PlotViewerProvider } from './plotting/plotViewerProvider';
 import { StatusProvider } from './statusProvider';
@@ -46,12 +46,12 @@ import {
     IJupyterPasswordConnect,
     IJupyterSessionManager,
     IJupyterVariables,
-    IJupyterVersionCache,
     INotebookExporter,
     INotebookImporter,
     INotebookServer,
     IPlotViewer,
     IPlotViewerProvider,
+    IRunnableJupyterCache,
     IStatusProvider,
     IThemeFinder
 } from './types';
@@ -83,5 +83,5 @@ export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.add<IHistoryListener>(IHistoryListener, ShowPlotListener);
     serviceManager.addSingleton<IPlotViewerProvider>(IPlotViewerProvider, PlotViewerProvider);
     serviceManager.add<IPlotViewer>(IPlotViewer, PlotViewer);
-    serviceManager.addSingleton<IJupyterVersionCache>(IJupyterVersionCache, JupyterVersionCache)
+    serviceManager.addSingleton<IRunnableJupyterCache>(IRunnableJupyterCache, RunnableJupyterCache);
 }

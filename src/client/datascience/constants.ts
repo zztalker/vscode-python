@@ -175,7 +175,7 @@ export namespace LiveShare {
 export namespace LiveShareCommands {
     export const connectToNotebookServer = 'connectToNotebookServer';
     export const getUsableJupyterPython = 'getUsableJupyterPython';
-    export const enumerateVersions = 'enumerateVersions';
+    export const enumerateRunnableVersions = 'enumerateRunnableVersions';
     export const executeObservable = 'executeObservable';
     export const getSysInfo = 'getSysInfo';
     export const serverResponse = 'serverResponse';

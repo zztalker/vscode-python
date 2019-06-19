@@ -51,12 +51,12 @@ import {
     IJupyterVariable,
     IJupyterVariables,
     IJupyterVariablesResponse,
-    IJupyterVersionCache,
     IMessageCell,
     INotebookExporter,
     INotebookImporter,
     INotebookServer,
     InterruptResult,
+    IRunnableJupyterCache,
     IStatusProvider,
     IThemeFinder
 } from '../types';
@@ -117,7 +117,7 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
         @inject(IDataViewerProvider) private dataExplorerProvider: IDataViewerProvider,
         @inject(IJupyterVariables) private jupyterVariables: IJupyterVariables,
         @inject(INotebookImporter) private jupyterImporter: INotebookImporter,
-        @inject(IJupyterVersionCache) private jupyterVersionCache: IJupyterVersionCache
+        @inject(IRunnableJupyterCache) private runnableCache: IRunnableJupyterCache
         ) {
         super(
             configuration,
@@ -985,7 +985,7 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
             try {
                 // tslint:disable-next-line: no-any
                 await this.fileSystem.writeFile(file, JSON.stringify(notebook), { encoding: 'utf8', flag: 'w' });
-                const jupyterVersion = await this.jupyterVersionCache.get(undefined);
+                const jupyterVersion = await this.runnableCache.get(undefined);
                 const openQuestion = (jupyterVersion) ? localize.DataScience.exportOpenQuestion() : undefined;
                 this.showInformationMessage(localize.DataScience.exportDialogComplete().format(file), openQuestion).then((str: string | undefined) => {
                     if (str && this.jupyterServer && jupyterVersion) {
@@ -1011,7 +1011,7 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
 
         this.logger.logInformation('Connecting to jupyter server ...');
 
-        const version = await this.jupyterVersionCache.get(resource);
+        const version = await this.runnableCache.get(resource);
 
         // Now try to create a notebook server
         this.jupyterServer = version ? await this.jupyterExecution.connectToNotebookServer(version, options) : undefined;
@@ -1119,7 +1119,7 @@ export class History extends WebViewHost<IHistoryMapping> implements IHistory  {
         let activeInterpreter : PythonInterpreter | undefined;
         try {
             activeInterpreter = await this.interpreterService.getActiveInterpreter(resource);
-            const usableVersion = await this.jupyterVersionCache.get(resource);
+            const usableVersion = await this.runnableCache.get(resource);
             if (usableVersion) {
                 // See if the usable version is not our active one. If so, show a warning
                 // Only do this if not the guest in a liveshare session

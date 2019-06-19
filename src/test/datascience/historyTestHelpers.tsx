@@ -11,7 +11,7 @@ import { CancellationToken } from 'vscode';
 import { EXTENSION_ROOT_DIR } from '../../client/common/constants';
 import { IDataScienceSettings } from '../../client/common/types';
 import { HistoryMessages } from '../../client/datascience/history/historyTypes';
-import { IHistory, IJupyterExecution } from '../../client/datascience/types';
+import { IHistory, IRunnableJupyterCache } from '../../client/datascience/types';
 import { MainPanel } from '../../datascience-ui/history-react/MainPanel';
 import { ImageButton } from '../../datascience-ui/react-common/imageButton';
 import { updateSettings } from '../../datascience-ui/react-common/settingsReactSide';
@@ -35,8 +35,8 @@ export enum CellPosition {
 export function runMountedTest(name: string, testFunc: (wrapper: ReactWrapper<any, Readonly<{}>, React.Component>) => Promise<void>, getIOC: () => DataScienceIocContainer) {
     test(name, async () => {
         const ioc = getIOC();
-        const jupyterExecution = ioc.get<IJupyterExecution>(IJupyterExecution);
-        if (await jupyterExecution.isNotebookSupported(undefined)) {
+        const versionCache = ioc.get<IRunnableJupyterCache>(IRunnableJupyterCache);
+        if (await versionCache.get(undefined)) {
             addMockData(ioc, 'a=1\na', 1);
             const wrapper = mountWebView(ioc, <MainPanel baseTheme='vscode-light' codeTheme='light_vs' testMode={true} skipDefault={true} />);
             await testFunc(wrapper);

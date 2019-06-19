@@ -23,6 +23,7 @@ import { HistoryProvider } from '../../client/datascience/history/historyProvide
 import { JupyterExecutionFactory } from '../../client/datascience/jupyter/jupyterExecutionFactory';
 import { JupyterExporter } from '../../client/datascience/jupyter/jupyterExporter';
 import { JupyterImporter } from '../../client/datascience/jupyter/jupyterImporter';
+import { RunnableJupyterCache } from '../../client/datascience/jupyter/runnableJupyterCache';
 import { IHistory, INotebookServer, IStatusProvider } from '../../client/datascience/types';
 import { InterpreterService } from '../../client/interpreter/interpreterService';
 import { KnownSearchPathsForInterpreters } from '../../client/interpreter/locators/services/KnownPathsService';
@@ -78,6 +79,7 @@ suite('History command listener', async () => {
     const statusProvider = new MockStatusProvider();
     const commandManager = new MockCommandManager();
     const server = createTypeMoq<INotebookServer>('jupyter server');
+    const versionCache = mock(RunnableJupyterCache);
     let lastFileContents: any;
 
     suiteSetup(() => {
@@ -195,10 +197,6 @@ suite('History command listener', async () => {
             }
         );
 
-        if (jupyterExecution.isNotebookSupported) {
-            when(jupyterExecution.isNotebookSupported(anything())).thenResolve(true);
-        }
-
         documentManager.addDocument('#%%\r\nprint("code")', 'bar.ipynb');
 
         when(applicationShell.showInformationMessage(anything(), anything())).thenReturn(Promise.resolve('moo'));
@@ -215,7 +213,8 @@ suite('History command listener', async () => {
             instance(logger),
             instance(configService),
             statusProvider,
-            instance(notebookImporter));
+            instance(notebookImporter),
+            instance(versionCache));
 
         result.register(commandManager);
 

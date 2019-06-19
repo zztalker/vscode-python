@@ -103,14 +103,14 @@ export interface INotebookServerOptions {
 export const IJupyterExecution = Symbol('IJupyterExecution');
 export interface IJupyterExecution extends IAsyncDisposable {
     sessionChanged: Event<void> ;
-    enumerateVersions(serverURI?: string) : Promise<IJupyterVersion[]>;
-    connectToNotebookServer(version: IJupyterVersion, options?: INotebookServerOptions, cancelToken?: CancellationToken) : Promise<INotebookServer | undefined>;
-    spawnNotebook(version: IJupyterVersion, file: string) : Promise<void>;
+    enumerateRunnableJupyters(serverURI?: string) : Promise<IRunnableJupyter[]>;
+    connectToNotebookServer(version: IRunnableJupyter, options?: INotebookServerOptions, cancelToken?: CancellationToken) : Promise<INotebookServer | undefined>;
+    spawnNotebook(version: IRunnableJupyter, file: string) : Promise<void>;
     importNotebook(file: string, template: string | undefined) : Promise<string>;
     getServer(options?: INotebookServerOptions) : Promise<INotebookServer | undefined>;
 }
 
-export interface IJupyterVersion {
+export interface IRunnableJupyter {
     type: 'local' | 'remote';
     name: string;
     interpreter?: PythonInterpreter;
@@ -118,10 +118,10 @@ export interface IJupyterVersion {
     launchCommand?: IJupyterCommand;
 }
 
-export const IJupyterVersionCache = Symbol('IJupyterVersionCache');
-export interface IJupyterVersionCache {
-    get(resource: Uri | undefined) : Promise<IJupyterVersion | undefined>;
-    getAll() : Promise<IJupyterVersion[]>;
+export const IRunnableJupyterCache = Symbol('IRunnableJupyterCache');
+export interface IRunnableJupyterCache {
+    get(resource: Uri | undefined) : Promise<IRunnableJupyter | undefined>;
+    getAll() : Promise<IRunnableJupyter[]>;
 }
 
 export interface IJupyterPasswordConnectInfo {

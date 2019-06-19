@@ -13,7 +13,7 @@ import { IConfigurationService, IDisposableRegistry } from '../../common/types';
 import * as localize from '../../common/utils/localize';
 import { noop } from '../../common/utils/misc';
 import { CodeSnippits, JupyterCommands } from '../constants';
-import { IJupyterExecution, INotebookImporter, IJupyterCommandFactory } from '../types';
+import { IJupyterCommandFactory, IJupyterExecution, INotebookImporter } from '../types';
 
 @injectable()
 export class JupyterImporter implements INotebookImporter {

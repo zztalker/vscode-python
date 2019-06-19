@@ -20,9 +20,9 @@ import {
     IJupyterCommandFactory,
     IJupyterExecution,
     IJupyterSessionManager,
-    IJupyterVersion,
     INotebookServer,
-    INotebookServerOptions
+    INotebookServerOptions,
+    IRunnableJupyter
 } from '../types';
 import { GuestJupyterExecution } from './liveshare/guestJupyterExecution';
 import { HostJupyterExecution } from './liveshare/hostJupyterExecution';
@@ -99,9 +99,9 @@ export class JupyterExecutionFactory implements IJupyterExecution, IAsyncDisposa
         return this.sessionChangedEventEmitter.event;
     }
 
-    public async enumerateVersions(serverURI?: string) : Promise<IJupyterVersion[]> {
+    public async enumerateRunnableJupyters(serverURI?: string) : Promise<IRunnableJupyter[]> {
         const execution = await this.executionFactory.get();
-        return execution.enumerateVersions(serverURI);
+        return execution.enumerateRunnableJupyters(serverURI);
     }
 
     public async dispose() : Promise<void> {
@@ -110,11 +110,11 @@ export class JupyterExecutionFactory implements IJupyterExecution, IAsyncDisposa
         return execution.dispose();
     }
 
-    public async connectToNotebookServer(version: IJupyterVersion, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer | undefined> {
+    public async connectToNotebookServer(version: IRunnableJupyter, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer | undefined> {
         const execution = await this.executionFactory.get();
         return execution.connectToNotebookServer(version, options, cancelToken);
 }
-    public async spawnNotebook(version: IJupyterVersion, file: string): Promise<void> {
+    public async spawnNotebook(version: IRunnableJupyter, file: string): Promise<void> {
         const execution = await this.executionFactory.get();
         return execution.spawnNotebook(version, file);
     }

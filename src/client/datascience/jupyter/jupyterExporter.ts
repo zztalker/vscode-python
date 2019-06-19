@@ -16,13 +16,13 @@ import { noop } from '../../common/utils/misc';
 import { CellMatcher } from '../cellMatcher';
 import { concatMultilineString } from '../common';
 import { CodeSnippits, Identifiers } from '../constants';
-import { CellState, ICell, IJupyterVersionCache, INotebookExporter } from '../types';
+import { CellState, ICell, INotebookExporter, IRunnableJupyterCache } from '../types';
 
 @injectable()
 export class JupyterExporter implements INotebookExporter {
 
     constructor(
-        @inject(IJupyterVersionCache) private versionCache: IJupyterVersionCache,
+        @inject(IRunnableJupyterCache) private runnableCache: IRunnableJupyterCache,
         @inject(IWorkspaceService) private workspaceService: IWorkspaceService,
         @inject(IConfigurationService) private configService: IConfigurationService,
         @inject(IFileSystem) private fileSystem: IFileSystem,
@@ -183,7 +183,7 @@ export class JupyterExporter implements INotebookExporter {
 
     private async extractPythonMainVersion(resource: Uri | undefined): Promise<number> {
         // Use the active interpreter
-        const usableInterpreter = await this.versionCache.get(resource);
+        const usableInterpreter = await this.runnableCache.get(resource);
         return usableInterpreter && usableInterpreter.interpreter && usableInterpreter.interpreter.version ? usableInterpreter.interpreter.version.major : 3;
     }
 }

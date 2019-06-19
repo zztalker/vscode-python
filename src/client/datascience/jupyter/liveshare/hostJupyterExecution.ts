@@ -21,7 +21,7 @@ import {
     IJupyterSessionManager,
     INotebookServer,
     INotebookServerOptions,
-    IJupyterVersion
+    IRunnableJupyter
 } from '../../types';
 import { JupyterExecutionBase } from '../jupyterExecution';
 import { LiveShareParticipantHost } from './liveShareParticipantMixin';
@@ -79,7 +79,7 @@ export class HostJupyterExecution
         }
     }
 
-    public async connectToNotebookServer(version: IJupyterVersion, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer | undefined> {
+    public async connectToNotebookServer(version: IRunnableJupyter, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer | undefined> {
         // See if we have this server in our cache already or not
         let result = await this.serverCache.get(options);
         if (result) {
@@ -105,7 +105,7 @@ export class HostJupyterExecution
             // Register handlers for all of the supported remote calls
             if (service) {
                 service.onRequest(LiveShareCommands.connectToNotebookServer, this.onRemoteConnectToNotebookServer);
-                service.onRequest(LiveShareCommands.enumerateVersions, this.onRemoteEnumerateVersions);
+                service.onRequest(LiveShareCommands.enumerateRunnableVersions, this.onRemoteEnumerateVersions);
             }
         }
     }
@@ -128,7 +128,7 @@ export class HostJupyterExecution
 
     private onRemoteConnectToNotebookServer = async (args: any[], cancellation: CancellationToken): Promise<IConnection | undefined> => {
         // Connect to the local server. THe local server should have started the port forwarding already
-        const localServer = await this.connectToNotebookServer(args[0] as IJupyterVersion, args[1] as INotebookServerOptions | undefined, cancellation);
+        const localServer = await this.connectToNotebookServer(args[0] as IRunnableJupyter, args[1] as INotebookServerOptions | undefined, cancellation);
 
         // Extract the URI and token for the other side
         if (localServer) {
@@ -148,8 +148,8 @@ export class HostJupyterExecution
         }
     }
 
-    private onRemoteEnumerateVersions = async (args: any[], _cancellation: CancellationToken): Promise<IJupyterVersion[]> => {
+    private onRemoteEnumerateVersions = async (args: any[], _cancellation: CancellationToken): Promise<IRunnableJupyter[]> => {
         // Call locally with the args
-        return this.enumerateVersions(args[0]);
+        return this.enumerateRunnableJupyters(args[0]);
     }
 }

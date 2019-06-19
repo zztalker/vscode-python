@@ -29,10 +29,10 @@ import {
     IJupyterExecution,
     IJupyterKernelSpec,
     IJupyterSessionManager,
-    IJupyterVersion,
     INotebookServer,
     INotebookServerLaunchInfo,
-    INotebookServerOptions
+    INotebookServerOptions,
+    IRunnableJupyter
 } from '../types';
 import { JupyterConnection, JupyterServerInfo } from './jupyterConnection';
 import { JupyterKernelSpec } from './jupyterKernelSpec';
@@ -70,7 +70,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
         return Promise.resolve();
     }
 
-    public enumerateVersions(serverURI?: string) : Promise<IJupyterVersion[]> {
+    public enumerateRunnableJupyters(serverURI?: string) : Promise<IRunnableJupyter[]> {
         // Depending upon if local or remote, enumerate different versions
         if (serverURI) {
             return this.enumerateRemoteVersions(serverURI);
@@ -80,7 +80,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
     }
 
     //tslint:disable:cyclomatic-complexity
-    public connectToNotebookServer(version: IJupyterVersion, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer | undefined> {
+    public connectToNotebookServer(version: IRunnableJupyter, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer | undefined> {
         // Return nothing if we cancel
         return Cancellation.race(async () => {
             let result: INotebookServer | undefined;
@@ -150,7 +150,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
         }, cancelToken);
     }
 
-    public async spawnNotebook(version: IJupyterVersion, file: string): Promise<void> {
+    public async spawnNotebook(version: IRunnableJupyter, file: string): Promise<void> {
         if (!version || !version.launchCommand) {
             throw new Error(localize.DataScience.jupyterNotSupported());
         }
@@ -226,14 +226,14 @@ export class JupyterExecutionBase implements IJupyterExecution {
         return (await this.commandFactory.getExactCommand(interpreter, JupyterCommands.KernelSpecCommand, cancelToken)) !== undefined;
     }
 
-    private async enumerateInterpreterVersions() : Promise<IJupyterVersion[]> {
+    private async enumerateInterpreterVersions() : Promise<IRunnableJupyter[]> {
         // Find all interpreters that support jupyter notebook. That's the minimum required to start.
         const interpreters = await this.interpreterService.getInterpreters();
         const possible = await Promise.all(interpreters.map(this.getInterpreterVersion));
-        return possible.filter(p => p !== undefined) as IJupyterVersion[];
+        return possible.filter(p => p !== undefined) as IRunnableJupyter[];
     }
 
-    private async enumerateRemoteVersions(serverURI: string) : Promise<IJupyterVersion[]> {
+    private async enumerateRemoteVersions(serverURI: string) : Promise<IRunnableJupyter[]> {
         const connection = this.createRemoteConnectionInfo(serverURI);
         // Connect to the remote session and enumerate all of the running kernels
         const kernelSpecs = await this.sessionManager.getActiveKernelSpecs(connection);
@@ -246,7 +246,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
         });
     }
 
-    private async getInterpreterVersion(interpreter: PythonInterpreter) : Promise<IJupyterVersion | undefined> {
+    private async getInterpreterVersion(interpreter: PythonInterpreter) : Promise<IRunnableJupyter | undefined> {
         // First check jupyter notebook
         const notebookCommand = await this.commandFactory.getExactCommand(interpreter, JupyterCommands.NotebookCommand);
         if (notebookCommand) {
@@ -266,7 +266,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
         }
     }
 
-    private async startOrConnect(version: IJupyterVersion, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<{ connection: IConnection; kernelSpec: IJupyterKernelSpec | undefined }> {
+    private async startOrConnect(version: IRunnableJupyter, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<{ connection: IConnection; kernelSpec: IJupyterKernelSpec | undefined }> {
         let connection: IConnection | undefined;
         let kernelSpec: IJupyterKernelSpec | undefined;
 
@@ -329,7 +329,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
 
     // tslint:disable-next-line: max-func-body-length
     @captureTelemetry(Telemetry.StartJupyter)
-    private async startNotebookServer(version: IJupyterVersion, useDefaultConfig: boolean, cancelToken?: CancellationToken): Promise<{ connection: IConnection; kernelSpec: IJupyterKernelSpec | undefined }> {
+    private async startNotebookServer(version: IRunnableJupyter, useDefaultConfig: boolean, cancelToken?: CancellationToken): Promise<{ connection: IConnection; kernelSpec: IJupyterKernelSpec | undefined }> {
         // Double check this is supported
         if (!version.launchCommand) {
             throw new Error(localize.DataScience.jupyterNotSupported());

@@ -3,18 +3,17 @@
 'use strict';
 import { inject, injectable } from 'inversify';
 
-import { Resource } from '../../../client/common/types';
-import { IConfigurationService, IDisposableRegistry } from '../../common/types';
+import { IConfigurationService, IDisposableRegistry, Resource } from '../../common/types';
 import { createDeferred, Deferred } from '../../common/utils/async';
 import { IInterpreterService } from '../../interpreter/contracts';
 import { Settings } from '../constants';
-import { IJupyterExecution, IJupyterVersion, IJupyterVersionCache } from '../types';
+import { IJupyterExecution, IRunnableJupyter, IRunnableJupyterCache } from '../types';
 
 @injectable()
-export class JupyterVersionCache implements IJupyterVersionCache {
+export class RunnableJupyterCache implements IRunnableJupyterCache {
 
-    private localVersions: Deferred<IJupyterVersion[]> = createDeferred<IJupyterVersion[]>();
-    private remoteVersions: Deferred<IJupyterVersion[]> = createDeferred<IJupyterVersion[]>();
+    private localVersions: Deferred<IRunnableJupyter[]> = createDeferred<IRunnableJupyter[]>();
+    private remoteVersions: Deferred<IRunnableJupyter[]> = createDeferred<IRunnableJupyter[]>();
 
     constructor(
         @inject(IDisposableRegistry) private disposableRegistry: IDisposableRegistry,
@@ -22,17 +21,17 @@ export class JupyterVersionCache implements IJupyterVersionCache {
         @inject(IConfigurationService) private configService: IConfigurationService,
         @inject(IJupyterExecution) private execution : IJupyterExecution
     ) {
-        // Wait for the interpreter service to be done for locals. 
+        // Wait for the interpreter service to be done for locals.
         this.interpreterService.hasInterpreters.then(this.haveInterpreters.bind(this)).ignoreErrors();
         this.disposableRegistry.push(this.interpreterService.onDidChangeInterpreter(this.haveInterpreters.bind(this)));
 
         // For remote, do right now if there's a remote server URI
-        this.serverUriChanged();
+        this.serverUriChanged().ignoreErrors();
         this.configService.getSettings().onDidChange(this.serverUriChanged.bind(this));
     }
 
-    public async get(resource: Resource): Promise<IJupyterVersion | undefined> {
-        let found: IJupyterVersion | undefined;
+    public async get(resource: Resource): Promise<IRunnableJupyter | undefined> {
+        let found: IRunnableJupyter | undefined;
 
         // Wait for all of the versions to be fetched
         const versions = this.isRemote ? await this.remoteVersions.promise : await this.localVersions.promise;
@@ -81,7 +80,7 @@ export class JupyterVersionCache implements IJupyterVersionCache {
         return found;
     }
 
-    public getAll(): Promise<IJupyterVersion[]> {
+    public getAll(): Promise<IRunnableJupyter[]> {
         if (this.isRemote) {
             return this.remoteVersions.promise;
         } else {
@@ -96,15 +95,15 @@ export class JupyterVersionCache implements IJupyterVersionCache {
 
     private async haveInterpreters() : Promise<void> {
         // We have all of the interpreters. We can now ask for all of the versions
-        const versions = await this.execution.enumerateVersions();
+        const versions = await this.execution.enumerateRunnableJupyters();
         this.localVersions.resolve(versions);
     }
 
     private async serverUriChanged() : Promise<void> {
-        this.remoteVersions = createDeferred<IJupyterVersion[]>();
+        this.remoteVersions = createDeferred<IRunnableJupyter[]>();
         const settings = this.configService.getSettings();
         if (settings && settings.datascience.jupyterServerURI && settings.datascience.jupyterServerURI !== Settings.JupyterServerLocalLaunch) {
-            const versions = await this.execution.enumerateVersions(settings.datascience.jupyterServerURI);
+            const versions = await this.execution.enumerateRunnableJupyters(settings.datascience.jupyterServerURI);
             this.remoteVersions.resolve(versions);
         } else {
             this.remoteVersions.resolve([]);

@@ -16,14 +16,14 @@ import {
 } from '../../client/common/types';
 import { Telemetry } from '../../client/datascience/constants';
 import { InteractiveShiftEnterBanner, InteractiveShiftEnterStateKeys } from '../../client/datascience/shiftEnterBanner';
-import { IJupyterExecution } from '../../client/datascience/types';
+import { IRunnableJupyterCache } from '../../client/datascience/types';
 import { clearTelemetryReporter } from '../../client/telemetry';
 
 suite('Interactive Shift Enter Banner', () => {
     const oldValueOfVSC_PYTHON_UNIT_TEST = process.env.VSC_PYTHON_UNIT_TEST;
     const oldValueOfVSC_PYTHON_CI_TEST = process.env.VSC_PYTHON_CI_TEST;
     let appShell: typemoq.IMock<IApplicationShell>;
-    let jupyterExecution: typemoq.IMock<IJupyterExecution>;
+    let runnableCache: typemoq.IMock<IRunnableJupyterCache>;
     let config: typemoq.IMock<IConfigurationService>;
 
     class Reporter {
@@ -41,7 +41,7 @@ suite('Interactive Shift Enter Banner', () => {
         process.env.VSC_PYTHON_UNIT_TEST = undefined;
         process.env.VSC_PYTHON_CI_TEST = undefined;
         appShell = typemoq.Mock.ofType<IApplicationShell>();
-        jupyterExecution = typemoq.Mock.ofType<IJupyterExecution>();
+        runnableCache = typemoq.Mock.ofType<IRunnableJupyterCache>();
         config = typemoq.Mock.ofType<IConfigurationService>();
         rewiremock.enable();
         rewiremock('vscode-extension-telemetry').with({ default: Reporter });
@@ -58,53 +58,53 @@ suite('Interactive Shift Enter Banner', () => {
     });
 
     test('Shift Enter Banner with Jupyter available', async() => {
-        const shiftBanner = loadBanner(appShell, jupyterExecution, config, true, true, true, true, true, 'Yes');
+        const shiftBanner = loadBanner(appShell, runnableCache, config, true, true, true, true, true, 'Yes');
         await shiftBanner.showBanner();
 
         appShell.verifyAll();
-        jupyterExecution.verifyAll();
+        runnableCache.verifyAll();
         config.verifyAll();
 
         expect(Reporter.eventNames).to.deep.equal([Telemetry.ShiftEnterBannerShown, Telemetry.EnableInteractiveShiftEnter]);
     });
 
     test('Shift Enter Banner without Jupyter available', async() => {
-        const shiftBanner = loadBanner(appShell, jupyterExecution, config, true, false, false, true, false, 'Yes');
+        const shiftBanner = loadBanner(appShell, runnableCache, config, true, false, false, true, false, 'Yes');
         await shiftBanner.showBanner();
 
         appShell.verifyAll();
-        jupyterExecution.verifyAll();
+        runnableCache.verifyAll();
         config.verifyAll();
 
         expect(Reporter.eventNames).to.deep.equal([]);
     });
 
     test('Shift Enter Banner don\'t check Jupyter when disabled', async() => {
-        const shiftBanner = loadBanner(appShell, jupyterExecution, config, false, false, false, false, false, 'Yes');
+        const shiftBanner = loadBanner(appShell, runnableCache, config, false, false, false, false, false, 'Yes');
         await shiftBanner.showBanner();
 
         appShell.verifyAll();
-        jupyterExecution.verifyAll();
+        runnableCache.verifyAll();
         config.verifyAll();
 
         expect(Reporter.eventNames).to.deep.equal([]);
     });
 
     test('Shift Enter Banner changes setting', async() => {
-        const shiftBanner = loadBanner(appShell, jupyterExecution, config, false, false, false, false, true, 'Yes');
+        const shiftBanner = loadBanner(appShell, runnableCache, config, false, false, false, false, true, 'Yes');
         await shiftBanner.enableInteractiveShiftEnter();
 
         appShell.verifyAll();
-        jupyterExecution.verifyAll();
+        runnableCache.verifyAll();
         config.verifyAll();
     });
 
     test('Shift Enter Banner say no', async() => {
-        const shiftBanner = loadBanner(appShell, jupyterExecution, config, true, true, true, true, true, 'No');
+        const shiftBanner = loadBanner(appShell, runnableCache, config, true, true, true, true, true, 'No');
         await shiftBanner.showBanner();
 
         appShell.verifyAll();
-        jupyterExecution.verifyAll();
+        runnableCache.verifyAll();
         config.verifyAll();
 
         expect(Reporter.eventNames).to.deep.equal([Telemetry.ShiftEnterBannerShown, Telemetry.DisableInteractiveShiftEnter]);
@@ -114,12 +114,12 @@ suite('Interactive Shift Enter Banner', () => {
 // Create a test banner with the given settings
 function loadBanner(
     appShell: typemoq.IMock<IApplicationShell>,
-    jupyterExecution: typemoq.IMock<IJupyterExecution>,
+    runnableCache: typemoq.IMock<IRunnableJupyterCache>,
     config: typemoq.IMock<IConfigurationService>,
     stateEnabled: boolean,
-    jupyterFound: boolean,
+    _jupyterFound: boolean,
     bannerShown: boolean,
-    executionCalled: boolean,
+    _executionCalled: boolean,
     configCalled: boolean,
     questionResponse: string
 ): InteractiveShiftEnterBanner {
@@ -145,9 +145,9 @@ function loadBanner(
     config.setup(c => c.getSettings(typemoq.It.isAny())).returns(() => pythonSettings.object);
 
     // Config Jupyter
-    jupyterExecution.setup(j => j.isNotebookSupported(undefined)).returns(() => {
-        return Promise.resolve(jupyterFound);
-    }).verifiable(executionCalled ? typemoq.Times.once() : typemoq.Times.never());
+    // jupyterExecution.setup(j => j.isNotebookSupported(undefined)).returns(() => {
+    //     return Promise.resolve(jupyterFound);
+    // }).verifiable(executionCalled ? typemoq.Times.once() : typemoq.Times.never());
 
     const yes = 'Yes';
     const no = 'No';
@@ -168,5 +168,5 @@ function loadBanner(
     const docManager = typemoq.Mock.ofType<IDocumentManager>();
     docManager.setup(d => d.activeTextEditor).returns(() => undefined);
 
-    return new InteractiveShiftEnterBanner(appShell.object, persistService.object, jupyterExecution.object, config.object, docManager.object);
+    return new InteractiveShiftEnterBanner(appShell.object, persistService.object, runnableCache.object, config.object, docManager.object);
 }
