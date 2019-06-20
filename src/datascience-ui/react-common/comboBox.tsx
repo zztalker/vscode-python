@@ -4,8 +4,11 @@
 'use strict';
 
 import * as React from 'react';
-import Select from 'react-select/lib/Select';
+// tslint:disable-next-line: import-name match-default-export-name
+import Select from 'react-select';
 import { ValueType } from 'react-select/lib/types';
+
+import './comboBox.css';
 
 interface IComboBoxProps {
     values: { value: string; label: string }[];
@@ -21,7 +24,12 @@ export class ComboBox extends React.Component<IComboBoxProps> {
     public render() {
         const currentValue = this.props.values.length > this.props.currentValue ? this.props.values[this.props.currentValue] : undefined ;
         return (
-            <Select value={currentValue} options={this.props.values} onChange={this.props.onChange}/>
+            <Select
+                classNamePrefix='combobox'
+                className='combobox-container'
+                value={currentValue}
+                options={this.props.values}
+                onChange={this.props.onChange}/>
         );
     }
 

@@ -40,7 +40,7 @@ export class RunnableJupyterCache implements IRunnableJupyterCache {
         const current = await this.interpreterService.getActiveInterpreter(resource);
 
         // Find the closest match
-        if (current && current.version) {
+        if (current) {
             let bestScore = -1;
             for (const entry of versions) {
                 let currentScore = 0;
@@ -50,7 +50,7 @@ export class RunnableJupyterCache implements IRunnableJupyterCache {
                 // Interpreter based (local)
                 const interpreter = entry.interpreter;
                 const version = interpreter ? interpreter.version : undefined;
-                if (version) {
+                if (version && current.version) {
                     if (version.major === current.version.major) {
                         currentScore += 4;
                         if (version.minor === current.version.minor) {
@@ -60,6 +60,11 @@ export class RunnableJupyterCache implements IRunnableJupyterCache {
                             }
                         }
                     }
+                }
+                const name = entry.name;
+                if (current.displayName === name) {
+                    // This is likely an exact match
+                    currentScore += 8;
                 }
                 // Kernel based (remote)
                 const kernelSpec = entry.spec;

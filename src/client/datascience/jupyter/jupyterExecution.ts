@@ -12,6 +12,7 @@ import { CancellationToken, Event, EventEmitter, Uri } from 'vscode';
 
 import { ILiveShareApi, IWorkspaceService } from '../../common/application/types';
 import { Cancellation, CancellationError } from '../../common/cancellation';
+import { PYTHON_LANGUAGE } from '../../common/constants';
 import { traceInfo } from '../../common/logger';
 import { IFileSystem, TemporaryDirectory } from '../../common/platform/types';
 import { IProcessServiceFactory, IPythonExecutionFactory, SpawnOptions } from '../../common/process/types';
@@ -232,7 +233,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
     private async enumerateInterpreterVersions() : Promise<IRunnableJupyter[]> {
         // Find all interpreters that support jupyter notebook. That's the minimum required to start.
         const interpreters = await this.interpreterService.getInterpreters();
-        const possible = await Promise.all(interpreters.map(this.getInterpreterVersion));
+        const possible = await Promise.all(interpreters.map(this.getInterpreterVersion.bind(this)));
         return possible.filter(p => p !== undefined) as IRunnableJupyter[];
     }
 
@@ -567,7 +568,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
 
         // For each get its details as we will likely need them
         const specDetails = await Promise.all(specs.map(async s => {
-            if (s && s.path && s.path.length > 0 && await fs.pathExists(s.path)) {
+            if (s && s.language === PYTHON_LANGUAGE && s.path && s.path.length > 0 && await fs.pathExists(s.path)) {
                 return this.interpreterService.getInterpreterDetails(s.path);
             }
         }));

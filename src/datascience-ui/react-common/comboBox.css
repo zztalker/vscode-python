@@ -1,0 +1,15 @@
+.combobox-container {
+    background-color: var(--vscode-editor-background);
+}
+
+.combobox__control {
+    background-color: var(--vscode-editor-background);
+}
+
+.combobox__value-indicator {
+    background-color: var(--vscode-editor-background);
+}
+
+.combobox__indicators {
+    background-color: var(--vscode-editor-background);
+}

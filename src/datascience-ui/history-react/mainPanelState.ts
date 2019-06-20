@@ -62,8 +62,8 @@ export function generateTestState(inputBlockToggled : (id: string) => void, file
         tokenizerLoaded: true,
         editorOptions: {},
         currentExecutionCount: 0,
-        runnableVersions: [],
-        currentRunnableVersion: -1
+        runnableVersions: [{ name: 'My Jupyter', type: 'local' }],
+        currentRunnableVersion: 0
     };
 }
 
