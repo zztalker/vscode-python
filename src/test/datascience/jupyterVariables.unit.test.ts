@@ -66,7 +66,7 @@ suite('JupyterVariables', () => {
         fileSystem.setup(fs => fs.readFile(typemoq.It.isAnyString()))
         .returns(() => Promise.resolve('test'));
 
-        jupyterVariables = new JupyterVariables(fileSystem.object, execution.object, interactiveWindowProvider.object);
+        jupyterVariables = new JupyterVariables(fileSystem.object, interactiveWindowProvider.object);
     });
 
     test('getVariables no server', async() => {

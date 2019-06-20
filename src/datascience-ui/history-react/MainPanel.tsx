@@ -11,7 +11,7 @@ import { noop } from '../../client/common/utils/misc';
 import { CellMatcher } from '../../client/datascience/cellMatcher';
 import { generateMarkdownFromCodeLines } from '../../client/datascience/common';
 import { Identifiers } from '../../client/datascience/constants';
-import { IInteractiveWindowMapping, InteractiveWindowMessages } from '../../client/datascience/interactive-window/interactiveWindowTypes';
+import { IChangeRunnableVersion, IInteractiveWindowMapping, InteractiveWindowMessages, IRunnableVersions } from '../../client/datascience/interactive-window/interactiveWindowTypes';
 import { CellState, ICell, IInteractiveWindowInfo, IJupyterVariable, IJupyterVariablesResponse } from '../../client/datascience/types';
 import { ErrorBoundary } from '../react-common/errorBoundary';
 import { getLocString } from '../react-common/locReactSide';
@@ -65,7 +65,9 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
             history: new InputHistory(),
             editCellVM: getSettings && getSettings().allowInput ? createEditableCellVM(1) : undefined,
             editorOptions: this.computeEditorOptions(),
-            currentExecutionCount: 0
+            currentExecutionCount: 0,
+            runnableVersions: [],
+            currentRunnableVersion: -1
         };
 
         // Add test state if necessary
@@ -238,6 +240,14 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
                 }
                 break;
 
+            case InteractiveWindowMessages.RunnableVersions:
+                this.handleRunnableUpdate(payload);
+                break;
+
+            case InteractiveWindowMessages.ChangeRunnableVersion:
+                this.handleRunnablePick(payload);
+                break;
+
             default:
                 break;
         }
@@ -265,6 +275,18 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
     //     };
     //     this.addCell(cell);
     // }
+
+    private handleRunnableUpdate(runnableUpdate: IRunnableVersions) {
+        this.setState({
+            runnableVersions: runnableUpdate.runnableVersions
+        });
+    }
+
+    private handleRunnablePick(pick: IChangeRunnableVersion) {
+        this.setState({
+            currentRunnableVersion: this.state.runnableVersions.indexOf(pick.current)
+        });
+    }
 
     private renderToolbarPanel(baseTheme: string) {
         const toolbarProps = this.getToolbarProps(baseTheme);
@@ -439,7 +461,10 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
         canExport: this.canExport(),
         canUndo: this.canUndo(),
         canRedo: this.canRedo(),
-        baseTheme: baseTheme
+        baseTheme: baseTheme,
+        runnableVersions: this.state.runnableVersions,
+        currentRunnableVersion: this.state.currentRunnableVersion,
+        onChangeRunnable: this.changeRunnable
        };
     }
 
@@ -470,6 +495,15 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
                     this.editCellRef.giveFocus();
                 }
             }, 100);
+        }
+    }
+
+    private changeRunnable = (index: number) => {
+        if (index >= 0 && index < this.state.runnableVersions.length) {
+            this.setState({
+                currentRunnableVersion: index
+            });
+            this.sendMessage(InteractiveWindowMessages.ChangeRunnableVersion, { current: this.state.runnableVersions[index] });
         }
     }
 

@@ -110,7 +110,7 @@ export class JupyterExecutionFactory implements IJupyterExecution, IAsyncDisposa
         return execution.dispose();
     }
 
-    public async connectToNotebookServer(version: IRunnableJupyter, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer | undefined> {
+    public async connectToNotebookServer(version: IRunnableJupyter, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer> {
         const execution = await this.executionFactory.get();
         return execution.connectToNotebookServer(version, options, cancelToken);
 }
@@ -122,9 +122,9 @@ export class JupyterExecutionFactory implements IJupyterExecution, IAsyncDisposa
         const execution = await this.executionFactory.get();
         return execution.importNotebook(file, template);
     }
-    public async getServer(options?: INotebookServerOptions) : Promise<INotebookServer | undefined> {
+    public async getServer(runnable: IRunnableJupyter, options?: INotebookServerOptions) : Promise<INotebookServer | undefined> {
         const execution = await this.executionFactory.get();
-        return execution.getServer(options);
+        return execution.getServer(runnable, options);
     }
 
     private onSessionChanged() {

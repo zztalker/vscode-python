@@ -79,18 +79,18 @@ export class HostJupyterExecution
         }
     }
 
-    public async connectToNotebookServer(version: IRunnableJupyter, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer | undefined> {
+    public async connectToNotebookServer(runnable: IRunnableJupyter, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer> {
         // See if we have this server in our cache already or not
-        let result = await this.serverCache.get(options);
+        let result = await this.serverCache.get(runnable, options);
         if (result) {
             return result;
         } else {
             // Create the server
-            result = await super.connectToNotebookServer(version, await this.serverCache.generateDefaultOptions(options), cancelToken);
+            result = await super.connectToNotebookServer(runnable, await this.serverCache.generateDefaultOptions(options), cancelToken);
 
             // Save in our cache
             if (result) {
-                await this.serverCache.set(result, noop, options);
+                await this.serverCache.set(runnable, result, noop, options);
             }
             return result;
         }
@@ -121,9 +121,9 @@ export class HostJupyterExecution
         }
     }
 
-    public getServer(options?: INotebookServerOptions): Promise<INotebookServer | undefined> {
+    public getServer(runnable: IRunnableJupyter, options?: INotebookServerOptions): Promise<INotebookServer | undefined> {
         // See if we have this server or not.
-        return this.serverCache.get(options);
+        return this.serverCache.get(runnable, options);
     }
 
     private onRemoteConnectToNotebookServer = async (args: any[], cancellation: CancellationToken): Promise<IConnection | undefined> => {

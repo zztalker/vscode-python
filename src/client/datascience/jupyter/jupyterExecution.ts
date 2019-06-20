@@ -80,7 +80,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
     }
 
     //tslint:disable:cyclomatic-complexity
-    public connectToNotebookServer(version: IRunnableJupyter, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer | undefined> {
+    public connectToNotebookServer(version: IRunnableJupyter, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer> {
         // Return nothing if we cancel
         return Cancellation.race(async () => {
             let result: INotebookServer | undefined;
@@ -147,6 +147,9 @@ export class JupyterExecutionBase implements IJupyterExecution {
                     }
                 }
             }
+
+            // We definitely timed out if we got to here.
+            throw new JupyterWaitForIdleError(localize.DataScience.jupyterLaunchTimedOut());
         }, cancelToken);
     }
 
@@ -178,7 +181,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
         return result.stdout;
     }
 
-    public getServer(_options?: INotebookServerOptions): Promise<INotebookServer | undefined> {
+    public getServer(_runnable: IRunnableJupyter, _options?: INotebookServerOptions): Promise<INotebookServer | undefined> {
         // This is cached at the host or guest level
         return Promise.resolve(undefined);
     }

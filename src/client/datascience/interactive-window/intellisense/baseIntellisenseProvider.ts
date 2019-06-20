@@ -49,7 +49,7 @@ export abstract class BaseIntellisenseProvider implements IInteractiveWindowList
     constructor(
         @unmanaged() private workspaceService: IWorkspaceService,
         @unmanaged() private fileSystem: IFileSystem,
-        @unmanaged() private jupyterExecution: IJupyterExecution,
+        @unmanaged() _jupyterExecution: IJupyterExecution,
         @unmanaged() private interactiveWindowProvider: IInteractiveWindowProvider
     ) {
     }
@@ -207,7 +207,8 @@ export abstract class BaseIntellisenseProvider implements IInteractiveWindowList
 
     private async provideJupyterCompletionItems(position: monacoEditor.Position, _context: monacoEditor.languages.CompletionContext, cancelToken: CancellationToken) : Promise<monacoEditor.languages.CompletionList> {
         try {
-            const activeServer = await this.jupyterExecution.getServer(await this.interactiveWindowProvider.getNotebookOptions());
+            const currentWindow = this.interactiveWindowProvider.getActive();
+            const activeServer = currentWindow ? await currentWindow.getServer() : undefined;
             const document = await this.getDocument();
             if (activeServer && document) {
                 const code = document.getEditCellContent();

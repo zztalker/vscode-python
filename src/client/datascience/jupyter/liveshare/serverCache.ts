@@ -9,7 +9,7 @@ import * as uuid from 'uuid/v4';
 import { IWorkspaceService } from '../../../common/application/types';
 import { IFileSystem } from '../../../common/platform/types';
 import { IAsyncDisposable, IConfigurationService } from '../../../common/types';
-import { INotebookServer, INotebookServerOptions } from '../../types';
+import { INotebookServer, INotebookServerOptions, IRunnableJupyter } from '../../types';
 
 export class ServerCache implements IAsyncDisposable {
     private cache: Map<string, INotebookServer> = new Map<string, INotebookServer>();
@@ -21,17 +21,17 @@ export class ServerCache implements IAsyncDisposable {
         private fileSystem: IFileSystem
     ) { }
 
-    public async get(options?: INotebookServerOptions): Promise<INotebookServer | undefined> {
+    public async get(runnable: IRunnableJupyter, options?: INotebookServerOptions): Promise<INotebookServer | undefined> {
         const fixedOptions = await this.generateDefaultOptions(options);
-        const key = this.generateKey(fixedOptions);
+        const key = this.generateKey(runnable, fixedOptions);
         if (this.cache.has(key)) {
             return this.cache.get(key);
         }
     }
 
-    public async set(result: INotebookServer, disposeCallback: () => void, options?: INotebookServerOptions): Promise<void> {
+    public async set(runnable: IRunnableJupyter, result: INotebookServer, disposeCallback: () => void, options?: INotebookServerOptions): Promise<void> {
         const fixedOptions = await this.generateDefaultOptions(options);
-        const key = this.generateKey(fixedOptions);
+        const key = this.generateKey(runnable, fixedOptions);
 
         // Eliminate any already with this key
         const item = this.cache.get(key);
@@ -70,16 +70,16 @@ export class ServerCache implements IAsyncDisposable {
         };
     }
 
-    private generateKey(options?: INotebookServerOptions): string {
+    private generateKey(runnable: IRunnableJupyter, options?: INotebookServerOptions): string {
         if (!options) {
-            return this.emptyKey;
+            return `${runnable.name}${this.emptyKey}`;
         } else {
             // combine all the values together to make a unique key
             const uri = options.uri ? options.uri : '';
             const useFlag = options.useDefaultConfig ? 'true' : 'false';
             // tslint:disable-next-line:no-suspicious-comment
             // TODO: Should there be some separator in the key?
-            return `${options.purpose}${uri}${useFlag}${options.workingDir}`;
+            return `${runnable.name}${options.purpose}${uri}${useFlag}${options.workingDir}`;
         }
     }
 

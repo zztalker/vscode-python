@@ -74,8 +74,8 @@ export class GuestJupyterExecution extends LiveShareParticipantGuest(JupyterExec
         await this.serverCache.dispose();
     }
 
-    public async connectToNotebookServer(version: IRunnableJupyter, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer> {
-        let result: INotebookServer | undefined = await this.serverCache.get(options);
+    public async connectToNotebookServer(runnable: IRunnableJupyter, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<INotebookServer> {
+        let result: INotebookServer | undefined = await this.serverCache.get(runnable, options);
 
         // See if we already have this server or not.
         if (result) {
@@ -88,14 +88,14 @@ export class GuestJupyterExecution extends LiveShareParticipantGuest(JupyterExec
             const purpose = options ? options.purpose : uuid();
             const connection: IConnection = await service.request(
                 LiveShareCommands.connectToNotebookServer,
-                [version, options],
+                [runnable, options],
                 cancelToken);
 
             // If that works, then treat this as a remote server and connect to it
             if (connection && connection.baseUrl) {
                 const newUri = `${connection.baseUrl}?token=${connection.token}`;
                 result = await super.connectToNotebookServer(
-                    version,
+                    runnable,
                     {
                         resource: options && options.resource,
                         uri: newUri,
@@ -106,7 +106,7 @@ export class GuestJupyterExecution extends LiveShareParticipantGuest(JupyterExec
                     cancelToken);
                 // Save in our cache
                 if (result) {
-                    await this.serverCache.set(result, noop, options);
+                    await this.serverCache.set(runnable, result, noop, options);
                 }
             }
         }
@@ -134,7 +134,7 @@ export class GuestJupyterExecution extends LiveShareParticipantGuest(JupyterExec
         throw new Error(localize.DataScience.liveShareCannotSpawnNotebooks());
     }
 
-    public async getServer(options?: INotebookServerOptions) : Promise<INotebookServer | undefined> {
-        return this.serverCache.get(options);
+    public async getServer(runnable: IRunnableJupyter, options?: INotebookServerOptions) : Promise<INotebookServer | undefined> {
+        return this.serverCache.get(runnable, options);
     }
 }

@@ -55,7 +55,9 @@ import {
     INotebookExporter,
     INotebookImporter,
     INotebookServer,
+    INotebookServerOptions,
     InterruptResult,
+    IRunnableJupyter,
     IRunnableJupyterCache,
     IStatusProvider,
     IThemeFinder
@@ -64,6 +66,7 @@ import { WebViewHost } from '../webViewHost';
 import { InteractiveWindowMessageListener } from './interactiveWindowMessageListener';
 import {
     IAddedSysInfo,
+    IChangeRunnableVersion,
     ICopyCode,
     IGotoCode,
     IInteractiveWindowMapping,
@@ -83,8 +86,7 @@ export enum SysInfoReason {
 @injectable()
 export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> implements IInteractiveWindow  {
     private disposed: boolean = false;
-    private loadPromise: Promise<void> | undefined ;
-    private interpreterChangedDisposable: Disposable;
+    private loadPromise: Promise<INotebookServer> | undefined ;
     private closedEvent: EventEmitter<IInteractiveWindow>;
     private unfinishedCells: ICell[] = [];
     private restartingKernel: boolean = false;
@@ -133,9 +135,6 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         // Create our unique id. We use this to skip messages we send to other interactive windows
         this.id = uuid();
 
-        // Sign up for configuration changes
-        this.interpreterChangedDisposable = this.interpreterService.onDidChangeInterpreter(this.onInterpreterChanged);
-
         // Create our event emitter
         this.closedEvent = new EventEmitter<IInteractiveWindow>();
         this.disposables.push(this.closedEvent);
@@ -151,10 +150,17 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         this.listeners.forEach(l => l.postMessage((e) => this.postMessageInternal(e.message, e.payload)));
     }
 
-    public load(resource: Uri | undefined) : Promise<void> {
+    public getServer() : Promise<INotebookServer> {
+        if (this.loadPromise) {
+            return this.loadPromise;
+        }
+        return this.load(undefined);
+    }
+
+    public load(resource: Uri | undefined) : Promise<INotebookServer> {
         // We need this to ensure the history window is up and ready to receive messages.
         if (!this.loadPromise) {
-            this.loadPromise = this.loadInternal(resource);
+            this.loadPromise = this.loadFromResource(resource);
         }
         return this.loadPromise;
     }
@@ -276,6 +282,10 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
                 this.dispatchMessage(message, payload, this.requestOnigasm);
                 break;
 
+            case InteractiveWindowMessages.ChangeRunnableVersion:
+                this.dispatchMessage(message, payload, this.changeRunningJupyter);
+                break;
+
             default:
                 break;
         }
@@ -308,9 +318,6 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         if (!this.disposed) {
             this.disposed = true;
             this.listeners.forEach(l => l.dispose());
-            if (this.interpreterChangedDisposable) {
-                this.interpreterChangedDisposable.dispose();
-            }
             if (this.closedEvent) {
                 this.closedEvent.fire(this);
             }
@@ -643,7 +650,8 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
             if (exc instanceof JupyterKernelPromiseFailedError && this.jupyterServer) {
                 const resource = this.jupyterServer.startupResource;
                 await this.jupyterServer.dispose();
-                await this.loadJupyterServer(resource);
+                this.loadPromise = undefined;
+                await this.load(resource);
                 await this.addSysInfo(SysInfoReason.Restart);
             } else {
                 // Show the error message
@@ -831,31 +839,6 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         }
     }
 
-    private onInterpreterChanged = () => {
-        // Update our load promise. We need to restart the jupyter server
-        this.loadPromise = this.reloadWithNew(this.getActiveResource());
-    }
-
-    private async reloadWithNew(resource: Uri | undefined) : Promise<void> {
-        const status = this.setStatus(localize.DataScience.startingJupyter());
-        try {
-            // Not the same as reload, we need to actually dispose the server.
-            if (this.loadPromise) {
-                await this.loadPromise;
-                if (this.jupyterServer) {
-                    const server = this.jupyterServer;
-                    this.jupyterServer = undefined;
-                    await server.dispose();
-                }
-                this.loadPromise = undefined;
-            }
-            await this.load(resource);
-            await this.addSysInfo(SysInfoReason.New);
-        } finally {
-            status.dispose();
-        }
-    }
-
     private getActiveResource() : Uri | undefined {
         if (this.documentManager.activeTextEditor) {
             return Uri.file(this.documentManager.activeTextEditor.document.fileName);
@@ -863,7 +846,31 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         return undefined;
     }
 
-    private async reloadAfterShutdown(resource: Uri | undefined) : Promise<void> {
+    private async changeRunningJupyter(args: IChangeRunnableVersion) : Promise<void> {
+        let resource: Uri | undefined;
+        try {
+            if (this.loadPromise) {
+                await this.loadPromise;
+                if (this.jupyterServer) {
+                    const server = this.jupyterServer;
+                    resource = server.startupResource;
+                    this.jupyterServer = undefined;
+                    server.shutdown().ignoreErrors(); // Don't care what happens as we're disconnected.
+                }
+                this.loadPromise = undefined;
+            }
+        } catch {
+            // We just switched our running server. Don't really care
+            // if shutting down a server kills it.
+            this.jupyterServer = undefined;
+        }
+
+        // Reset our load promise and load from this new runnable.
+        this.loadPromise = this.loadFromRunnable(args.current, await this.interactiveWindowProvider.getNotebookOptions(resource));
+        await this.loadPromise;
+    }
+
+    private async reloadAfterShutdown(resource: Uri | undefined) : Promise<INotebookServer> {
         try {
             if (this.loadPromise) {
                 await this.loadPromise;
@@ -1000,30 +1007,6 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         }
     }
 
-    private async loadJupyterServer(resource: Uri | undefined): Promise<void> {
-        this.logger.logInformation('Getting jupyter server options ...');
-
-        // Wait for the webpanel to pass back our current theme darkness
-        const knownDark = await this.isDark();
-
-        // Extract our options
-        const options = await this.interactiveWindowProvider.getNotebookOptions();
-
-        this.logger.logInformation('Connecting to jupyter server ...');
-
-        const version = await this.runnableCache.get(resource);
-
-        // Now try to create a notebook server
-        this.jupyterServer = version ? await this.jupyterExecution.connectToNotebookServer(version, options) : undefined;
-
-        // Before we run any cells, update the dark setting
-        if (this.jupyterServer) {
-            await this.jupyterServer.setMatplotLibStyle(knownDark);
-        }
-
-        this.logger.logInformation('Connected to jupyter server.');
-    }
-
     private generateSysInfoCell = async (reason: SysInfoReason): Promise<ICell | undefined> => {
         // Execute the code 'import sys\r\nsys.version' and 'import sys\r\nsys.executable' to get our
         // version and executable
@@ -1149,26 +1132,35 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         }
     }
 
-    private async loadInternal(resource: Uri | undefined): Promise<void> {
+    private async loadFromRunnable(runnable: IRunnableJupyter | undefined, options: INotebookServerOptions) : Promise<INotebookServer> {
+        // Make sure we can start a notebook at least.
+        if (!runnable) {
+            throw new JupyterInstallError(localize.DataScience.jupyterNotSupported(), localize.DataScience.pythonInteractiveHelpLink());
+        }
+
         // Status depends upon if we're about to connect to existing server or not.
-        const existingServer = await this.jupyterExecution.getServer(await this.interactiveWindowProvider.getNotebookOptions(resource));
+        let existingServer = await this.jupyterExecution.getServer(runnable, options);
         const status = existingServer ?
             this.setStatus(localize.DataScience.connectingToJupyter()) : this.setStatus(localize.DataScience.startingJupyter());
 
         if (!existingServer) {
             try {
-                // Check to see if we support ipykernel or not
-                const usable = await this.checkUsable(resource);
-                if (!usable) {
-                    // Not loading anymore
-                    status.dispose();
+                // Wait for the webpanel to pass back our current theme darkness
+                const knownDark = await this.isDark();
 
-                    // Indicate failing.
-                    throw new JupyterInstallError(localize.DataScience.jupyterNotSupported(), localize.DataScience.pythonInteractiveHelpLink());
-                }
+                traceInfo('Connecting to jupyter server ...');
 
-                // Then load the jupyter server
-                await this.loadJupyterServer(resource);
+                // Now try to create a notebook server
+                this.jupyterServer = await this.jupyterExecution.connectToNotebookServer(runnable, options);
+
+                // Before we run any cells, update the dark setting
+                await this.jupyterServer.setMatplotLibStyle(knownDark);
+                existingServer = this.jupyterServer;
+                traceInfo('Connected to jupyter server.');
+
+                // Tell the window that we are picking a runnable now.
+                this.postMessage(InteractiveWindowMessages.RunnableVersions, { runnableVersions: await this.runnableCache.getAll() }).ignoreErrors();
+                this.postMessage(InteractiveWindowMessages.ChangeRunnableVersion, { current: runnable }).ignoreErrors();
 
             } catch (e) {
                 if (e instanceof JupyterSelfCertsError) {
@@ -1194,6 +1186,21 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
             this.jupyterServer = existingServer;
             status.dispose();
         }
+
+        return existingServer;
+    }
+
+    private async loadFromResource(resource: Uri | undefined): Promise<INotebookServer> {
+        const runnable = await this.runnableCache.get(resource);
+
+        // Check usable first.
+        if (!runnable || !await this.checkUsable(resource)) {
+            // Indicate failing.
+            throw new JupyterInstallError(localize.DataScience.jupyterNotSupported(), localize.DataScience.pythonInteractiveHelpLink());
+        }
+
+        // Then run
+        return this.loadFromRunnable(runnable, await this.interactiveWindowProvider.getNotebookOptions(resource));
     }
 
     private async requestVariables(requestExecutionCount: number): Promise<void> {

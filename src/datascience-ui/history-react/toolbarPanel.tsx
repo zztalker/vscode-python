@@ -5,6 +5,8 @@ import './toolbarPanel.css';
 
 import * as React from 'react';
 
+import { IRunnableJupyter } from '../../client/datascience/types';
+import { ComboBox } from '../react-common/comboBox';
 import { Image, ImageName } from '../react-common/image';
 import { ImageButton } from '../react-common/imageButton';
 import { getLocString } from '../react-common/locReactSide';
@@ -19,6 +21,9 @@ export interface IToolbarPanelProps {
     canUndo: boolean;
     canRedo: boolean;
     skipDefault?: boolean;
+    runnableVersions: IRunnableJupyter[];
+    currentRunnableVersion: number;
+    onChangeRunnable(index: number): void;
     addMarkdown(): void;
     collapseAll(): void;
     expandAll(): void;
@@ -37,8 +42,10 @@ export class ToolbarPanel extends React.Component<IToolbarPanelProps> {
 
     public render() {
         // note to self - tabIndex should not be provided as that's global to the whole page. Instead order of elements matters
+        const { runnableVersions, currentVersion } = this.generateRunnableVersions();
         return(
             <div id='toolbar-panel'>
+                <ComboBox values={runnableVersions} currentValue={currentVersion} onChange={this.changeRunnable} />
                 <MenuBar baseTheme={this.props.baseTheme}>
                     <ImageButton baseTheme={this.props.baseTheme} onClick={this.props.clearAll} tooltip={getLocString('DataScience.clearAll', 'Remove All Cells')}>
                         <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.Cancel}/>
@@ -77,5 +84,25 @@ export class ToolbarPanel extends React.Component<IToolbarPanelProps> {
         }
 
         return null;
+    }
+
+    private changeRunnable = (selected: {value: string; label: string}) => {
+        const index = this.props.runnableVersions.findIndex(r => r.name === selected.label);
+        this.props.onChangeRunnable(index);
+    }
+
+    private generateRunnableVersions() : { runnableVersions: {value: string; label: string}[]; currentVersion: number} {
+        const runnableVersions = this.props.runnableVersions.map(r => {
+            return {
+                value: r.name,
+                label: r.name
+            };
+        });
+        const currentVersion = this.props.currentRunnableVersion;
+
+        return {
+            runnableVersions,
+            currentVersion
+        };
     }
 }

@@ -4,7 +4,7 @@
 import * as monacoEditor from 'monaco-editor/esm/vs/editor/editor.api';
 
 import { CssMessages, IGetCssRequest, IGetCssResponse, SharedMessages } from '../messages';
-import { ICell, IInteractiveWindowInfo, IJupyterVariable, IJupyterVariablesResponse } from '../types';
+import { ICell, IInteractiveWindowInfo, IJupyterVariable, IJupyterVariablesResponse, IRunnableJupyter } from '../types';
 
 export namespace InteractiveWindowMessages {
     export const StartCell = 'start_cell';
@@ -56,6 +56,8 @@ export namespace InteractiveWindowMessages {
     export const LoadTmLanguageResponse = 'load_tmlanguage_response';
     export const OpenLink = 'open_link';
     export const ShowPlot = 'show_plot';
+    export const RunnableVersions = 'runnable_versions';
+    export const ChangeRunnableVersion = 'change_runnable_version';
 }
 
 // These are the messages that will mirror'd to guest/hosts in
@@ -160,6 +162,14 @@ export interface IShowDataViewer {
     columnSize: number;
 }
 
+export interface IRunnableVersions {
+    runnableVersions: IRunnableJupyter[];
+}
+
+export interface IChangeRunnableVersion {
+    current: IRunnableJupyter;
+}
+
 // Map all messages to specific payloads
 export class IInteractiveWindowMapping {
     public [InteractiveWindowMessages.StartCell]: ICell;
@@ -213,4 +223,6 @@ export class IInteractiveWindowMapping {
     public [InteractiveWindowMessages.LoadTmLanguageResponse]: string | undefined;
     public [InteractiveWindowMessages.OpenLink]: string | undefined;
     public [InteractiveWindowMessages.ShowPlot]: string | undefined;
+    public [InteractiveWindowMessages.RunnableVersions]: IRunnableVersions;
+    public [InteractiveWindowMessages.ChangeRunnableVersion]: IChangeRunnableVersion;
 }

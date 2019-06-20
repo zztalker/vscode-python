@@ -104,10 +104,10 @@ export const IJupyterExecution = Symbol('IJupyterExecution');
 export interface IJupyterExecution extends IAsyncDisposable {
     sessionChanged: Event<void> ;
     enumerateRunnableJupyters(serverURI?: string) : Promise<IRunnableJupyter[]>;
-    connectToNotebookServer(version: IRunnableJupyter, options?: INotebookServerOptions, cancelToken?: CancellationToken) : Promise<INotebookServer | undefined>;
+    connectToNotebookServer(version: IRunnableJupyter, options?: INotebookServerOptions, cancelToken?: CancellationToken) : Promise<INotebookServer>;
     spawnNotebook(version: IRunnableJupyter, file: string) : Promise<void>;
     importNotebook(file: string, template: string | undefined) : Promise<string>;
-    getServer(options?: INotebookServerOptions) : Promise<INotebookServer | undefined>;
+    getServer(runnable: IRunnableJupyter, options?: INotebookServerOptions) : Promise<INotebookServer | undefined>;
 }
 
 export interface IRunnableJupyter {
@@ -178,7 +178,8 @@ export const IInteractiveWindow = Symbol('IInteractiveWindow');
 export interface IInteractiveWindow extends Disposable {
     closed: Event<IInteractiveWindow>;
     onExecutedCode: Event<string>;
-    load(resource: Uri | undefined): Promise<void>;
+    getServer(): Promise<INotebookServer>;
+    load(resource: Uri | undefined): Promise<INotebookServer>;
     show() : Promise<void>;
     addCode(code: string, file: string, line: number, editor?: TextEditor) : Promise<void>;
     // tslint:disable-next-line:no-any
