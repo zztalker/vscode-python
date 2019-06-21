@@ -105,6 +105,9 @@ export class RunnableJupyterCache implements IRunnableJupyterCache {
     }
 
     private async serverUriChanged() : Promise<void> {
+        if (!this.remoteVersions.resolved) {
+            this.remoteVersions.resolve([]);
+        }
         this.remoteVersions = createDeferred<IRunnableJupyter[]>();
         const settings = this.configService.getSettings();
         if (settings && settings.datascience.jupyterServerURI && settings.datascience.jupyterServerURI !== Settings.JupyterServerLocalLaunch) {

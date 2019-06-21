@@ -202,6 +202,8 @@ export namespace DataScience {
     export const editSection = localize('DataScience.editSection', 'Input new cells here.');
     export const selectedImageListLabel = localize('DataScience.selectedImageListLabel', 'Selected Image');
     export const imageListLabel = localize('DataScience.imageListLabel', 'Image');
+    export const kernelDropdownHeader = localize('DataScience.kernelDropdownHeader', 'Kernel:');
+    export const kernelDropdownPlaceholder = localize('DataScience.kernelDropdownPlaceholder', 'Select Kernel ...');
 }
 
 export namespace DebugConfigStrings {

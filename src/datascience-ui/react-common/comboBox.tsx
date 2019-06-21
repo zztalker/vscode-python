@@ -11,6 +11,7 @@ import 'react-dropdown/style.css';
 import './comboBox.css';
 
 interface IComboBoxProps {
+    placeholder: string;
     values: { value: string; label: string }[];
     currentValue: number;
     // tslint:disable-next-line: no-any
@@ -30,6 +31,7 @@ export class ComboBox extends React.Component<IComboBoxProps> {
                 arrowClassName='combobox-arrow'
                 className='combobox-container'
                 menuClassName='combobox-menu'
+                placeholder={this.props.placeholder}
                 value={currentValue}
                 options={this.props.values}
                 onChange={this.props.onChange}/>

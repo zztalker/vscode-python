@@ -164,6 +164,7 @@ export interface IShowDataViewer {
 
 export interface IRunnableVersions {
     runnableVersions: IRunnableJupyter[];
+    current: IRunnableJupyter;
 }
 
 export interface IChangeRunnableVersion {

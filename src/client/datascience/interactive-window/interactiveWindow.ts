@@ -1145,6 +1145,9 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
 
         if (!existingServer) {
             try {
+                // Tell the window that we are picking a runnable now.
+                this.postMessage(InteractiveWindowMessages.RunnableVersions, { runnableVersions: await this.runnableCache.getAll(), current: runnable }).ignoreErrors();
+
                 // Wait for the webpanel to pass back our current theme darkness
                 const knownDark = await this.isDark();
 
@@ -1157,11 +1160,6 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
                 await this.jupyterServer.setMatplotLibStyle(knownDark);
                 existingServer = this.jupyterServer;
                 traceInfo('Connected to jupyter server.');
-
-                // Tell the window that we are picking a runnable now.
-                this.postMessage(InteractiveWindowMessages.RunnableVersions, { runnableVersions: await this.runnableCache.getAll() }).ignoreErrors();
-                this.postMessage(InteractiveWindowMessages.ChangeRunnableVersion, { current: runnable }).ignoreErrors();
-
             } catch (e) {
                 if (e instanceof JupyterSelfCertsError) {
                     // On a self cert error, warn the user and ask if they want to change the setting
@@ -1183,6 +1181,14 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
                 status.dispose();
             }
         } else {
+            // Compute a different runnable from the existing server
+            const existingRunnable = await this.runnableCache.get(existingServer.startupResource);
+            runnable = existingRunnable ? existingRunnable : runnable;
+
+            // Tell the window that we are picking a runnable now.
+            this.postMessage(InteractiveWindowMessages.RunnableVersions, { runnableVersions: await this.runnableCache.getAll(), current: runnable }).ignoreErrors();
+
+            // Save the server.
             this.jupyterServer = existingServer;
             status.dispose();
         }

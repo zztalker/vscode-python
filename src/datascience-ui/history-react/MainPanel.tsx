@@ -11,7 +11,7 @@ import { noop } from '../../client/common/utils/misc';
 import { CellMatcher } from '../../client/datascience/cellMatcher';
 import { generateMarkdownFromCodeLines } from '../../client/datascience/common';
 import { Identifiers } from '../../client/datascience/constants';
-import { IChangeRunnableVersion, IInteractiveWindowMapping, InteractiveWindowMessages, IRunnableVersions } from '../../client/datascience/interactive-window/interactiveWindowTypes';
+import { IInteractiveWindowMapping, InteractiveWindowMessages, IRunnableVersions } from '../../client/datascience/interactive-window/interactiveWindowTypes';
 import { CellState, ICell, IInteractiveWindowInfo, IJupyterVariable, IJupyterVariablesResponse } from '../../client/datascience/types';
 import { ErrorBoundary } from '../react-common/errorBoundary';
 import { getLocString } from '../react-common/locReactSide';
@@ -244,10 +244,6 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
                 this.handleRunnableUpdate(payload);
                 break;
 
-            case InteractiveWindowMessages.ChangeRunnableVersion:
-                this.handleRunnablePick(payload);
-                break;
-
             default:
                 break;
         }
@@ -277,14 +273,10 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
     // }
 
     private handleRunnableUpdate(runnableUpdate: IRunnableVersions) {
+        const currentIndex = runnableUpdate.runnableVersions.findIndex(r => r.name === runnableUpdate.current.name);
         this.setState({
-            runnableVersions: runnableUpdate.runnableVersions
-        });
-    }
-
-    private handleRunnablePick(pick: IChangeRunnableVersion) {
-        this.setState({
-            currentRunnableVersion: this.state.runnableVersions.indexOf(pick.current)
+            runnableVersions: runnableUpdate.runnableVersions,
+            currentRunnableVersion: currentIndex
         });
     }
 

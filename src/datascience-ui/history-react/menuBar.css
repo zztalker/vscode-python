@@ -4,4 +4,6 @@
     display: flex;
     flex-direction: row-reverse;
     justify-content: right;
+    font-size: var(--code-font-size);
+    font-family: var(--code-font-family);
 }
