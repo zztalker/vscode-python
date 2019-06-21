@@ -101,6 +101,7 @@ export namespace DataScience {
     export const jupyterNbConvertNotSupported = localize('DataScience.jupyterNbConvertNotSupported', 'Jupyter nbconvert is not installed');
     export const jupyterLaunchTimedOut = localize('DataScience.jupyterLaunchTimedOut', 'The Jupyter notebook server failed to launch in time');
     export const jupyterLaunchNoURL = localize('DataScience.jupyterLaunchNoURL', 'Failed to find the URL of the launched Jupyter notebook server');
+    export const jupyterLaunchRemoteNotFound = localize('DataScience.jupyterLaunchRemoteNotFound', 'Cannot connect to remote Jupyter URI: {0}');
     export const jupyterSelfCertFail = localize('DataScience.jupyterSelfCertFail', 'The security certificate used by server {0} was not issued by a trusted certificate authority.\r\nThis may indicate an attempt to steal your information.\r\nDo you want to enable the Allow Unauthorized Remote Connection setting for this workspace to allow you to connect?');
     export const jupyterSelfCertEnable = localize('DataScience.jupyterSelfCertEnable', 'Yes, connect anyways');
     export const jupyterSelfCertClose = localize('DataScience.jupyterSelfCertClose', 'No, close the connection');

@@ -42,14 +42,10 @@ export class ToolbarPanel extends React.Component<IToolbarPanelProps> {
 
     public render() {
         // note to self - tabIndex should not be provided as that's global to the whole page. Instead order of elements matters
-        const { runnableVersions, currentVersion } = this.generateRunnableVersions();
         return(
             <div id='toolbar-panel'>
                 <MenuBar baseTheme={this.props.baseTheme}>
-                    <div className='kernel'>
-                        <span className='kernel-prefix'>{getLocString('DataScience.kernelDropdownHeader', 'Kernel: ')}</span>
-                        <ComboBox placeholder={getLocString('DataScience.kernelDropdownPlaceholder', 'Select Kernel ...')} values={runnableVersions} currentValue={currentVersion} onChange={this.changeRunnable} />
-                    </div>
+                    {this.renderKernel()}
                     <ImageButton baseTheme={this.props.baseTheme} onClick={this.props.clearAll} tooltip={getLocString('DataScience.clearAll', 'Remove All Cells')}>
                         <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.Cancel}/>
                     </ImageButton>
@@ -78,6 +74,20 @@ export class ToolbarPanel extends React.Component<IToolbarPanelProps> {
                 </MenuBar>
             </div>
         );
+    }
+
+    private renderKernel = () => {
+        if (this.props.runnableVersions && this.props.runnableVersions.length > 0) {
+            const { runnableVersions, currentVersion } = this.generateRunnableVersions();
+            return (
+                <div className='kernel'>
+                    <span className='kernel-prefix'>{getLocString('DataScience.kernelDropdownHeader', 'Kernel: ')}</span>
+                    <ComboBox placeholder={getLocString('DataScience.kernelDropdownPlaceholder', 'Select Kernel ...')} values={runnableVersions} currentValue={currentVersion} onChange={this.changeRunnable} />
+                </div>
+            );
+        }
+
+        return null;
     }
 
     private renderExtraButtons = () => {

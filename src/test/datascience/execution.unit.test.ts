@@ -587,7 +587,6 @@ suite('Jupyter Execution', async () => {
             instance(activationHelper),
             instance(processServiceFactory),
             instance(interpreterService),
-            instance(workspaceService),
             disposableRegistry,
             instance(configService),
             instance(knownSearchPaths),

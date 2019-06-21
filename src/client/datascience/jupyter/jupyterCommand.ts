@@ -6,7 +6,6 @@ import * as path from 'path';
 import { CancellationToken, Uri } from 'vscode';
 
 import { Cancellation } from '../../../client/common/cancellation';
-import { IWorkspaceService } from '../../common/application/types';
 import { traceInfo, traceWarning } from '../../common/logger';
 import { IFileSystem } from '../../common/platform/types';
 import {
@@ -119,7 +118,6 @@ export class JupyterCommandFactory implements IJupyterCommandFactory, IDisposabl
         @inject(IEnvironmentActivationService) private activationHelper : IEnvironmentActivationService,
         @inject(IProcessServiceFactory) private processServiceFactory: IProcessServiceFactory,
         @inject(IInterpreterService) private interpreterService: IInterpreterService,
-        @inject(IWorkspaceService) workspace: IWorkspaceService,
         @inject(IDisposableRegistry) private disposableRegistry: IDisposableRegistry,
         @inject(IConfigurationService) private configuration: IConfigurationService,
         @inject(IKnownSearchPathsForInterpreters) private knownSearchPaths: IKnownSearchPathsForInterpreters,
@@ -128,16 +126,6 @@ export class JupyterCommandFactory implements IJupyterCommandFactory, IDisposabl
     ) {
         this.disposableRegistry.push(this.interpreterService.onDidChangeInterpreter(() => this.onSettingsChanged()));
         this.disposableRegistry.push(this);
-
-        if (workspace) {
-            const disposable = workspace.onDidChangeConfiguration(e => {
-                if (e.affectsConfiguration('python.dataScience', undefined)) {
-                    // When config changes happen, recreate our commands.
-                    this.onSettingsChanged();
-                }
-            });
-            this.disposableRegistry.push(disposable);
-        }
     }
 
     public dispose() : void {
@@ -153,14 +141,14 @@ export class JupyterCommandFactory implements IJupyterCommandFactory, IDisposabl
     // - Look in other interpreters, if found create something with python path and -m module
     // - Look on path for jupyter, if found create something with jupyter path and args
     // tslint:disable:cyclomatic-complexity
-    public async getBestCommand(resource: Uri | undefined, command: string, cancelToken?: CancellationToken): Promise<IJupyterCommand | undefined> {
+    public async getResourceCommand(resource: Uri | undefined, command: string, cancelToken?: CancellationToken): Promise<IJupyterCommand | undefined> {
         // See if we already have this command in list
         if (!this.uriCommands.has(command)) {
             // Not found, try to find it.
 
             // First we look in the current interpreter
             const current = await this.interpreterService.getActiveInterpreter(resource);
-            let found = current ? await this.getExactCommand(current, command, cancelToken) : undefined;
+            let found = current ? await this.getInterpreterCommand(current, command, cancelToken) : undefined;
             if (!found) {
                 traceInfo(`Active interpreter does not support ${command}. Interpreter is ${current ? current.displayName : 'undefined'}.`);
             }
@@ -172,7 +160,7 @@ export class JupyterCommandFactory implements IJupyterCommandFactory, IDisposabl
                     traceWarning('No interpreters found. Jupyter cannot run.');
                 }
 
-                const promises = all.filter(i => i !== current).map(i => this.getExactCommand(i, command, cancelToken));
+                const promises = all.filter(i => i !== current).map(i => this.getInterpreterCommand(i, command, cancelToken));
                 const foundList = await Promise.all(promises);
 
                 // Then go through all of the found ones and pick the closest python match
@@ -222,7 +210,7 @@ export class JupyterCommandFactory implements IJupyterCommandFactory, IDisposabl
         return this.uriCommands.get(command);
     }
 
-    public async getExactCommand(interpreter: PythonInterpreter, command: string, cancelToken?: CancellationToken): Promise<IJupyterCommand | undefined> {
+    public async getInterpreterCommand(interpreter: PythonInterpreter, command: string, cancelToken?: CancellationToken): Promise<IJupyterCommand | undefined> {
         // May be cached already
         const key = this.generateInterpreterCommandKey(interpreter, command);
         if (!this.interpreterCommands.has(key)) {

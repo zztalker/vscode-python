@@ -849,13 +849,14 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
     private async changeRunningJupyter(args: IChangeRunnableVersion) : Promise<void> {
         let resource: Uri | undefined;
         try {
+            this.addSysInfoPromise = undefined;
             if (this.loadPromise) {
                 await this.loadPromise;
                 if (this.jupyterServer) {
                     const server = this.jupyterServer;
                     resource = server.startupResource;
                     this.jupyterServer = undefined;
-                    server.shutdown().ignoreErrors(); // Don't care what happens as we're disconnected.
+                    server.dispose().ignoreErrors(); // Don't care what happens as we're disconnected.
                 }
                 this.loadPromise = undefined;
             }
@@ -868,6 +869,9 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         // Reset our load promise and load from this new runnable.
         this.loadPromise = this.loadFromRunnable(args.current, await this.interactiveWindowProvider.getNotebookOptions(resource));
         await this.loadPromise;
+
+        // Add sys info showing a restart
+        await this.addSysInfo(SysInfoReason.Start);
     }
 
     private async reloadAfterShutdown(resource: Uri | undefined) : Promise<INotebookServer> {
@@ -1103,7 +1107,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         try {
             activeInterpreter = await this.interpreterService.getActiveInterpreter(resource);
             const usableVersion = await this.runnableCache.get(resource);
-            if (usableVersion) {
+            if (usableVersion && usableVersion.type === 'local') {
                 // See if the usable version is not our active one. If so, show a warning
                 // Only do this if not the guest in a liveshare session
                 const api = await this.liveShare.getApi();
@@ -1125,7 +1129,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
             // Can't find a usable interpreter, show the error.
             if (activeInterpreter) {
                 const displayName = activeInterpreter.displayName ? activeInterpreter.displayName : activeInterpreter.path;
-                throw new Error(localize.DataScience.jupyterNotSupportedBecauseOfEnvironment().format(displayName, e.toString()));
+                throw new JupyterInstallError(localize.DataScience.jupyterNotSupportedBecauseOfEnvironment().format(displayName, e.toString()), localize.DataScience.pythonInteractiveHelpLink());
             } else {
                 throw new JupyterInstallError(localize.DataScience.jupyterNotSupported(), localize.DataScience.pythonInteractiveHelpLink());
             }
@@ -1199,9 +1203,14 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
     private async loadFromResource(resource: Uri | undefined): Promise<INotebookServer> {
         const runnable = await this.runnableCache.get(resource);
 
-        // Check usable first.
+        // Check to see if local or remote
+        if (!runnable && this.runnableCache.isRemote) {
+            // This means we can't communicate with the remote session
+            throw new Error(localize.DataScience.jupyterLaunchRemoteNotFound().format(this.configuration.getSettings().datascience.jupyterServerURI));
+        }
+
         if (!runnable || !await this.checkUsable(resource)) {
-            // Indicate failing.
+            // Then local doesn't work because jupyter isn't installed anywhere.
             throw new JupyterInstallError(localize.DataScience.jupyterNotSupported(), localize.DataScience.pythonInteractiveHelpLink());
         }
 

@@ -13,7 +13,7 @@ import { CancellationToken, Event, EventEmitter, Uri } from 'vscode';
 import { ILiveShareApi, IWorkspaceService } from '../../common/application/types';
 import { Cancellation, CancellationError } from '../../common/cancellation';
 import { PYTHON_LANGUAGE } from '../../common/constants';
-import { traceInfo } from '../../common/logger';
+import { traceInfo, traceWarning } from '../../common/logger';
 import { IFileSystem, TemporaryDirectory } from '../../common/platform/types';
 import { IProcessServiceFactory, IPythonExecutionFactory, SpawnOptions } from '../../common/process/types';
 import { IAsyncDisposableRegistry, IConfigurationService, IDisposableRegistry, ILogger } from '../../common/types';
@@ -36,6 +36,7 @@ import {
     IRunnableJupyter
 } from '../types';
 import { JupyterConnection, JupyterServerInfo } from './jupyterConnection';
+import { JupyterInstallError } from './jupyterInstallError';
 import { JupyterKernelSpec } from './jupyterKernelSpec';
 import { JupyterSelfCertsError } from './jupyterSelfCertsError';
 import { JupyterWaitForIdleError } from './jupyterWaitForIdleError';
@@ -155,19 +156,23 @@ export class JupyterExecutionBase implements IJupyterExecution {
     }
 
     public async spawnNotebook(version: IRunnableJupyter, file: string): Promise<void> {
-        if (!version || !version.launchCommand) {
-            throw new Error(localize.DataScience.jupyterNotSupported());
+        if (!version || !version.launchCommand || !version.interpreter) {
+            throw new JupyterInstallError(localize.DataScience.jupyterNotSupported(), localize.DataScience.pythonInteractiveHelpLink());
+        }
+        const command = await this.commandFactory.getInterpreterCommand(version.interpreter, version.launchCommand);
+        if (!command) {
+            throw new JupyterInstallError(localize.DataScience.jupyterNotSupported(), localize.DataScience.pythonInteractiveHelpLink());
         }
 
         const args: string[] = [`--NotebookApp.file_to_run=${file}`];
 
         // Don't wait for the exec to finish and don't dispose. It's up to the user to kill the process
-        version.launchCommand.exec(args, { throwOnStdErr: false, encoding: 'utf8' }).ignoreErrors();
+        command.exec(args, { throwOnStdErr: false, encoding: 'utf8' }).ignoreErrors();
     }
 
     public async importNotebook(file: string, template: string | undefined): Promise<string> {
         // First we find a way to start a nbconvert
-        const convert = await this.commandFactory.getBestCommand(Uri.file(file), JupyterCommands.ConvertCommand);
+        const convert = await this.commandFactory.getResourceCommand(Uri.file(file), JupyterCommands.ConvertCommand);
         if (!convert) {
             throw new Error(localize.DataScience.jupyterNbConvertNotSupported());
         }
@@ -222,12 +227,12 @@ export class JupyterExecutionBase implements IJupyterExecution {
 
     private async isKernelSpecSupported(interpreter: PythonInterpreter, cancelToken?: CancellationToken): Promise<boolean> {
         // See if we can find the command kernelspec
-        return (await this.commandFactory.getExactCommand(interpreter, JupyterCommands.KernelCreateCommand, cancelToken)) !== undefined;
+        return (await this.commandFactory.getInterpreterCommand(interpreter, JupyterCommands.KernelCreateCommand, cancelToken)) !== undefined;
     }
 
     private async isKernelCreateSupported(interpreter: PythonInterpreter, cancelToken?: CancellationToken): Promise<boolean> {
         // See if we can find the command kernelspec
-        return (await this.commandFactory.getExactCommand(interpreter, JupyterCommands.KernelSpecCommand, cancelToken)) !== undefined;
+        return (await this.commandFactory.getInterpreterCommand(interpreter, JupyterCommands.KernelSpecCommand, cancelToken)) !== undefined;
     }
 
     private async enumerateInterpreterVersions() : Promise<IRunnableJupyter[]> {
@@ -251,33 +256,39 @@ export class JupyterExecutionBase implements IJupyterExecution {
     }
 
     private async getInterpreterVersion(interpreter: PythonInterpreter) : Promise<IRunnableJupyter | undefined> {
-        // First check jupyter notebook
-        const notebookCommand = await this.commandFactory.getExactCommand(interpreter, JupyterCommands.NotebookCommand);
-        if (notebookCommand) {
-            // Now we need to enumerate the specs for this notebook and see if one of them matches the python path
-            // for the interpreter
-            const matchingSpec = await this.getMatchingKernelSpec(interpreter);
+        try {
+            // First check jupyter notebook
+            const notebookCommand = await this.commandFactory.getInterpreterCommand(interpreter, JupyterCommands.NotebookCommand);
+            if (notebookCommand) {
+                // Now we need to enumerate the specs for this notebook and see if one of them matches the python path
+                // for the interpreter
+                const matchingSpec = await this.getMatchingKernelSpec(interpreter);
 
-            // If that worked, this is a valid interpreter
-            if (matchingSpec) {
-                return {
-                    name: interpreter.displayName ? interpreter.displayName : interpreter.path,
-                    type: 'local',
-                    interpreter,
-                    spec: matchingSpec
-                };
+                // If that worked, this is a valid interpreter
+                if (matchingSpec) {
+                    return {
+                        name: interpreter.displayName ? interpreter.displayName : interpreter.path,
+                        type: 'local',
+                        interpreter,
+                        spec: matchingSpec,
+                        launchCommand: JupyterCommands.NotebookCommand
+                    };
+                }
             }
+        } catch (e) {
+            // Failure just means to skip this one for now.
+            traceWarning(e);
         }
     }
 
-    private async startOrConnect(version: IRunnableJupyter, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<{ connection: IConnection; kernelSpec: IJupyterKernelSpec | undefined }> {
+    private async startOrConnect(runnable: IRunnableJupyter, options?: INotebookServerOptions, cancelToken?: CancellationToken): Promise<{ connection: IConnection; kernelSpec: IJupyterKernelSpec | undefined }> {
         let connection: IConnection | undefined;
         let kernelSpec: IJupyterKernelSpec | undefined;
 
         // If our uri is undefined or if it's set to local launch we need to launch a server locally
         if (!options || !options.uri) {
             traceInfo(`Launching ${options ? options.purpose : 'unknown type of'} server`);
-            const launchResults = await this.startNotebookServer(version, options && options.useDefaultConfig ? true : false, cancelToken);
+            const launchResults = await this.startNotebookServer(runnable, options && options.useDefaultConfig ? true : false, cancelToken);
             if (launchResults) {
                 connection = launchResults.connection;
                 kernelSpec = launchResults.kernelSpec;
@@ -291,13 +302,13 @@ export class JupyterExecutionBase implements IJupyterExecution {
         } else {
             // If we have a URI spec up a connection info for it
             connection = this.createRemoteConnectionInfo(options.uri);
-            kernelSpec = version.spec;
+            kernelSpec = runnable.spec;
         }
 
         // If we don't have a kernel spec yet, check using our current connection
-        if (!kernelSpec && connection && connection.localLaunch && version.interpreter) {
+        if (!kernelSpec && connection && connection.localLaunch && runnable.interpreter) {
             traceInfo(`Getting kernel specs for ${options ? options.purpose : 'unknown type of'} server`);
-            kernelSpec = await this.getMatchingKernelSpec(version.interpreter, connection, cancelToken);
+            kernelSpec = await this.getMatchingKernelSpec(runnable.interpreter, connection, cancelToken);
         }
 
         // If still not found, log an error (this seems possible for some people, so use the default)
@@ -333,10 +344,14 @@ export class JupyterExecutionBase implements IJupyterExecution {
 
     // tslint:disable-next-line: max-func-body-length
     @captureTelemetry(Telemetry.StartJupyter)
-    private async startNotebookServer(version: IRunnableJupyter, useDefaultConfig: boolean, cancelToken?: CancellationToken): Promise<{ connection: IConnection; kernelSpec: IJupyterKernelSpec | undefined }> {
+    private async startNotebookServer(runnable: IRunnableJupyter, useDefaultConfig: boolean, cancelToken?: CancellationToken): Promise<{ connection: IConnection; kernelSpec: IJupyterKernelSpec | undefined }> {
         // Double check this is supported
-        if (!version.launchCommand) {
-            throw new Error(localize.DataScience.jupyterNotSupported());
+        if (!runnable.interpreter || !runnable.launchCommand) {
+            throw new JupyterInstallError(localize.DataScience.jupyterNotSupported(), localize.DataScience.pythonInteractiveHelpLink());
+        }
+        const command = await this.commandFactory.getInterpreterCommand(runnable.interpreter, runnable.launchCommand, cancelToken);
+        if (!command) {
+            throw new JupyterInstallError(localize.DataScience.jupyterNotSupported(), localize.DataScience.pythonInteractiveHelpLink());
         }
 
         // Now actually launch it
@@ -393,7 +408,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
             const args: string[] = [...['--no-browser', `--notebook-dir=${tempDir.path}`], ...extraArgs];
 
             // Before starting the notebook process, make sure we generate a kernel spec
-            const kernelSpec = await this.getMatchingKernelSpec(version.interpreter, undefined, cancelToken);
+            const kernelSpec = await this.getMatchingKernelSpec(runnable.interpreter, undefined, cancelToken);
 
             // Make sure we haven't canceled already.
             if (cancelToken && cancelToken.isCancellationRequested) {
@@ -401,7 +416,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
             }
 
             // Then use this to launch our notebook process.
-            const launchResult = await version.launchCommand.execObservable(args, { throwOnStdErr: false, encoding: 'utf8', token: cancelToken });
+            const launchResult = await command.execObservable(args, { throwOnStdErr: false, encoding: 'utf8', token: cancelToken });
 
             // Watch for premature exits
             if (launchResult.proc) {
@@ -462,7 +477,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
 
     private async addMatchingSpec(interpreter: PythonInterpreter, cancelToken?: CancellationToken): Promise<void> {
         const displayName = localize.DataScience.historyTitle();
-        const ipykernelCommand = await this.commandFactory.getExactCommand(interpreter, JupyterCommands.KernelCreateCommand, cancelToken);
+        const ipykernelCommand = await this.commandFactory.getInterpreterCommand(interpreter, JupyterCommands.KernelCreateCommand, cancelToken);
 
         // If this fails, then we just skip this spec
         try {
@@ -655,7 +670,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
 
     private enumerateSpecs = async (interpreter: PythonInterpreter, cancelToken?: CancellationToken): Promise<(JupyterKernelSpec | undefined)[]> => {
         if (await this.isKernelSpecSupported(interpreter, cancelToken)) {
-            const kernelSpecCommand = await this.commandFactory.getExactCommand(interpreter, JupyterCommands.KernelSpecCommand, cancelToken);
+            const kernelSpecCommand = await this.commandFactory.getInterpreterCommand(interpreter, JupyterCommands.KernelSpecCommand, cancelToken);
 
             if (kernelSpecCommand) {
                 try {

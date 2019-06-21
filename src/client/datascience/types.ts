@@ -115,11 +115,12 @@ export interface IRunnableJupyter {
     name: string;
     interpreter?: PythonInterpreter;
     spec?: IJupyterKernelSpec;
-    launchCommand?: IJupyterCommand;
+    launchCommand?: string;
 }
 
 export const IRunnableJupyterCache = Symbol('IRunnableJupyterCache');
 export interface IRunnableJupyterCache {
+    isRemote: boolean;
     get(resource: Uri | undefined) : Promise<IRunnableJupyter | undefined>;
     getAll() : Promise<IRunnableJupyter[]>;
 }
@@ -312,8 +313,8 @@ export interface IJupyterCommand {
 
 export const IJupyterCommandFactory = Symbol('IJupyterCommandFactory');
 export interface IJupyterCommandFactory {
-    getBestCommand(resource: Uri | undefined, command: string, cancelToken?: CancellationToken): Promise<IJupyterCommand | undefined>;
-    getExactCommand(intrepreter: PythonInterpreter, command: string, cancelToken?: CancellationToken) : Promise<IJupyterCommand | undefined>;
+    getResourceCommand(resource: Uri | undefined, command: string, cancelToken?: CancellationToken): Promise<IJupyterCommand | undefined>;
+    getInterpreterCommand(intrepreter: PythonInterpreter, command: string, cancelToken?: CancellationToken) : Promise<IJupyterCommand | undefined>;
 }
 
 // Config settings we pass to our react code

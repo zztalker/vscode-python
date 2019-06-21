@@ -3,6 +3,7 @@
 'use strict';
 import { inject, injectable } from 'inversify';
 
+import { traceInfo } from '../../common/logger';
 import { IConfigurationService, IDisposableRegistry, Resource } from '../../common/types';
 import { createDeferred, Deferred } from '../../common/utils/async';
 import { IInterpreterService } from '../../interpreter/contracts';
@@ -93,14 +94,16 @@ export class RunnableJupyterCache implements IRunnableJupyterCache {
         }
     }
 
-    private get isRemote() : boolean {
+    public get isRemote() : boolean {
         const settings = this.configService.getSettings();
         return settings && settings.datascience.jupyterServerURI !== undefined && settings.datascience.jupyterServerURI !== Settings.JupyterServerLocalLaunch;
     }
 
     private async haveInterpreters() : Promise<void> {
+        traceInfo('Interpreters found, enumerating jupyter versions');
         // We have all of the interpreters. We can now ask for all of the versions
         const versions = await this.execution.enumerateRunnableJupyters();
+        traceInfo(`Found ${versions.length} viable jupyter interpreters`);
         this.localVersions.resolve(versions);
     }
 

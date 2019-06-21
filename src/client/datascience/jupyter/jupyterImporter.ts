@@ -57,7 +57,7 @@ export class JupyterImporter implements INotebookImporter {
         }
 
         // Use the jupyter nbconvert functionality to turn the notebook into a python file
-        if (await this.commandFactory.getBestCommand(Uri.file(file), JupyterCommands.ConvertCommand)) {
+        if (await this.commandFactory.getResourceCommand(Uri.file(file), JupyterCommands.ConvertCommand)) {
             const fileOutput: string = await this.jupyterExecution.importNotebook(file, template);
             if (directoryChange) {
                 return this.addDirectoryChange(fileOutput, directoryChange);
