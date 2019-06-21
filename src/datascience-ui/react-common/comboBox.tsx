@@ -5,15 +5,16 @@
 
 import * as React from 'react';
 // tslint:disable-next-line: import-name match-default-export-name
-import Select from 'react-select';
-import { ValueType } from 'react-select/lib/types';
+import Dropdown from 'react-dropdown';
+import 'react-dropdown/style.css';
 
 import './comboBox.css';
 
 interface IComboBoxProps {
     values: { value: string; label: string }[];
     currentValue: number;
-    onChange(selected: ValueType<{value: string; label: string}>): void;
+    // tslint:disable-next-line: no-any
+    onChange(selected: any): void;
 }
 
 export class ComboBox extends React.Component<IComboBoxProps> {
@@ -24,9 +25,11 @@ export class ComboBox extends React.Component<IComboBoxProps> {
     public render() {
         const currentValue = this.props.values.length > this.props.currentValue ? this.props.values[this.props.currentValue] : undefined ;
         return (
-            <Select
-                classNamePrefix='combobox'
+            <Dropdown
+                controlClassName='combobox'
+                arrowClassName='combobox-arrow'
                 className='combobox-container'
+                menuClassName='combobox-menu'
                 value={currentValue}
                 options={this.props.values}
                 onChange={this.props.onChange}/>

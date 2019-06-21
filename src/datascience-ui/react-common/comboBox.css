@@ -1,15 +1,52 @@
 .combobox-container {
-    background-color: var(--vscode-editor-background);
+    background-color: var(--override-background, var(--vscode-editor-background));
+    position: relative;
+    text-align:center;
+    margin: 2px;
 }
 
-.combobox__control {
-    background-color: var(--vscode-editor-background);
+.combobox {
+    border-color: var(--override-badge-background, var(--vscode-badge-background));
+    border-style: solid;
+    border-width: 1px;
+    border-radius: 0;
+    color: var(--override-foreground, var(--vscode-editor-foreground));
+    padding-top: 1px;
+    padding-bottom: 1px;
+    display: inline-block;
+    vertical-align: middle;
+    line-height: normal;
 }
 
-.combobox__value-indicator {
-    background-color: var(--vscode-editor-background);
+.combobox-arrow {
+    border-top-color: var(--override-badge-background, var(--vscode-badge-background));
+    top: 5px;
 }
 
-.combobox__indicators {
-    background-color: var(--vscode-editor-background);
+.is-open .combobox-arrow {
+    border-top-color: var(--override-badge-background, var(--vscode-badge-background));
+    top: 5px;
+}
+
+.combobox-menu {
+    border-color: var(--override-badge-background, var(--vscode-badge-background));
+    border-style: solid;
+    border-width: 1px;
+    border-radius: 0;
+    text-align:left;
+}
+
+.Dropdown-option {
+    color: var(--override-foreground, var(--vscode-editor-foreground));
+    background-color: var(--override-background, var(--vscode-editor-background));
+}
+
+.Dropdown-option:hover {
+    color: var(--override-foreground, var(--vscode-editor-foreground));
+    background-color: var(--override-selection-background, var(--vscode-editor-selectionBackground));
+}
+
+.Dropdown-option.is-selected {
+    color: var(--override-foreground, var(--vscode-editor-foreground));
+    background-color: var(--override-selection-background, var(--vscode-editor-selectionBackground));
 }

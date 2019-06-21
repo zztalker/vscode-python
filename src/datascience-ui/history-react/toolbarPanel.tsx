@@ -46,7 +46,10 @@ export class ToolbarPanel extends React.Component<IToolbarPanelProps> {
         return(
             <div id='toolbar-panel'>
                 <MenuBar baseTheme={this.props.baseTheme}>
-                    <ComboBox values={runnableVersions} currentValue={currentVersion} onChange={this.changeRunnable} />
+                    <div className='kernel'>
+                        <span className='kernel-prefix'>{getLocString('DataScience.kernelDropdownHeader', 'Kernel: ')}</span>
+                        <ComboBox values={runnableVersions} currentValue={currentVersion} onChange={this.changeRunnable} />
+                    </div>
                     <ImageButton baseTheme={this.props.baseTheme} onClick={this.props.clearAll} tooltip={getLocString('DataScience.clearAll', 'Remove All Cells')}>
                         <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.Cancel}/>
                     </ImageButton>
