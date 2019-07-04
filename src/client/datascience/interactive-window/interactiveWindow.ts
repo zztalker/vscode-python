@@ -280,6 +280,10 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
                 this.dispatchMessage(message, payload, this.requestOnigasm);
                 break;
 
+            case InteractiveWindowMessages.GatherCode:
+                this.dispatchMessage(message, payload, this.gatherCode);
+                break;
+
             default:
                 break;
         }
@@ -811,6 +815,19 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
             } else {
                 sendTelemetryEvent(Telemetry.ExecuteCellPerceivedWarm, runningStopWatch.elapsedTime);
             }
+        }
+    }
+
+    private gatherCode = (cell: ICell) => {
+        if (this.jupyterServer) {
+            const content = this.jupyterServer.gatherExecution.gatherCode(cell);
+
+            // Create a new open editor with the returned program
+            this.documentManager.openTextDocument({
+                content,
+                language: PYTHON_LANGUAGE
+            }).then(
+                document => this.documentManager.showTextDocument(document));
         }
     }
 
