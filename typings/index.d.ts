@@ -3,6 +3,30 @@
 
 declare module '@phosphor/coreutils' {
     /**
+     * A type definition for the MimeData class.
+     * Based on http://phosphorjs.github.io/phosphor/api/coreutils/classes/mimedata.html
+     */
+    export class MimeData {
+        private _types: string[];
+        private _values: any[];
+        public clear(): void;
+        public clearData(mime: string): void;
+        public getData(mime: string): any | undefined;
+        public hasData(mime: string): boolean;
+        public setData(mime: string, data: any): void;
+        public types(): string[];
+    }
+    /**
+     * The namespace for UUID related functionality.
+     */
+    export namespace UUID {
+        /**
+         * A function which generates UUID v4 identifiers.
+         * @returns A new UUID v4 string.
+         */
+        const uuid4: () => string;
+    }
+    /**
      * A type alias for a JSON primitive.
      */
     export type JSONPrimitive = boolean | number | string | null | undefined;
@@ -94,18 +118,18 @@ declare module '@phosphor/coreutils' {
 
     export class Token<T> {
         /**
-         * Construct a new token.
-         *
-         * @param name - A human readable name for the token.
-         */
-        constructor(name: string);
-        /**
          * The human readable name for the token.
          *
          * #### Notes
          * This can be useful for debugging and logging.
          */
-        readonly name: string;
+        public readonly name: string;
         private _tokenStructuralPropertyT;
+        /**
+         * Construct a new token.
+         *
+         * @param name - A human readable name for the token.
+         */
+        constructor(name: string);
     }
 }
