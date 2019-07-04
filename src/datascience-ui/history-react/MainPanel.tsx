@@ -327,7 +327,7 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
                         gotoCode={noop}
                         copyCode={noop}
                         delete={noop}
-                        gathercode={noop}
+                        gatherCode={noop}
                         editExecutionCount={executionCount}
                         onCodeCreated={this.editableCodeCreated}
                         onCodeChange={this.codeChange}
@@ -586,7 +586,7 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
         const cellVM = this.state.cellVMs[index];
 
         // If the cell has no output, return
-        if (!isNil(cellVM.cell.data.outputs) && cellVM.cell.data.outputs.length === 0) { return; }
+        if (cellVM.cell.data.cell_type === 'code' && !isNil(cellVM.cell.data.outputs) && cellVM.cell.data.outputs.length === 0) { return; }
 
         // Copy the array
         const cellVMArray: ICellViewModel[] = [...this.state.cellVMs];
