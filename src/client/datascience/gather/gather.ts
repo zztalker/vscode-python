@@ -4,11 +4,10 @@ import { ExecutionLogSlicer } from './analysis/slice/log-slicer';
 import { ICell, LabCell } from './model/cell';
 import { CellSlice } from './model/cellslice';
 
-// export const IGatherExecution = Symbol('IGatherExecution');
-// export interface IGatherExecution {
-//     logExecution(vscCell: IVscCell): void;
-//     gatherCode(vscCell: IVscCell): string;
-// }
+export interface IGatherExecution {
+    logExecution(vscCell: IVscCell): void;
+    gatherCode(vscCell: IVscCell): string;
+}
 
 export class GatherExecution {
     private _executionLogger: ExecutionLogSlicer;

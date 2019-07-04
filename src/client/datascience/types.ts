@@ -12,6 +12,7 @@ import { ExecutionResult, ObservableExecutionResult, SpawnOptions } from '../com
 import { IAsyncDisposable, IDataScienceSettings, IDisposable } from '../common/types';
 import { StopWatch } from '../common/utils/stopWatch';
 import { PythonInterpreter } from '../interpreter/contracts';
+import { IGatherExecution } from './gather/gather';
 
 // Main interface
 export const IDataScience = Symbol('IDataScience');
@@ -70,6 +71,7 @@ export interface INotebookCompletion {
 // Talks to a jupyter ipython kernel to retrieve data for cells
 export const INotebookServer = Symbol('INotebookServer');
 export interface INotebookServer extends IAsyncDisposable {
+    gatherExecution: IGatherExecution;
     connect(launchInfo: INotebookServerLaunchInfo, cancelToken?: CancellationToken): Promise<void>;
     executeObservable(code: string, file: string, line: number, id: string, silent: boolean): Observable<ICell[]>;
     execute(code: string, file: string, line: number, id: string, cancelToken?: CancellationToken, silent?: boolean): Promise<ICell[]>;
@@ -414,8 +416,8 @@ export interface ISourceMapRequest {
 }
 
 export interface ICellHash {
-    line: number;       // 1 based
-    endLine: number;    // 1 based and inclusive
+    line: number; // 1 based
+    endLine: number; // 1 based and inclusive
     runtimeLine: number; // Line in the jupyter source to start at
     hash: string;
     executionCount: number;
