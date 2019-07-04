@@ -67,10 +67,8 @@ export function generateTestState(inputBlockToggled: (id: string) => void, fileP
 
 export function createEditableCellVM(executionCount: number): ICellViewModel {
     return {
-        cell:
-        {
-            data:
-            {
+        cell: {
+            data: {
                 cell_type: 'code', // We should eventually allow this to change to entering of markdown?
                 execution_count: executionCount,
                 metadata: {},
@@ -88,7 +86,8 @@ export function createEditableCellVM(executionCount: number): ICellViewModel {
         inputBlockShow: true,
         inputBlockText: '',
         inputBlockCollapseNeeded: false,
-        inputBlockToggled: noop
+        inputBlockToggled: noop,
+        gathered: false
     };
 }
 
@@ -125,8 +124,9 @@ export function createCellVM(inputCell: ICell, settings: IDataScienceSettings | 
         inputBlockOpen: true,
         inputBlockShow: true,
         inputBlockText: inputText,
-        inputBlockCollapseNeeded: (inputLinesCount > 1),
-        inputBlockToggled: inputBlockToggled
+        inputBlockCollapseNeeded: inputLinesCount > 1,
+        inputBlockToggled: inputBlockToggled,
+        gathered: false
     };
 }
 
@@ -153,7 +153,6 @@ function generateCells(filePath: string): ICell[] {
 
 //tslint:disable:max-func-body-length
 function generateCellData(): (nbformat.ICodeCell | nbformat.IMarkdownCell | nbformat.IRawCell | IMessageCell)[] {
-
     // Hopefully new entries here can just be copied out of a jupyter notebook (ipynb)
     return [
         {
@@ -181,7 +180,8 @@ function generateCellData(): (nbformat.ICodeCell | nbformat.IMarkdownCell | nbfo
                 {
                     data: {
                         // tslint:disable-next-line: no-multiline-string
-                        'text/html': [`
+                        'text/html': [
+                            `
                             <div style="
                             overflow: auto;
                         ">
@@ -379,22 +379,12 @@ function generateCellData(): (nbformat.ICodeCell | nbformat.IMarkdownCell | nbfo
                     output_type: 'execute_result'
                 }
             ],
-            source: [
-                '# comment',
-
-                'df',
-                'df.head(5)'
-            ]
+            source: ['# comment', 'df', 'df.head(5)']
         },
         {
             cell_type: 'markdown',
             metadata: {},
-            source: [
-                '## Cell 3\n',
-                'Here\'s some markdown\n',
-                '- A List\n',
-                '- Of Items'
-            ]
+            source: ['## Cell 3\n', 'Here\'s some markdown\n', '- A List\n', '- Of Items']
         },
         {
             cell_type: 'code',
@@ -413,9 +403,7 @@ function generateCellData(): (nbformat.ICodeCell | nbformat.IMarkdownCell | nbfo
                     ]
                 }
             ],
-            source: [
-                'df'
-            ]
+            source: ['df']
         },
         {
             cell_type: 'code',
@@ -434,9 +422,7 @@ function generateCellData(): (nbformat.ICodeCell | nbformat.IMarkdownCell | nbfo
                     ]
                 }
             ],
-            source: [
-                'df'
-            ]
+            source: ['df']
         }
     ];
 }

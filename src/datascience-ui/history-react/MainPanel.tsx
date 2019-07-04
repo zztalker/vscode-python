@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
-import { min } from 'lodash';
+import { isNil, min } from 'lodash';
 import * as monacoEditor from 'monaco-editor/esm/vs/editor/editor.api';
 import * as React from 'react';
 import * as uuid from 'uuid/v4';
@@ -327,6 +327,7 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
                         gotoCode={noop}
                         copyCode={noop}
                         delete={noop}
+                        gathercode={noop}
                         editExecutionCount={executionCount}
                         onCodeCreated={this.editableCodeCreated}
                         onCodeChange={this.codeChange}
@@ -429,7 +430,8 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
             onCodeCreated: this.readOnlyCodeCreated,
             onCodeChange: this.codeChange,
             openLink: this.openLink,
-            expandImage: this.showPlot
+            expandImage: this.showPlot,
+            gatherCode: this.gatherCode
         };
     }
     private getToolbarProps = (baseTheme: string): IToolbarPanelProps => {
@@ -578,6 +580,26 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
 
         // Combine this with our set of cells
         return [...slicedUndo, cells];
+    }
+
+    private gatherCode = (index: number) => {
+        const cellVM = this.state.cellVMs[index];
+
+        // If the cell has no output, return
+        if (!isNil(cellVM.cell.data.outputs) && cellVM.cell.data.outputs.length === 0) { return; }
+
+        // Copy the array
+        const cellVMArray: ICellViewModel[] = [...this.state.cellVMs];
+        cellVMArray[index] = this.alterCellVMGatherState(cellVM);
+
+        this.setState({
+            cellVMs: cellVMArray
+        });
+
+        // Tell interactive window
+        if (this.state.cellVMs[index].gathered) {
+            this.sendMessage(InteractiveWindowMessages.GatherCode, cellVM.cell);
+        }
     }
 
     private gotoCellCode = (index: number) => {
@@ -773,6 +795,16 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
             skipNextScroll: true,
             cellVMs: newCells
         });
+    }
+
+    // Helper function modeled after alterCellVM to update cellVM gather state
+    private alterCellVMGatherState = (cellVM: ICellViewModel) => {
+        if (cellVM.cell.data.cell_type === 'code') {
+            const newCellVM = { ...cellVM };
+            newCellVM.gathered = !newCellVM.gathered;
+            return newCellVM;
+        }
+        return cellVM;
     }
 
     // Adjust the visibility or collapsed state of a cell
