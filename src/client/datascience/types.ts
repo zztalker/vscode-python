@@ -67,11 +67,6 @@ export interface INotebookCompletion {
     metadata: {};
 }
 
-export const IGatherExecution = Symbol('IGatherExecution');
-export interface IGatherExecution {
-    gatherCode(vscCell: ICell): string;
-}
-
 // Talks to a jupyter ipython kernel to retrieve data for cells
 export const INotebookServer = Symbol('INotebookServer');
 export interface INotebookServer extends IAsyncDisposable {
@@ -104,6 +99,11 @@ export const INotebookExecutionLogger = Symbol('INotebookExecutionLogger');
 export interface INotebookExecutionLogger {
     preExecute(cell: ICell, silent: boolean): Promise<void>;
     postExecute(cell: ICell, silent: boolean): Promise<void>;
+}
+
+export const IGatherExecution = Symbol('IGatherExecution');
+export interface IGatherExecution extends INotebookExecutionLogger {
+    gatherCode(vscCell: ICell): string;
 }
 
 export const IJupyterExecution = Symbol('IJupyterExecution');
