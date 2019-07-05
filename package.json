@@ -2210,8 +2210,7 @@
     },
     "scripts": {
         "package": "gulp clean && gulp prePublishBundle && vsce package -o ms-python-insiders.vsix",
-        "compile": "tsc -watch -p ./",
-        "build:parser": "node ./node_modules/jison/lib/cli.js --outfile src/client/datascience/gather/analysis/parse/python/python3.js src/client/datascience/gather/analysis/parse/python/python3.jison",
+        "compile": "tsc -watch -p ./ && gulp copyParser",
         "compile-webviews-watch": "npx npx -n --max_old_space_size=4096 webpack --config webpack.datascience-ui.config.js --watch",
         "dump-datascience-webpack-stats": "npx -n --max_old_space_size=4096 webpack --config webpack.datascience-ui.config.js --profile --json > tmp/ds-stats.json",
         "compile-webviews": "gulp compile-webviews",
@@ -2234,6 +2233,8 @@
         "verifyBundle": "gulp verifyBundle"
     },
     "dependencies": {
+        "@jupyterlab/cells": "^1.0.0",
+        "@jupyterlab/rendermime": "^1.0.0",
         "@jupyterlab/services": "^3.2.1",
         "arch": "^2.1.0",
         "azure-storage": "^2.10.1",
