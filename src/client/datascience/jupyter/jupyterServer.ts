@@ -518,11 +518,11 @@ export class JupyterServerBase implements INotebookServer {
                         error => {
                             subscriber.error(error);
                         },
-                        () => {
+                        async () => {
                             subscriber.complete();
 
                             // Add executed code cell to the execution log after code has been executed
-                            this._gatherExecution.logExecution(cells[1]);
+                            await this._gatherExecution.postExecute(cells[1], false);
 
                             // Log telemetry
                             sendTelemetryEvent(Telemetry.ExecuteCell, stopWatch.elapsedTime);
@@ -541,13 +541,13 @@ export class JupyterServerBase implements INotebookServer {
                         error => {
                             subscriber.error(error);
                         },
-                        () => {
+                        async () => {
                             subscriber.complete();
 
                             // Add executed code cell to the execution log after code has been executed
                             if (isCode) {
                                 // Markdown cells can't be executed so we only add code cells to the log
-                                this._gatherExecution.logExecution(cells[0]);
+                                await this._gatherExecution.postExecute(cells[0], false);
                             }
 
                             // Log telemetry
@@ -571,15 +571,15 @@ export class JupyterServerBase implements INotebookServer {
             const cellMatcher = new CellMatcher(this.configService.getSettings().datascience);
             return this.session
                 ? this.session.requestExecute(
-                      {
-                          // Remove the cell marker if we have one.
-                          code: cellMatcher.stripMarkers(code),
-                          stop_on_error: false,
-                          allow_stdin: false,
-                          store_history: !silent // Silent actually means don't output anything. Store_history is what affects execution_count
-                      },
-                      true
-                  )
+                    {
+                        // Remove the cell marker if we have one.
+                        code: cellMatcher.stripMarkers(code),
+                        stop_on_error: false,
+                        allow_stdin: false,
+                        store_history: !silent // Silent actually means don't output anything. Store_history is what affects execution_count
+                    },
+                    true
+                )
                 : undefined;
         } catch (exc) {
             // Any errors generating a request should just be logged. User can't do anything about it.
