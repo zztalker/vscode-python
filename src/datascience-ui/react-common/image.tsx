@@ -49,10 +49,10 @@ const images: { [key: string] : { light: string; dark: string } } = {
             light: require('./images/ExpandAll/ExpandAll_16x_vscode.svg'),
             dark : require('./images/ExpandAll/ExpandAll_16x_vscode_dark.svg')
         },
-    GatherCode: // GATHERTODO: replace these with actual svgs
+    GatherCode:
         {
-            light: require('./images/GoToSourceCode/GoToSourceCode_16x_vscode.svg'),
-            dark : require('./images/GoToSourceCode/GoToSourceCode_16x_vscode_dark.svg')
+            light: require('./images/GatherCode/GatherCode_16x_vscode.svg'),
+            dark : require('./images/GatherCode/GatherCode_16x_vscode.svg')
         },
     GoToSourceCode:
         {
