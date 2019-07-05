@@ -16,6 +16,7 @@ import { CodeLensFactory } from './editor-integration/codeLensFactory';
 import { DataScienceCodeLensProvider } from './editor-integration/codelensprovider';
 import { CodeWatcher } from './editor-integration/codewatcher';
 import { Decorator } from './editor-integration/decorator';
+import { GatherExecution } from './gather/gather';
 import { DebugListener } from './interactive-window/debugListener';
 import { DotNetIntellisenseProvider } from './interactive-window/intellisense/dotNetIntellisenseProvider';
 import { JediIntellisenseProvider } from './interactive-window/intellisense/jediIntellisenseProvider';
@@ -48,6 +49,7 @@ import {
     IDataScienceCommandListener,
     IDataViewer,
     IDataViewerProvider,
+    IGatherExecution,
     IInteractiveWindow,
     IInteractiveWindowListener,
     IInteractiveWindowProvider,
@@ -118,4 +120,6 @@ export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.addBinding(ICellHashProvider, IInteractiveWindowListener);
     serviceManager.addBinding(ICellHashProvider, INotebookExecutionLogger);
     serviceManager.addBinding(IJupyterDebugger, ICellHashListener);
+    serviceManager.add<IGatherExecution>(IGatherExecution, wrapType(GatherExecution));
+    serviceManager.addBinding(IGatherExecution, INotebookExecutionLogger);
 }
