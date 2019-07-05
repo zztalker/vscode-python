@@ -1,15 +1,12 @@
-import { nbformat } from '@jupyterlab/coreutils/lib/nbformat';
+import { noop } from '../../common/utils/misc';
+import { concatMultilineString } from '../common';
+import { CellState, ICell as IVscCell, IGatherExecution, INotebookExecutionLogger } from '../types';
 import { DataflowAnalyzer } from './analysis/slice/data-flow';
 import { ExecutionLogSlicer } from './analysis/slice/log-slicer';
 import { ICell, LabCell } from './model/cell';
 import { CellSlice } from './model/cellslice';
 
-export interface IGatherExecution {
-    logExecution(vscCell: IVscCell): void;
-    gatherCode(vscCell: IVscCell): string;
-}
-
-export class GatherExecution {
+export class GatherExecution implements INotebookExecutionLogger, IGatherExecution {
     private _executionLogger: ExecutionLogSlicer;
 
     constructor() {
@@ -17,8 +14,13 @@ export class GatherExecution {
         this._executionLogger = new ExecutionLogSlicer(dataflowAnalyzer);
     }
 
-    public logExecution(vscCell: IVscCell): void {
-        // Convert IVscCell to ICell
+    public async preExecute(_vscCell: IVscCell, _silent: boolean): Promise<void> {
+        // This function is just implemented here for compliance with the INotebookExecutionLogger interface
+        noop();
+    }
+
+    public async postExecute(vscCell: IVscCell, _silent: boolean): Promise<void> {
+        // Convert IVscCell to IGatherCell
         const cell = (convertVscToGatherCell(vscCell) as LabCell).deepCopy();
 
         // Call internal logging method
@@ -37,14 +39,6 @@ export class GatherExecution {
         const mergedSlice = slices[0].merge(...slices.slice(1));
         return mergedSlice.cellSlices.reduce(concat, '');
     }
-}
-
-enum CellState {
-    editing = -1,
-    init = 0,
-    executing = 1,
-    finished = 2,
-    error = 3
 }
 
 function concat(existingText: string, newText: CellSlice) {
@@ -71,37 +65,4 @@ function convertVscToGatherCell(cell: IVscCell): ICell | undefined {
             is_cell: true
         };
     }
-}
-
-function concatMultilineString(str: nbformat.MultilineString): string {
-    if (Array.isArray(str)) {
-        let result = '';
-        for (let i = 0; i < str.length; i += 1) {
-            const s = str[i];
-            if (i < str.length - 1 && !s.endsWith('\n')) {
-                result = result.concat(`${s}\n`);
-            } else {
-                result = result.concat(s);
-            }
-        }
-        return result.trim();
-    }
-    return str.toString().trim();
-}
-
-interface IMessageCell extends nbformat.IBaseCell {
-    cell_type: 'messages';
-    messages: string[];
-}
-
-/**
- * Intended to map from ICell in vscode-python repo to ICell in gather repo.
- */
-interface IVscCell {
-    id: string;
-    file: string;
-    line: number;
-    state: CellState;
-    type: 'preview' | 'execute';
-    data: nbformat.ICodeCell | nbformat.IRawCell | nbformat.IMarkdownCell | IMessageCell;
 }

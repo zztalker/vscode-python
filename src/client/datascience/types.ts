@@ -12,7 +12,6 @@ import { ExecutionResult, ObservableExecutionResult, SpawnOptions } from '../com
 import { IAsyncDisposable, IDataScienceSettings, IDisposable } from '../common/types';
 import { StopWatch } from '../common/utils/stopWatch';
 import { PythonInterpreter } from '../interpreter/contracts';
-import { IGatherExecution } from './gather/gather';
 
 // Main interface
 export const IDataScience = Symbol('IDataScience');
@@ -66,6 +65,11 @@ export interface INotebookCompletion {
         end: number;
     };
     metadata: {};
+}
+
+export const IGatherExecution = Symbol('IGatherExecution');
+export interface IGatherExecution {
+    gatherCode(vscCell: ICell): string;
 }
 
 // Talks to a jupyter ipython kernel to retrieve data for cells
