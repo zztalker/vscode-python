@@ -2,6 +2,28 @@
 // Licensed under the MIT License.
 
 declare module '@phosphor/coreutils' {
+    export class PromiseDelegate<T> {
+        /**
+         * The promise wrapped by the delegate.
+         */
+        public readonly promise: Promise<T>;
+        /**
+         * Construct a new promise delegate.
+         */
+        constructor();
+        /**
+         * Reject the wrapped promise with the given value.
+         *
+         * @reason - The reason for rejecting the promise.
+         */
+        reject(reason: any): void;
+        /**
+         * Resolve the wrapped promise with the given value.
+         *
+         * @param value - The value to use for resolving the promise.
+         */
+        resolve(value: T | PromiseLike<T>): void;
+    }
     /**
      * A type definition for the MimeData class.
      * Based on http://phosphorjs.github.io/phosphor/api/coreutils/classes/mimedata.html
@@ -43,7 +65,7 @@ declare module '@phosphor/coreutils' {
     /**
      * A type definition for a JSON array.
      */
-    export interface JSONArray extends Array<JSONValue> {}
+    export interface JSONArray extends Array<JSONValue> { }
     /**
      * A type definition for a readonly JSON object.
      */
@@ -53,7 +75,7 @@ declare module '@phosphor/coreutils' {
     /**
      * A type definition for a readonly JSON array.
      */
-    export interface ReadonlyJSONArray extends ReadonlyArray<ReadonlyJSONValue> {}
+    export interface ReadonlyJSONArray extends ReadonlyArray<ReadonlyJSONValue> { }
     /**
      * A type alias for a readonly JSON value.
      */
