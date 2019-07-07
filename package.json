@@ -2210,7 +2210,7 @@
     },
     "scripts": {
         "package": "gulp clean && gulp prePublishBundle && vsce package -o ms-python-insiders.vsix",
-        "compile": "tsc -watch -p ./ && gulp copyParser",
+        "compile": "tsc -watch -p ./",
         "compile-webviews-watch": "npx npx -n --max_old_space_size=4096 webpack --config webpack.datascience-ui.config.js --watch",
         "dump-datascience-webpack-stats": "npx -n --max_old_space_size=4096 webpack --config webpack.datascience-ui.config.js --profile --json > tmp/ds-stats.json",
         "compile-webviews": "gulp compile-webviews",
