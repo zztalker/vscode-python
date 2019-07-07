@@ -45,6 +45,7 @@ import {
     ICodeCssGenerator,
     IConnection,
     IDataViewerProvider,
+    IGatherExecution,
     IInteractiveWindow,
     IInteractiveWindowInfo,
     IInteractiveWindowListener,
@@ -77,8 +78,8 @@ import {
 } from './interactiveWindowTypes';
 
 @injectable()
-export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> implements IInteractiveWindow  {
-    private static sentExecuteCellTelemetry : boolean = false;
+export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> implements IInteractiveWindow {
+    private static sentExecuteCellTelemetry: boolean = false;
     private disposed: boolean = false;
     private loadPromise: Promise<void>;
     private interpreterChangedDisposable: Disposable;
@@ -89,14 +90,14 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
     private addSysInfoPromise: Deferred<boolean> | undefined;
     private waitingForExportCells: boolean = false;
     private jupyterServer: INotebookServer | undefined;
-    private id : string;
+    private id: string;
     private executeEvent: EventEmitter<string> = new EventEmitter<string>();
     private variableRequestStopWatch: StopWatch | undefined;
     private variableRequestPendingCount: number = 0;
 
     constructor(
         @multiInject(IInteractiveWindowListener) private readonly listeners: IInteractiveWindowListener[],
-        @inject(ILiveShareApi) private liveShare : ILiveShareApi,
+        @inject(ILiveShareApi) private liveShare: ILiveShareApi,
         @inject(IApplicationShell) private applicationShell: IApplicationShell,
         @inject(IDocumentManager) private documentManager: IDocumentManager,
         @inject(IInterpreterService) private interpreterService: IInterpreterService,
@@ -116,8 +117,9 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         @inject(IDataViewerProvider) private dataExplorerProvider: IDataViewerProvider,
         @inject(IJupyterVariables) private jupyterVariables: IJupyterVariables,
         @inject(INotebookImporter) private jupyterImporter: INotebookImporter,
-        @inject(IJupyterDebugger) private jupyterDebugger: IJupyterDebugger
-        ) {
+        @inject(IJupyterDebugger) private jupyterDebugger: IJupyterDebugger,
+        @inject(IGatherExecution) private gatherExecution: IGatherExecution
+    ) {
         super(
             configuration,
             provider,
@@ -153,7 +155,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         this.listeners.forEach(l => l.postMessage((e) => this.postMessageInternal(e.message, e.payload)));
     }
 
-    public get ready() : Promise<void> {
+    public get ready(): Promise<void> {
         // We need this to ensure the interactive window is up and ready to receive messages.
         return this.loadPromise;
     }
@@ -175,16 +177,16 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         return this.closedEvent.event;
     }
 
-    public get onExecutedCode() : Event<string> {
+    public get onExecutedCode(): Event<string> {
         return this.executeEvent.event;
     }
 
-    public addCode(code: string, file: string, line: number, editor?: TextEditor, runningStopWatch?: StopWatch) : Promise<void> {
+    public addCode(code: string, file: string, line: number, editor?: TextEditor, runningStopWatch?: StopWatch): Promise<void> {
         // Call the internal method.
         return this.submitCode(code, file, line, undefined, editor, runningStopWatch, false);
     }
 
-    public debugCode(code: string, file: string, line: number, editor?: TextEditor, runningStopWatch?: StopWatch) : Promise<void> {
+    public debugCode(code: string, file: string, line: number, editor?: TextEditor, runningStopWatch?: StopWatch): Promise<void> {
         // Call the internal method.
         return this.submitCode(code, file, line, undefined, editor, runningStopWatch, true);
     }
@@ -368,7 +370,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
     }
 
     @captureTelemetry(Telemetry.RestartKernel)
-    public async restartKernel() : Promise<void> {
+    public async restartKernel(): Promise<void> {
         if (this.jupyterServer && !this.restartingKernel) {
             if (this.shouldAskForRestart()) {
                 // Ask the user if they want us to restart or not.
@@ -393,7 +395,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
     }
 
     @captureTelemetry(Telemetry.Interrupt)
-    public async interruptKernel() : Promise<void> {
+    public async interruptKernel(): Promise<void> {
         if (this.jupyterServer && !this.restartingKernel) {
             const status = this.statusProvider.set(localize.DataScience.interruptKernelStatus());
 
@@ -425,7 +427,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         }
     }
 
-    public async previewNotebook(file: string) : Promise<void> {
+    public async previewNotebook(file: string): Promise<void> {
         try {
             // First convert to a python file to verify this file is valid. This is
             // an easy way to have something else verify the validity of the file.
@@ -507,8 +509,8 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         }
     }
 
-    private addMessage(message: string, type: 'preview' | 'execute') : void {
-        const cell : ICell = {
+    private addMessage(message: string, type: 'preview' | 'execute'): void {
+        const cell: ICell = {
             id: uuid(),
             file: Identifiers.EmptyFileName,
             line: 0,
@@ -526,17 +528,17 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         this.onAddCodeEvent([cell]);
     }
 
-    private addPreviewHeader(file: string) : void {
+    private addPreviewHeader(file: string): void {
         const message = localize.DataScience.previewHeader().format(file);
         this.addMessage(message, 'preview');
     }
 
-    private addPreviewFooter(file: string) : void {
+    private addPreviewFooter(file: string): void {
         const message = localize.DataScience.previewFooter().format(file);
         this.addMessage(message, 'preview');
     }
 
-    private async checkPandas() : Promise<boolean> {
+    private async checkPandas(): Promise<boolean> {
         const pandasVersion = await this.dataExplorerProvider.getPandasVersion();
         if (!pandasVersion) {
             sendTelemetryEvent(Telemetry.PandasNotInstalled);
@@ -566,7 +568,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         }
     }
 
-    private async checkColumnSize(columnSize: number) : Promise<boolean> {
+    private async checkColumnSize(columnSize: number): Promise<boolean> {
         if (columnSize > ColumnWarningSize && this.shouldAskForLargeData()) {
             const message = localize.DataScience.tooManyColumnsMessage();
             const yes = localize.DataScience.tooManyColumnsYes();
@@ -582,7 +584,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         return true;
     }
 
-    private async showDataViewer(request: IShowDataViewer) : Promise<void> {
+    private async showDataViewer(request: IShowDataViewer): Promise<void> {
         try {
             if (await this.checkPandas() && await this.checkColumnSize(request.columnSize)) {
                 await this.dataExplorerProvider.create(request.variableName);
@@ -593,13 +595,13 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
     }
 
     // tslint:disable-next-line:no-any
-    private dispatchMessage<M extends IInteractiveWindowMapping, T extends keyof M>(_message: T, payload: any, handler: (args : M[T]) => void) {
+    private dispatchMessage<M extends IInteractiveWindowMapping, T extends keyof M>(_message: T, payload: any, handler: (args: M[T]) => void) {
         const args = payload as M[T];
         handler.bind(this)(args);
     }
 
     // tslint:disable-next-line:no-any
-    private onAddedSysInfo(sysInfo : IAddedSysInfo) {
+    private onAddedSysInfo(sysInfo: IAddedSysInfo) {
         // See if this is from us or not.
         if (sysInfo.id !== this.id) {
 
@@ -705,12 +707,12 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
 
             // Activate the other side, and send as if came from a file
             this.interactiveWindowProvider.getOrCreateActive().then(_v => {
-                this.shareMessage(InteractiveWindowMessages.RemoteAddCode, {code: info.code, file: Identifiers.EmptyFileName, line: 0, id: info.id, originator: this.id});
+                this.shareMessage(InteractiveWindowMessages.RemoteAddCode, { code: info.code, file: Identifiers.EmptyFileName, line: 0, id: info.id, originator: this.id });
             }).ignoreErrors();
         }
     }
 
-    private async submitCode(code: string, file: string, line: number, id?: string, _editor?: TextEditor, runningStopWatch?: StopWatch, debug?: boolean) : Promise<void> {
+    private async submitCode(code: string, file: string, line: number, id?: string, _editor?: TextEditor, runningStopWatch?: StopWatch, debug?: boolean): Promise<void> {
         this.logger.logInformation(`Submitting code for ${this.id}`);
 
         // Start a status item
@@ -719,7 +721,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         // Transmit this submission to all other listeners (in a live share session)
         if (!id) {
             id = uuid();
-            this.shareMessage(InteractiveWindowMessages.RemoteAddCode, {code, file, line, id, originator: this.id});
+            this.shareMessage(InteractiveWindowMessages.RemoteAddCode, { code, file, line, id, originator: this.id });
         }
 
         // Create a deferred object that will wait until the status is disposed
@@ -820,7 +822,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
 
     private gatherCode = (cell: ICell) => {
         if (this.jupyterServer) {
-            const content = this.jupyterServer.gatherExecution.gatherCode(cell);
+            const content = this.gatherExecution.gatherCode(cell);
 
             // Create a new open editor with the returned program
             this.documentManager.openTextDocument({
@@ -837,7 +839,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         return result;
     }
 
-    private logTelemetry = (event : Telemetry) => {
+    private logTelemetry = (event: Telemetry) => {
         sendTelemetryEvent(event);
     }
 
@@ -888,7 +890,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         this.loadPromise = this.reloadWithNew();
     }
 
-    private async reloadWithNew() : Promise<void> {
+    private async reloadWithNew(): Promise<void> {
         const status = this.setStatus(localize.DataScience.startingJupyter());
         try {
             // Not the same as reload, we need to actually dispose the server.
@@ -907,7 +909,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         }
     }
 
-    private async reloadAfterShutdown() : Promise<void> {
+    private async reloadAfterShutdown(): Promise<void> {
         try {
             if (this.loadPromise) {
                 await this.loadPromise;
@@ -1020,7 +1022,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         }
     }
 
-    private showInformationMessage(message: string, question?: string) : Thenable<string | undefined> {
+    private showInformationMessage(message: string, question?: string): Thenable<string | undefined> {
         if (question) {
             return this.applicationShell.showInformationMessage(message, question);
         } else {
@@ -1178,8 +1180,8 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         }
     }
 
-    private async checkUsable() : Promise<boolean> {
-        let activeInterpreter : PythonInterpreter | undefined;
+    private async checkUsable(): Promise<boolean> {
+        let activeInterpreter: PythonInterpreter | undefined;
         try {
             activeInterpreter = await this.interpreterService.getActiveInterpreter();
             const usableInterpreter = await this.jupyterExecution.getUsableJupyterPython();
@@ -1260,7 +1262,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
 
         // Request our new list of variables
         const vars: IJupyterVariable[] = await this.jupyterVariables.getVariables();
-        const variablesResponse: IJupyterVariablesResponse = {executionCount: requestExecutionCount, variables: vars };
+        const variablesResponse: IJupyterVariablesResponse = { executionCount: requestExecutionCount, variables: vars };
 
         // Tag all of our jupyter variables with the execution count of the request
         variablesResponse.variables.forEach((value: IJupyterVariable) => {
@@ -1273,7 +1275,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         if (excludeString) {
             const excludeArray = excludeString.split(';');
             variablesResponse.variables = variablesResponse.variables.filter((value) => {
-               return excludeArray.indexOf(value.type) === -1;
+                return excludeArray.indexOf(value.type) === -1;
             });
         }
         this.variableRequestPendingCount = variablesResponse.variables.length;
@@ -1322,7 +1324,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         });
     }
 
-    private async requestOnigasm() : Promise<void> {
+    private async requestOnigasm(): Promise<void> {
         // Look for the file next or our current file (this is where it's installed in the vsix)
         let filePath = path.join(__dirname, 'node_modules', 'onigasm', 'lib', 'onigasm.wasm');
         traceInfo(`Request for onigasm file at ${filePath}`);

@@ -135,7 +135,6 @@ export class JupyterServerBase implements INotebookServer {
     private connectPromise: Deferred<INotebookServerLaunchInfo> = createDeferred<INotebookServerLaunchInfo>();
     private connectionInfoDisconnectHandler: Disposable | undefined;
     private serverExitCode: number | undefined;
-    private _gatherExecution: GatherExecution;
 
     constructor(
         _liveShare: ILiveShareApi,
@@ -148,7 +147,6 @@ export class JupyterServerBase implements INotebookServer {
         private loggers: INotebookExecutionLogger[]
     ) {
         this.asyncRegistry.push(this);
-        this._gatherExecution = new GatherExecution();
     }
 
     public async connect(launchInfo: INotebookServerLaunchInfo, cancelToken?: CancellationToken): Promise<void> {
@@ -245,10 +243,6 @@ export class JupyterServerBase implements INotebookServer {
             await this.changeDirectoryIfPossible(directory);
             this.launchInfo.workingDir = directory;
         }
-    }
-
-    public get gatherExecution() {
-        return this._gatherExecution;
     }
 
     public executeObservable(code: string, file: string, line: number, id: string, silent: boolean = false): Observable<ICell[]> {
@@ -521,9 +515,6 @@ export class JupyterServerBase implements INotebookServer {
                         async () => {
                             subscriber.complete();
 
-                            // Add executed code cell to the execution log after code has been executed
-                            await this._gatherExecution.postExecute(cells[1], false);
-
                             // Log telemetry
                             sendTelemetryEvent(Telemetry.ExecuteCell, stopWatch.elapsedTime);
                         }
@@ -543,12 +534,6 @@ export class JupyterServerBase implements INotebookServer {
                         },
                         async () => {
                             subscriber.complete();
-
-                            // Add executed code cell to the execution log after code has been executed
-                            if (isCode) {
-                                // Markdown cells can't be executed so we only add code cells to the log
-                                await this._gatherExecution.postExecute(cells[0], false);
-                            }
 
                             // Log telemetry
                             sendTelemetryEvent(Telemetry.ExecuteCell, stopWatch.elapsedTime);

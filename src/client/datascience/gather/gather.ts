@@ -1,3 +1,4 @@
+import { injectable } from 'inversify';
 import { noop } from '../../common/utils/misc';
 import { concatMultilineString } from '../common';
 import { CellState, ICell as IVscCell, IGatherExecution, INotebookExecutionLogger } from '../types';
@@ -6,10 +7,12 @@ import { ExecutionLogSlicer } from './analysis/slice/log-slicer';
 import { ICell, LabCell } from './model/cell';
 import { CellSlice } from './model/cellslice';
 
-export class GatherExecution implements INotebookExecutionLogger, IGatherExecution {
+@injectable()
+export class GatherExecution implements IGatherExecution, INotebookExecutionLogger {
     private _executionLogger: ExecutionLogSlicer;
 
-    constructor() {
+    constructor(
+    ) {
         const dataflowAnalyzer = new DataflowAnalyzer(); // Pass in a sliceConfiguration object, or not
         this._executionLogger = new ExecutionLogSlicer(dataflowAnalyzer);
     }
