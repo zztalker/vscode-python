@@ -24,7 +24,7 @@ export class GatherExecution implements IGatherExecution, INotebookExecutionLogg
 
     public async postExecute(vscCell: IVscCell, _silent: boolean): Promise<void> {
         // Convert IVscCell to IGatherCell
-        const cell = (convertVscToGatherCell(vscCell) as LabCell).deepCopy();
+        const cell = convertVscToGatherCell(vscCell) as LabCell;
 
         // Call internal logging method
         this._executionLogger.logExecution(cell);
@@ -55,17 +55,19 @@ function concat(existingText: string, newText: CellSlice) {
 function convertVscToGatherCell(cell: IVscCell): ICell | undefined {
     // This should always be true since we only want to log code cells. Putting this here so types match for outputs property
     if (cell.data.cell_type === 'code') {
-        return {
+        const result: ICell = {
+            // tslint:disable-next-line no-unnecessary-local-variable
             id: cell.id,
             gathered: false,
             dirty: false,
             text: concatMultilineString(cell.data.source),
-            executionCount: 1, // Each cell is run exactly once in the history window
+            executionCount: cell.data.execution_count, // Each cell is run exactly once in the history window
             executionEventId: cell.id, // This is unique for now, so feed it in
             persistentId: cell.id,
             outputs: cell.data.outputs,
             hasError: cell.state === CellState.error,
             is_cell: true
         };
+        return result;
     }
 }
