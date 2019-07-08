@@ -25,7 +25,6 @@ import { generateCells } from '../cellFactory';
 import { CellMatcher } from '../cellMatcher';
 import { concatMultilineString } from '../common';
 import { CodeSnippits, Identifiers, Telemetry } from '../constants';
-import { GatherExecution } from '../gather/gather';
 import {
     CellState,
     ICell,
