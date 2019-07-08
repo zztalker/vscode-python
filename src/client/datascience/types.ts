@@ -12,7 +12,6 @@ import { ExecutionResult, ObservableExecutionResult, SpawnOptions } from '../com
 import { IAsyncDisposable, IDataScienceSettings, IDisposable } from '../common/types';
 import { StopWatch } from '../common/utils/stopWatch';
 import { PythonInterpreter } from '../interpreter/contracts';
-import { GatherExecution } from './gather/gather';
 
 // Main interface
 export const IDataScience = Symbol('IDataScience');
