@@ -246,7 +246,21 @@ export class JupyterServerBase implements INotebookServer {
     }
 
     public executeObservable(code: string, file: string, line: number, id: string, silent: boolean = false): Observable<ICell[]> {
-        return this.executeObservableImpl(code, file, line, id, silent);
+        // Create an observable and wrap the result so we can time it.
+        const stopWatch = new StopWatch();
+        const result = this.executeObservableImpl(code, file, line, id, silent);
+        return new Observable<ICell[]>(subscriber => {
+            result.subscribe(cells => {
+                subscriber.next(cells);
+            },
+                error => {
+                    subscriber.error(error);
+                },
+                () => {
+                    subscriber.complete();
+                    sendTelemetryEvent(Telemetry.ExecuteCell, stopWatch.elapsedTime);
+                });
+        });
     }
 
     public async getSysInfo(): Promise<ICell> {
@@ -495,7 +509,6 @@ export class JupyterServerBase implements INotebookServer {
 
     private executeObservableImpl(code: string, file: string, line: number, id: string, silent?: boolean): Observable<ICell[]> {
         // If we have a session, execute the code now.
-        const stopWatch = new StopWatch();
         if (this.session) {
             // Generate our cells ahead of time
             const cells = generateCells(this.configService.getSettings().datascience, code, file, line, true, id);
@@ -503,43 +516,13 @@ export class JupyterServerBase implements INotebookServer {
             // Might have more than one (markdown might be split)
             if (cells.length > 1) {
                 // We need to combine results
-                const results = this.combineObservables(this.executeMarkdownObservable(cells[0]), this.executeCodeObservable(cells[1], silent));
-                return new Observable<ICell[]>(subscriber => {
-                    results.subscribe(
-                        cells => {
-                            subscriber.next(cells);
-                        },
-                        error => {
-                            subscriber.error(error);
-                        },
-                        async () => {
-                            subscriber.complete();
-
-                            // Log telemetry
-                            sendTelemetryEvent(Telemetry.ExecuteCell, stopWatch.elapsedTime);
-                        }
-                    );
-                });
+                return this.combineObservables(
+                    this.executeMarkdownObservable(cells[0]),
+                    this.executeCodeObservable(cells[1], silent));
             } else if (cells.length > 0) {
-                const isCode: boolean = cells[0].data.cell_type === 'code';
-                const results: Observable<ICell[]> = this.combineObservables(isCode ? this.executeCodeObservable(cells[0], silent) : this.executeMarkdownObservable(cells[0]));
-
-                return new Observable<ICell[]>(subscriber => {
-                    results.subscribe(
-                        cells => {
-                            subscriber.next(cells);
-                        },
-                        error => {
-                            subscriber.error(error);
-                        },
-                        async () => {
-                            subscriber.complete();
-
-                            // Log telemetry
-                            sendTelemetryEvent(Telemetry.ExecuteCell, stopWatch.elapsedTime);
-                        }
-                    );
-                });
+                // Either markdown or or code
+                return this.combineObservables(
+                    cells[0].data.cell_type === 'code' ? this.executeCodeObservable(cells[0], silent) : this.executeMarkdownObservable(cells[0]));
             }
         }
 
@@ -549,7 +532,6 @@ export class JupyterServerBase implements INotebookServer {
             subscriber.complete();
         });
     }
-
     private generateRequest = (code: string, silent?: boolean): Kernel.IFuture | undefined => {
         //this.logger.logInformation(`Executing code in jupyter : ${code}`)
         try {
