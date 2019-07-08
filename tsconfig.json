@@ -33,6 +33,5 @@
         "src/server/src/typings",
         "src/client/src/typings",
         "build",
-        "src/client/datascience/gather/",
     ]
 }
