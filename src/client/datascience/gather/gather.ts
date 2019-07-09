@@ -77,7 +77,7 @@ export class GatherExecution implements IGatherExecution, INotebookExecutionLogg
 
 function concat(existingText: string, newText: CellSlice) {
     // Include our cell marker so that cell slices are preserved
-    return `${existingText}#%%\n${newText.textSliceLines}\n`;
+    return `${existingText}#%%\n${newText.textSliceLines}\n\n`;
 }
 
 /**
