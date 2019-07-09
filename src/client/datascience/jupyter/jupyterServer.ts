@@ -532,14 +532,14 @@ export class JupyterServerBase implements INotebookServer {
         });
     }
     private generateRequest = (code: string, silent?: boolean): Kernel.IFuture | undefined => {
-        //this.logger.logInformation(`Executing code in jupyter : ${code}`)
         try {
-            const cellMatcher = new CellMatcher(this.configService.getSettings().datascience);
+            // const cellMatcher = new CellMatcher(this.configService.getSettings().datascience);
+            // const strippedCode = cellMatcher.stripMarkers(code);
             return this.session
                 ? this.session.requestExecute(
                     {
                         // Remove the cell marker if we have one.
-                        code: cellMatcher.stripMarkers(code),
+                        code,
                         stop_on_error: false,
                         allow_stdin: false,
                         store_history: !silent // Silent actually means don't output anything. Store_history is what affects execution_count
@@ -716,6 +716,8 @@ export class JupyterServerBase implements INotebookServer {
     }
 
     private executeCodeObservable(cell: ICell, silent?: boolean): Observable<ICell> {
+        const cellMatcher = new CellMatcher(this.configService.getSettings().datascience);
+        cell.data.source = cellMatcher.stripMarkers(concatMultilineString(cell.data.source));
         return new Observable<ICell>(subscriber => {
             // Tell our listener. NOTE: have to do this asap so that markdown cells don't get
             // run before our cells.
