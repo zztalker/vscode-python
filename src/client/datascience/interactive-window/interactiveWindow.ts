@@ -647,6 +647,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
             if (this.jupyterServer) {
                 await this.jupyterServer.restartKernel(this.generateDataScienceExtraSettings().jupyterInterruptTimeout);
                 await this.addSysInfo(SysInfoReason.Restart);
+                await this.jupyterDebugger.enableAttach(this.jupyterServer);
 
                 // Compute if dark or not.
                 const knownDark = await this.isDark();
