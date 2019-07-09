@@ -35,7 +35,6 @@ const DEFAULT_SLICECONFIG_RULES = [{
     doesNotModify: ['ARGUMENTS']
 }];
 
-
 @injectable()
 export class GatherExecution implements IGatherExecution, INotebookExecutionLogger {
     private _executionLogger: ExecutionLogSlicer;
@@ -63,15 +62,11 @@ export class GatherExecution implements IGatherExecution, INotebookExecutionLogg
         // sliceAllExecutions does a lookup based on executionEventId
         const cell = convertVscToGatherCell(vscCell);
         if (cell === undefined) {
-            console.log(`Cell is undefined`);
             return '';
         }
         // Call internal slice method
         const slices = this._executionLogger.sliceAllExecutions(cell);
-        // const mergedSlice = slices[0].merge(...slices.slice(1));
-        const program = slices[0].cellSlices.reduce(concat, '');
-        console.log(`Gathered program is:\n${[program]}`);
-        return program;
+        return slices[0].cellSlices.reduce(concat, '');
     }
 }
 
