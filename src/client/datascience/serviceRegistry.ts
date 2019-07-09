@@ -120,6 +120,6 @@ export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.addBinding(ICellHashProvider, IInteractiveWindowListener);
     serviceManager.addBinding(ICellHashProvider, INotebookExecutionLogger);
     serviceManager.addBinding(IJupyterDebugger, ICellHashListener);
-    serviceManager.add<IGatherExecution>(IGatherExecution, wrapType(GatherExecution));
+    serviceManager.addSingleton<IGatherExecution>(IGatherExecution, wrapType(GatherExecution));
     serviceManager.addBinding(IGatherExecution, INotebookExecutionLogger);
 }
