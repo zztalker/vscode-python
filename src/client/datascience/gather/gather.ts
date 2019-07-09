@@ -7,13 +7,42 @@ import { ExecutionLogSlicer } from './analysis/slice/log-slicer';
 import { ICell, LabCell } from './model/cell';
 import { CellSlice } from './model/cellslice';
 
+const DEFAULT_SLICECONFIG_RULES = [{
+    objectName: 'df',
+    functionName: 'head',
+    doesNotModify: ['OBJECT']
+}, {
+    objectName: 'df',
+    functionName: 'describe',
+    doesNotModify: ['OBJECT']
+}, {
+    functionName: 'print',
+    doesNotModify: ['ARGUMENTS']
+}, {
+    functionName: 'KMeans',
+    doesNotModify: ['ARGUMENTS']
+}, {
+    functionName: 'scatter',
+    doesNotModify: ['ARGUMENTS']
+}, {
+    functionName: 'fit',
+    doesNotModify: ['ARGUMENTS']
+}, {
+    functionName: 'sum',
+    doesNotModify: ['ARGUMENTS']
+}, {
+    functionName: 'len',
+    doesNotModify: ['ARGUMENTS']
+}];
+
+
 @injectable()
 export class GatherExecution implements IGatherExecution, INotebookExecutionLogger {
     private _executionLogger: ExecutionLogSlicer;
 
     constructor(
     ) {
-        const dataflowAnalyzer = new DataflowAnalyzer(); // Pass in a sliceConfiguration object, or not
+        const dataflowAnalyzer = new DataflowAnalyzer(DEFAULT_SLICECONFIG_RULES); // Pass in a sliceConfiguration object, or not
         this._executionLogger = new ExecutionLogSlicer(dataflowAnalyzer);
     }
 
