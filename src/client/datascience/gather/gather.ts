@@ -7,33 +7,38 @@ import { ExecutionLogSlicer } from './analysis/slice/log-slicer';
 import { ICell, LabCell } from './model/cell';
 import { CellSlice } from './model/cellslice';
 
-const DEFAULT_SLICECONFIG_RULES = [{
-    objectName: 'df',
-    functionName: 'head',
-    doesNotModify: ['OBJECT']
-}, {
-    objectName: 'df',
-    functionName: 'describe',
-    doesNotModify: ['OBJECT']
-}, {
-    functionName: 'print',
-    doesNotModify: ['ARGUMENTS']
-}, {
-    functionName: 'KMeans',
-    doesNotModify: ['ARGUMENTS']
-}, {
-    functionName: 'scatter',
-    doesNotModify: ['ARGUMENTS']
-}, {
-    functionName: 'fit',
-    doesNotModify: ['ARGUMENTS']
-}, {
-    functionName: 'sum',
-    doesNotModify: ['ARGUMENTS']
-}, {
-    functionName: 'len',
-    doesNotModify: ['ARGUMENTS']
-}];
+const DEFAULT_SLICECONFIG_RULES = [
+    {
+        objectName: 'df',
+        functionName: 'head',
+        doesNotModify: ['OBJECT']
+    }, {
+        objectName: 'df',
+        functionName: 'tail',
+        doesNotModify: ['OBJECT']
+    }, {
+        objectName: 'df',
+        functionName: 'describe',
+        doesNotModify: ['OBJECT']
+    }, {
+        functionName: 'print',
+        doesNotModify: ['ARGUMENTS']
+    }, {
+        functionName: 'KMeans',
+        doesNotModify: ['ARGUMENTS']
+    }, {
+        functionName: 'scatter',
+        doesNotModify: ['ARGUMENTS']
+    }, {
+        functionName: 'fit',
+        doesNotModify: ['ARGUMENTS']
+    }, {
+        functionName: 'sum',
+        doesNotModify: ['ARGUMENTS']
+    }, {
+        functionName: 'len',
+        doesNotModify: ['ARGUMENTS']
+    }];
 
 @injectable()
 export class GatherExecution implements IGatherExecution, INotebookExecutionLogger {
