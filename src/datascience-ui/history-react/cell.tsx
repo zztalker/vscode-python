@@ -169,6 +169,13 @@ export class Cell extends React.Component<ICellProps> {
         return this.getCell().state === CellState.finished || this.getCell().state === CellState.error || this.getCell().state === CellState.executing;
     }
 
+    private hasRenderableOutput = () => {
+        if (this.props.cellVM.cell.data.cell_type === 'code') {
+            return this.props.cellVM.cell.data.outputs.length > 0;
+        }
+        return false;
+    }
+
     private getCodeCell = () => {
         return this.props.cellVM.cell.data as nbformat.ICodeCell;
     }
@@ -193,7 +200,7 @@ export class Cell extends React.Component<ICellProps> {
             return (
                 <div className={cellWrapperClass} role={this.props.role} onClick={this.onMouseClick}>
                     <MenuBar baseTheme={this.props.baseTheme}>
-                        <ImageButton baseTheme={this.props.baseTheme} onClick={this.props.gatherCode} tooltip={this.getGatherCodeString()} hidden={this.props.cellVM.editable}>
+                        <ImageButton baseTheme={this.props.baseTheme} onClick={this.props.gatherCode} tooltip={this.getGatherCodeString()} hidden={this.props.cellVM.editable || !this.isCodeCell() || !this.hasRenderableOutput()}>
                             <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.GatherCode} />
                         </ImageButton>
                         <ImageButton baseTheme={this.props.baseTheme} onClick={this.props.gotoCode} tooltip={this.getGoToCodeString()} hidden={hasNoSource}>
