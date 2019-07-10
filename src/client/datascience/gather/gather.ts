@@ -40,6 +40,9 @@ const DEFAULT_SLICECONFIG_RULES = [
         doesNotModify: ['ARGUMENTS']
     }];
 
+/**
+ * An adapter class to wrap the code gathering functionality from [microsoft/gather](https://github.com/microsoft/gather).
+ */
 @injectable()
 export class GatherExecution implements IGatherExecution, INotebookExecutionLogger {
     private _executionLogger: ExecutionLogSlicer;
@@ -63,6 +66,9 @@ export class GatherExecution implements IGatherExecution, INotebookExecutionLogg
         this._executionLogger.logExecution(cell);
     }
 
+    /**
+     * For a given code cell, returns a string representing a program containing all the code it depends on.
+     */
     public gatherCode(vscCell: IVscCell): string {
         // sliceAllExecutions does a lookup based on executionEventId
         const cell = convertVscToGatherCell(vscCell);
@@ -75,6 +81,16 @@ export class GatherExecution implements IGatherExecution, INotebookExecutionLogg
     }
 }
 
+/**
+ * Accumulator to concatenate cell slices for a sliced program, preserving cell structures.
+ */
+function concatWithoutCellMarkers(existingText: string, newText: CellSlice) {
+    return `${existingText}\n${newText.textSliceLines}\n\n`;
+}
+
+/**
+ * Accumulator to concatenate cell slices for a sliced program, preserving cell structures.
+ */
 function concat(existingText: string, newText: CellSlice) {
     // Include our cell marker so that cell slices are preserved
     return `${existingText}#%%\n${newText.textSliceLines}\n\n`;
