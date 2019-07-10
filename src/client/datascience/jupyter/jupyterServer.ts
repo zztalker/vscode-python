@@ -209,6 +209,9 @@ export class JupyterServerBase implements INotebookServer {
     }
 
     public execute(code: string, file: string, line: number, id: string, cancelToken?: CancellationToken, silent?: boolean): Promise<ICell[]> {
+        if (code.trim() === '') { // Do not execute empty cells
+            return;
+        }
         // Create a deferred that we'll fire when we're done
         const deferred = createDeferred<ICell[]>();
 
@@ -532,13 +535,13 @@ export class JupyterServerBase implements INotebookServer {
     }
     private generateRequest = (code: string, silent?: boolean): Kernel.IFuture | undefined => {
         try {
-            // const cellMatcher = new CellMatcher(this.configService.getSettings().datascience);
-            // const strippedCode = cellMatcher.stripMarkers(code);
+            const cellMatcher = new CellMatcher(this.configService.getSettings().datascience);
+            const strippedCode = cellMatcher.stripMarkers(code);
             return this.session
                 ? this.session.requestExecute(
                     {
                         // Remove the cell marker if we have one.
-                        code,
+                        code: strippedCode,
                         stop_on_error: false,
                         allow_stdin: false,
                         store_history: !silent // Silent actually means don't output anything. Store_history is what affects execution_count
@@ -715,8 +718,6 @@ export class JupyterServerBase implements INotebookServer {
     }
 
     private executeCodeObservable(cell: ICell, silent?: boolean): Observable<ICell> {
-        const cellMatcher = new CellMatcher(this.configService.getSettings().datascience);
-        cell.data.source = cellMatcher.stripMarkers(concatMultilineString(cell.data.source));
         return new Observable<ICell>(subscriber => {
             // Tell our listener. NOTE: have to do this asap so that markdown cells don't get
             // run before our cells.
