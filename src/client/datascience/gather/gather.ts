@@ -59,11 +59,14 @@ export class GatherExecution implements IGatherExecution, INotebookExecutionLogg
     }
 
     public async postExecute(vscCell: IVscCell, _silent: boolean): Promise<void> {
-        // Convert IVscCell to IGatherCell
-        const cell = convertVscToGatherCell(vscCell) as LabCell;
+        // Don't try logging if vscCell.data.source is an empty string because parser barfs
+        if (vscCell.data.source !== '') {
+            // Convert IVscCell to IGatherCell
+            const cell = convertVscToGatherCell(vscCell) as LabCell;
 
-        // Call internal logging method
-        this._executionLogger.logExecution(cell);
+            // Call internal logging method
+            this._executionLogger.logExecution(cell);
+        }
     }
 
     /**
