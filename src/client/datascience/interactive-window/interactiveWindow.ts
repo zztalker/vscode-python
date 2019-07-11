@@ -33,7 +33,7 @@ import { StopWatch } from '../../common/utils/stopWatch';
 import { IInterpreterService, PythonInterpreter } from '../../interpreter/contracts';
 import { captureTelemetry, sendTelemetryEvent } from '../../telemetry';
 import { generateCellRanges } from '../cellFactory';
-import { EditorContexts, Identifiers, Telemetry } from '../constants';
+import { EditorContexts, Identifiers, Telemetry, CodeSnippits } from '../constants';
 import { ColumnWarningSize } from '../data-viewing/types';
 import { JupyterInstallError } from '../jupyter/jupyterInstallError';
 import { JupyterKernelPromiseFailedError } from '../jupyter/jupyterKernelPromiseFailedError';
@@ -824,12 +824,25 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         if (this.jupyterServer) {
             const slicedProgram = this.gatherExecution.gatherCode(cell);
 
-            // Create a new open editor with the returned program
+            // Don't want to open the gathered code on top of the interactive window
+            let viewColumn: ViewColumn | undefined;
+            // Original file is visible
+            if (this.documentManager.visibleTextEditors.length > 0 && this.documentManager.visibleTextEditors.filter(textEditor => textEditor.document.fileName === cell.file).length > 0) {
+                viewColumn = this.documentManager.visibleTextEditors.filter(textEditor => textEditor.document.fileName === cell.file)[0].viewColumn;
+            } else if (this.documentManager.visibleTextEditors.length > 0) {
+                // There is a visible text editor, just not the original file
+                viewColumn = this.documentManager.visibleTextEditors[0].viewColumn;
+            } else {
+                // Only one panel open and interactive window is occupying it, or original file is open but hidden
+                viewColumn = ViewColumn.Beside;
+            }
+
+            // Create a new open editor with the returned program in the right panel
             this.documentManager.openTextDocument({
                 content: slicedProgram,
                 language: PYTHON_LANGUAGE
             }).then(
-                document => this.documentManager.showTextDocument(document));
+                document => this.documentManager.showTextDocument(document, viewColumn));
         }
     }
 
