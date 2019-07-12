@@ -40,7 +40,7 @@ export class JupyterImporter implements INotebookImporter {
         @inject(IJupyterExecution) private jupyterExecution: IJupyterExecution,
         @inject(IWorkspaceService) private workspaceService: IWorkspaceService,
         @inject(IPlatformService) private readonly platform: IPlatformService
-        ) {
+    ) {
         this.templatePromise = this.createTemplateFile();
     }
 
@@ -73,7 +73,7 @@ export class JupyterImporter implements INotebookImporter {
 
     private addDirectoryChange = (pythonOutput: string, directoryChange: string): string => {
         const newCode = CodeSnippits.ChangeDirectory.join(os.EOL).format(localize.DataScience.importChangeDirectoryComment(), CodeSnippits.ChangeDirectoryCommentIdentifier, directoryChange);
-        return newCode.concat(pythonOutput);
+        return newCode.concat(CodeSnippits.ImportIPython).concat(pythonOutput);
     }
 
     // When importing a file, calculate if we can create a %cd so that the relative paths work
