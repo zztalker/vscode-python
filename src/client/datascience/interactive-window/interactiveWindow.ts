@@ -839,7 +839,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
             // Create a new open editor with the returned program in the right panel
             this.documentManager.openTextDocument({
                 content: slicedProgram,
-                language: PYTHON_LANGUAGE
+                // language: PYTHON_LANGUAGE
             }).then(
                 document => this.documentManager.showTextDocument(document, viewColumn));
         }
