@@ -1,4 +1,5 @@
 import { Signal } from '@phosphor/signaling';
+import { traceInfo } from '../../../../common/logger';
 import { ICell } from '../../model/cell';
 import { CellSlice } from '../../model/cellslice';
 import { DataflowAnalyzer } from './data-flow';
@@ -88,6 +89,7 @@ export class ExecutionLogSlicer {
     public logExecution(cell: ICell) {
         let cellExecution = new CellExecution(cell, new Date());
         this.addExecutionToLog(cellExecution);
+        traceInfo(`Execution log has length ${this._executionLog.length} with contents ${this._executionLog}`);
     }
 
     /**

@@ -1,4 +1,5 @@
 import { injectable } from 'inversify';
+import { traceInfo } from '../../common/logger';
 import { noop } from '../../common/utils/misc';
 import { concatMultilineString } from '../common';
 import { CellState, ICell as IVscCell, IGatherExecution, INotebookExecutionLogger } from '../types';
@@ -45,12 +46,13 @@ const DEFAULT_SLICECONFIG_RULES = [
  */
 @injectable()
 export class GatherExecution implements IGatherExecution, INotebookExecutionLogger {
-    private _executionLogger: ExecutionLogSlicer;
+    private _executionSlicer: ExecutionLogSlicer;
 
     constructor(
     ) {
         const dataflowAnalyzer = new DataflowAnalyzer(DEFAULT_SLICECONFIG_RULES); // Pass in a sliceConfiguration object, or not
-        this._executionLogger = new ExecutionLogSlicer(dataflowAnalyzer);
+        this._executionSlicer = new ExecutionLogSlicer(dataflowAnalyzer);
+        traceInfo('Gathering tools have been activated');
     }
 
     public async preExecute(_vscCell: IVscCell, _silent: boolean): Promise<void> {
@@ -59,13 +61,13 @@ export class GatherExecution implements IGatherExecution, INotebookExecutionLogg
     }
 
     public async postExecute(vscCell: IVscCell, _silent: boolean): Promise<void> {
-        // Don't try logging if vscCell.data.source is an empty string because parser barfs
+        // Don't log if vscCell.data.source is an empty string. Original Jupyter extension also does this.
         if (vscCell.data.source !== '') {
             // Convert IVscCell to IGatherCell
             const cell = convertVscToGatherCell(vscCell) as LabCell;
 
             // Call internal logging method
-            this._executionLogger.logExecution(cell);
+            this._executionSlicer.logExecution(cell);
         }
     }
 
@@ -79,8 +81,12 @@ export class GatherExecution implements IGatherExecution, INotebookExecutionLogg
             return '';
         }
         // Call internal slice method
-        const slices = this._executionLogger.sliceAllExecutions(cell);
-        return slices[0].cellSlices.reduce(concat, '');
+        const slices = this._executionSlicer.sliceAllExecutions(cell);
+        const program = slices[0].cellSlices.reduce(concat, '');
+
+        // Add a comment at the top of the file explaining what gather does
+        const descriptor = '# This file contains the minimal amount of code required to produce the code cell you gathered.\n';
+        return descriptor.concat(program);
     }
 }
 
