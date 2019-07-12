@@ -819,7 +819,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         }
     }
 
-    private gatherCode = (cell: ICell) => {
+    private gatherCode = async (cell: ICell) => {
         if (this.jupyterServer) {
             const slicedProgram = this.gatherExecution.gatherCode(cell);
 
@@ -839,11 +839,15 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
             }
 
             // Create a new open editor with the returned program in the right panel
-            this.documentManager.openTextDocument({
+            const doc = await this.documentManager.openTextDocument({
                 content: slicedProgram,
                 language: PYTHON_LANGUAGE
-            }).then(
-                document => this.documentManager.showTextDocument(document, viewColumn));
+            });
+            const editor = await this.documentManager.showTextDocument(doc, viewColumn);
+            // Edit the document so that it is dirty (add a space at the end)
+            editor.edit((editBuilder) => {
+                editBuilder.insert(new Position(editor.document.lineCount, 0), '\n');
+            });
         }
     }
 
