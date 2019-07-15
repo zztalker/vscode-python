@@ -56,12 +56,14 @@ export class JupyterImporter implements INotebookImporter {
 
         // Use the jupyter nbconvert functionality to turn the notebook into a python file
         if (await this.jupyterExecution.isImportSupported()) {
-            const fileOutput: string = await this.jupyterExecution.importNotebook(file, template);
-            if (directoryChange) {
-                return this.addDirectoryChange(fileOutput, directoryChange);
-            } else {
-                return fileOutput;
+            let fileOutput: string = await this.jupyterExecution.importNotebook(file, template);
+            if (fileOutput.includes('get_ipython()')) {
+                fileOutput = this.addIPythonImport(fileOutput);
             }
+            if (directoryChange) {
+                fileOutput = this.addDirectoryChange(fileOutput, directoryChange);
+            }
+            return fileOutput;
         }
 
         throw new Error(localize.DataScience.jupyterNbConvertNotSupported());
@@ -71,9 +73,13 @@ export class JupyterImporter implements INotebookImporter {
         this.isDisposed = true;
     }
 
+    private addIPythonImport = (pythonOutput: string): string => {
+        return CodeSnippits.ImportIPython.concat(pythonOutput);
+    }
+
     private addDirectoryChange = (pythonOutput: string, directoryChange: string): string => {
         const newCode = CodeSnippits.ChangeDirectory.join(os.EOL).format(localize.DataScience.importChangeDirectoryComment(), CodeSnippits.ChangeDirectoryCommentIdentifier, directoryChange);
-        return newCode.concat(CodeSnippits.ImportIPython).concat(pythonOutput);
+        return newCode.concat(pythonOutput);
     }
 
     // When importing a file, calculate if we can create a %cd so that the relative paths work
