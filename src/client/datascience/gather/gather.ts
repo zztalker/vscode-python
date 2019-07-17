@@ -88,6 +88,10 @@ export class GatherExecution implements IGatherExecution, INotebookExecutionLogg
         const descriptor = '# This file contains the minimal amount of code required to produce the code cell you gathered.\n';
         return descriptor.concat(program);
     }
+
+    public get executionSlicer() {
+        return this._executionSlicer;
+    }
 }
 
 /**
