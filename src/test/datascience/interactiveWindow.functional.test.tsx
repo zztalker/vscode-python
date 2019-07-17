@@ -212,7 +212,7 @@ for _ in range(50):
             return Promise.resolve({ result: result, haveMore: loops > 0 });
         });
 
-        await addCode(getOrCreateInteractiveWindow, wrapper, badPanda, 4);
+        await addCode(getOrCreateInteractiveWindow, wrapper, badPanda, 4, true);
         verifyHtmlOnCell(wrapper, `has no attribute 'read'`, CellPosition.Last);
 
         await addCode(getOrCreateInteractiveWindow, wrapper, goodPanda);
@@ -222,7 +222,7 @@ for _ in range(50):
         verifyHtmlOnCell(wrapper, matPlotLibResults, CellPosition.Last);
 
         await addCode(getOrCreateInteractiveWindow, wrapper, spinningCursor, 4 + (ioc.mockJupyter ? (cursors.length * 3) : 0));
-        verifyHtmlOnCell(wrapper, '<xmp>', CellPosition.Last);
+        verifyHtmlOnCell(wrapper, '<div>', CellPosition.Last);
     }, () => { return ioc; });
 
     runMountedTest('Undo/redo commands', async (wrapper) => {
@@ -617,5 +617,16 @@ for _ in range(50):
         activeEditor.selection = new Selection(1, 2, 1, 2);
         window.copyCode({source: 'print("baz")'});
         assert.equal(docManager.textDocuments[0].getText(), `#%%${os.EOL}#%%${os.EOL}print("baz")${os.EOL}#%%${os.EOL}print("baz")${os.EOL}#%%${os.EOL}print("bar")`, 'Text not inserted');
+    }, () => { return ioc; });
+
+    runMountedTest('Limit text output', async (wrapper) => {
+        ioc.getSettings().datascience.textOutputLimit = 7;
+
+        // Output should be trimmed to just two lines of output
+        const code = `print("hello\\nworld\\nhow\\nare\\nyou")`;
+        addMockData(ioc, code, 'are\nyou');
+        await addCode(getOrCreateInteractiveWindow, wrapper, code, 4);
+
+        verifyHtmlOnCell(wrapper, '>are\nyou<', CellPosition.Last);
     }, () => { return ioc; });
 });

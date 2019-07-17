@@ -63,7 +63,10 @@ export namespace InteractiveWindowMessages {
 
 // These are the messages that will mirror'd to guest/hosts in
 // a live share session
-export const InteractiveWindowRemoteMessages: string[] = [InteractiveWindowMessages.AddedSysInfo, InteractiveWindowMessages.RemoteAddCode];
+export const InteractiveWindowRemoteMessages: string[] = [
+    InteractiveWindowMessages.AddedSysInfo,
+    InteractiveWindowMessages.RemoteAddCode
+];
 
 export interface IGotoCode {
     file: string;
@@ -92,6 +95,7 @@ export interface IExecuteInfo {
     id: string;
     file: string;
     line: number;
+    debug: boolean;
 }
 
 export interface IRemoteAddCode extends IExecuteInfo {

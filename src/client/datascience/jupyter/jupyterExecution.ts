@@ -36,6 +36,7 @@ import {
     INotebookServerOptions
 } from '../types';
 import { JupyterConnection, JupyterServerInfo } from './jupyterConnection';
+import { JupyterInstallError } from './jupyterInstallError';
 import { JupyterKernelSpec } from './jupyterKernelSpec';
 import { JupyterSelfCertsError } from './jupyterSelfCertsError';
 import { JupyterWaitForIdleError } from './jupyterWaitForIdleError';
@@ -204,7 +205,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
         // First we find a way to start a notebook server
         const notebookCommand = await this.findBestCommandTimed(JupyterCommands.NotebookCommand);
         if (!notebookCommand) {
-            throw new Error(localize.DataScience.jupyterNotSupported());
+            throw new JupyterInstallError(localize.DataScience.jupyterNotSupported(), localize.DataScience.pythonInteractiveHelpLink());
         }
 
         const args: string[] = [`--NotebookApp.file_to_run=${file}`];
@@ -324,6 +325,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
             allowUnauthorized,
             baseUrl: `${url.protocol}//${url.host}${url.pathname}`,
             token: `${url.searchParams.get('token')}`,
+            hostName: url.hostname,
             localLaunch: false,
             localProcExitCode: undefined,
             disconnected: (_l) => { return { dispose: noop }; },
@@ -337,7 +339,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
         // First we find a way to start a notebook server
         const notebookCommand = await this.findBestCommandTimed(JupyterCommands.NotebookCommand, cancelToken);
         if (!notebookCommand) {
-            throw new Error(localize.DataScience.jupyterNotSupported());
+            throw new JupyterInstallError(localize.DataScience.jupyterNotSupported(), localize.DataScience.pythonInteractiveHelpLink());
         }
 
         // Now actually launch it
@@ -590,6 +592,34 @@ export class JupyterExecutionBase implements IJupyterExecution {
         return true;
     }
 
+    private async getInterpreterDetailsFromProcess(baseProcessName: string): Promise<PythonInterpreter | undefined> {
+        if (path.basename(baseProcessName) !== baseProcessName) {
+            // This function should only be called with a non qualified path. We're using this
+            // function to figure out the qualified path
+            return undefined;
+        }
+
+        // Make sure it's python based
+        if (!baseProcessName.toLocaleLowerCase().includes('python')) {
+            return undefined;
+        }
+
+        try {
+            // Create a new process service to use to execute this process
+            const processService = await this.processServiceFactory.create();
+
+            // Ask python for what path it's running at.
+            const output = await processService.exec(baseProcessName, ['-c', 'import sys;print(sys.executable)'], { throwOnStdErr: true });
+            const fullPath = output.stdout.trim();
+
+            // Use this path to get the interpreter details.
+            return this.interpreterService.getInterpreterDetails(fullPath);
+        } catch {
+            // Any failure, just assume this path is invalid.
+            return undefined;
+        }
+    }
+
     //tslint:disable-next-line:cyclomatic-complexity
     private findSpecMatch = async (enumerator: () => Promise<(IJupyterKernelSpec | undefined)[]>): Promise<IJupyterKernelSpec | undefined> => {
         // Extract our current python information that the user has picked.
@@ -605,6 +635,10 @@ export class JupyterExecutionBase implements IJupyterExecution {
         const specDetails = await Promise.all(specs.map(async s => {
             if (s && s.path && s.path.length > 0 && await fs.pathExists(s.path)) {
                 return this.interpreterService.getInterpreterDetails(s.path);
+            }
+            if (s && s.path && s.path.length > 0 && path.basename(s.path) === s.path) {
+                // This means the s.path isn't fully qualified. Try figuring it out.
+                return this.getInterpreterDetailsFromProcess(s.path);
             }
         }));
 
@@ -775,7 +809,7 @@ export class JupyterExecutionBase implements IJupyterExecution {
         return true;
     }
 
-    private async findBestCommandTimed(command: string, cancelToken?: CancellationToken) : Promise<IJupyterCommand | undefined> {
+    private async findBestCommandTimed(command: string, cancelToken?: CancellationToken): Promise<IJupyterCommand | undefined> {
         // Only log telemetry if not already found (meaning the first time)
         let timer: StopWatch | undefined;
         if (!this.commands.hasOwnProperty(command)) {

@@ -35,6 +35,7 @@ export namespace Commands {
     export const AddCellBelow = 'python.datascience.addcellbelow';
     export const DebugCurrentCellPalette = 'python.datascience.debugcurrentcell.palette';
     export const DebugCell = 'python.datascience.debugcell';
+    export const RunCurrentCellAndAddBelow = 'python.datascience.runcurrentcellandaddbelow';
 }
 
 export namespace EditorContexts {
@@ -54,7 +55,7 @@ export namespace RegExpValues {
     export const KernelSpecOutputRegEx = /^\s*(\S+)\s+(\S+)$/;
     // This next one has to be a string because uglifyJS isn't handling the groups. We use named-js-regexp to parse it
     // instead.
-    export const UrlPatternRegEx = '(?<PREFIX>https?:\\/\\/)((\\(.+\\s+or\\s+(?<IP>.+)\\))|(?<LOCAL>[^\\s]+))(?<REST>:.+)' ;
+    export const UrlPatternRegEx = '(?<PREFIX>https?:\\/\\/)((\\(.+\\s+or\\s+(?<IP>.+)\\))|(?<LOCAL>[^\\s]+))(?<REST>:.+)';
     export interface IUrlPatternGroupType {
         LOCAL: string | undefined;
         PREFIX: string | undefined;
@@ -144,8 +145,11 @@ export enum Telemetry {
     WebviewStyleUpdate = 'DATASCIENCE.WEBVIEW_STYLE_UPDATE',
     WebviewMonacoStyleUpdate = 'DATASCIENCE.WEBVIEW_MONACO_STYLE_UPDATE',
     DataViewerFetchTime = 'DATASCIENCE.DATAVIEWER_FETCH_TIME',
-    FindJupyterKernelSpec = 'DATASCIENCE.FIND_JUPYTER_KERNEL_SPEC'
- }
+    FindJupyterKernelSpec = 'DATASCIENCE.FIND_JUPYTER_KERNEL_SPEC',
+    PtvsdPromptToInstall = 'DATASCIENCE.PTVSD_PROMPT_TO_INSTALL',
+    PtvsdSuccessfullyInstalled = 'DATASCIENCE.PTVSD_SUCCESSFULLY_INSTALLED',
+    PtvsdInstallFailed = 'DATASCIENCE.PTVSD_INSTALL_FAILED'
+}
 
 export namespace HelpLinks {
     export const PythonInteractiveHelpLink = 'https://aka.ms/pyaiinstall';
@@ -155,6 +159,8 @@ export namespace HelpLinks {
 export namespace Settings {
     export const JupyterServerLocalLaunch = 'local';
     export const IntellisenseTimeout = 300;
+    export const RemoteDebuggerPortBegin = 8889;
+    export const RemoteDebuggerPortEnd = 9000;
 }
 
 export namespace Identifiers {
@@ -169,6 +175,7 @@ export namespace Identifiers {
 export namespace CodeSnippits {
     export const ChangeDirectory = ['{0}', '{1}', 'import os', 'try:', '\tos.chdir(os.path.join(os.getcwd(), \'{2}\'))', '\tprint(os.getcwd())', 'except:', '\tpass', ''];
     export const ChangeDirectoryCommentIdentifier = '# ms-python.python added'; // Not translated so can compare.
+    export const ImportIPython = '#%%\nfrom IPython import get_ipython\n\n';
     export const MatplotLibInitSvg = `import matplotlib\n%matplotlib inline\n${Identifiers.MatplotLibDefaultParams} = dict(matplotlib.rcParams)\n%config InlineBackend.figure_format = 'svg'`;
     export const MatplotLibInitPng = `import matplotlib\n%matplotlib inline\n${Identifiers.MatplotLibDefaultParams} = dict(matplotlib.rcParams)\n%config InlineBackend.figure_format = 'png'`;
 }

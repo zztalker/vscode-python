@@ -16,6 +16,7 @@ import { CodeLensFactory } from './editor-integration/codeLensFactory';
 import { DataScienceCodeLensProvider } from './editor-integration/codelensprovider';
 import { CodeWatcher } from './editor-integration/codewatcher';
 import { Decorator } from './editor-integration/decorator';
+import { DataScienceErrorHandler } from './errorHandler/errorHandler';
 import { GatherExecution } from './gather/gather';
 import { DebugListener } from './interactive-window/debugListener';
 import { DotNetIntellisenseProvider } from './interactive-window/intellisense/dotNetIntellisenseProvider';
@@ -47,6 +48,7 @@ import {
     IDataScience,
     IDataScienceCodeLensProvider,
     IDataScienceCommandListener,
+    IDataScienceErrorHandler,
     IDataViewer,
     IDataViewerProvider,
     IGatherExecution,
@@ -115,6 +117,7 @@ export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.addSingleton<IPlotViewerProvider>(IPlotViewerProvider, wrapType(PlotViewerProvider));
     serviceManager.add<IPlotViewer>(IPlotViewer, wrapType(PlotViewer));
     serviceManager.addSingleton<IJupyterDebugger>(IJupyterDebugger, wrapType(JupyterDebugger));
+    serviceManager.add<IDataScienceErrorHandler>(IDataScienceErrorHandler, wrapType(DataScienceErrorHandler));
     serviceManager.addSingleton<ICodeLensFactory>(ICodeLensFactory, wrapType(CodeLensFactory));
     serviceManager.addSingleton<ICellHashProvider>(ICellHashProvider, wrapType(CellHashProvider));
     serviceManager.addBinding(ICellHashProvider, IInteractiveWindowListener);
