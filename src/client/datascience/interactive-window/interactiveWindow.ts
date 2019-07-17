@@ -33,7 +33,7 @@ import { StopWatch } from '../../common/utils/stopWatch';
 import { IInterpreterService, PythonInterpreter } from '../../interpreter/contracts';
 import { captureTelemetry, sendTelemetryEvent } from '../../telemetry';
 import { generateCellRanges } from '../cellFactory';
-import { EditorContexts, Identifiers, Telemetry } from '../constants';
+import { EditorContexts, Identifiers, Telemetry, CodeSnippits } from '../constants';
 import { ColumnWarningSize } from '../data-viewing/types';
 import { JupyterInstallError } from '../jupyter/jupyterInstallError';
 import { JupyterKernelPromiseFailedError } from '../jupyter/jupyterKernelPromiseFailedError';
@@ -816,16 +816,35 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         return result;
     }
 
-    private gatherCode = (cell: ICell) => {
+    private gatherCode = async (cell: ICell) => {
         if (this.jupyterServer) {
             const slicedProgram = this.gatherExecution.gatherCode(cell);
 
-            // Create a new open editor with the returned program
-            this.documentManager.openTextDocument({
+            // Don't want to open the gathered code on top of the interactive window
+            let viewColumn: ViewColumn | undefined;
+            // Original file is visible
+            const fileNameMatch = this.documentManager.visibleTextEditors.filter(textEditor => textEditor.document.fileName === cell.file);
+            const definedVisibleEditors = this.documentManager.visibleTextEditors.filter(textEditor => textEditor.viewColumn !== undefined);
+            if (this.documentManager.visibleTextEditors.length > 0 && fileNameMatch.length > 0) {
+                viewColumn = fileNameMatch[0].viewColumn;
+            } else if (this.documentManager.visibleTextEditors.length > 0 && definedVisibleEditors.length > 0) {
+                // There is a visible text editor, just not the original file. Make sure viewColumn isn't undefined
+                viewColumn = definedVisibleEditors[0].viewColumn;
+            } else {
+                // Only one panel open and interactive window is occupying it, or original file is open but hidden
+                viewColumn = ViewColumn.Beside;
+            }
+
+            // Create a new open editor with the returned program in the right panel
+            const doc = await this.documentManager.openTextDocument({
                 content: slicedProgram,
                 language: PYTHON_LANGUAGE
-            }).then(
-                document => this.documentManager.showTextDocument(document));
+            });
+            const editor = await this.documentManager.showTextDocument(doc, viewColumn);
+            // Edit the document so that it is dirty (add a space at the end)
+            editor.edit((editBuilder) => {
+                editBuilder.insert(new Position(editor.document.lineCount, 0), '\n');
+            });
         }
     }
 

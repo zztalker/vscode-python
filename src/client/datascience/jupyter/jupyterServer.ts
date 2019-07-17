@@ -223,6 +223,9 @@ export class JupyterServerBase implements INotebookServer {
     }
 
     public execute(code: string, file: string, line: number, id: string, cancelToken?: CancellationToken, silent?: boolean): Promise<ICell[]> {
+        if (code.trim() === '') { // Do not execute empty cells
+            return;
+        }
         // Create a deferred that we'll fire when we're done
         const deferred = createDeferred<ICell[]>();
 

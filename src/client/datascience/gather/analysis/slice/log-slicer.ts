@@ -1,4 +1,5 @@
 import { Signal } from '@phosphor/signaling';
+import { traceInfo } from '../../../../common/logger';
 import { ICell } from '../../model/cell';
 import { CellSlice } from '../../model/cellslice';
 import { DataflowAnalyzer } from './data-flow';
