@@ -67,6 +67,7 @@ export class MockDocumentManager implements IDocumentManager {
     public showTextDocument(_document: TextDocument, _column?: ViewColumn, _preserveFocus?: boolean): Thenable<TextEditor>;
     public showTextDocument(_document: TextDocument | Uri, _options?: TextDocumentShowOptions): Thenable<TextEditor>;
     public showTextDocument(_document: any, _column?: any, _preserveFocus?: any): Thenable<TextEditor> {
+        this.visibleTextEditors.push(_document);
         const mockEditor = new MockEditor(this, this.lastDocument as MockDocument);
         this.activeTextEditor = mockEditor;
         return Promise.resolve(mockEditor);
@@ -74,6 +75,10 @@ export class MockDocumentManager implements IDocumentManager {
     public openTextDocument(_fileName: string | Uri): Thenable<TextDocument>;
     public openTextDocument(_options?: { language?: string; content?: string }): Thenable<TextDocument>;
     public openTextDocument(_options?: any): Thenable<TextDocument> {
+        if (_options && _options.content) {
+            const doc = new MockDocument(_options.content, 'Untitled-1');
+            this.textDocuments.push(doc);
+        }
         return Promise.resolve(this.lastDocument);
     }
     public applyEdit(_edit: WorkspaceEdit): Thenable<boolean> {
@@ -85,7 +90,7 @@ export class MockDocumentManager implements IDocumentManager {
         this.textDocuments.push(mockDoc);
     }
 
-    public changeDocument(file: string, changes: {range: Range; newText: string}[]) {
+    public changeDocument(file: string, changes: { range: Range; newText: string }[]) {
         const doc = this.textDocuments.find(d => d.fileName === file) as MockDocument;
         if (doc) {
             const contentChanges = changes.map(c => {
@@ -107,11 +112,11 @@ export class MockDocumentManager implements IDocumentManager {
         }
     }
 
-    public createTextEditorDecorationType(_options: DecorationRenderOptions) : TextEditorDecorationType {
+    public createTextEditorDecorationType(_options: DecorationRenderOptions): TextEditorDecorationType {
         throw new Error('Method not implemented');
     }
 
-    private get lastDocument() : TextDocument {
+    private get lastDocument(): TextDocument {
         if (this.textDocuments.length > 0) {
             return this.textDocuments[this.textDocuments.length - 1];
         }

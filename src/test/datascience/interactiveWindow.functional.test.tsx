@@ -607,6 +607,24 @@ for _ in range(50):
 
     }, () => { return ioc; });
 
+    runMountedTest('Gather code run from input box', async (wrapper) => {
+        // Create an interactive window so that it listens to the results.
+        const interactiveWindow = await getOrCreateInteractiveWindow();
+        await interactiveWindow.show();
+
+        // Then enter some code.
+        await enterInput(wrapper, 'a=1\na');
+        verifyHtmlOnCell(wrapper, '<span>1</span>', CellPosition.Last);
+        const ImageButtons = getLastOutputCell(wrapper).find(ImageButton);
+        assert.equal(ImageButtons.length, 4, 'Cell buttons not found');
+        const gatherCode = ImageButtons.at(0);
+
+        // Then click the gather code button
+        await waitForMessageResponse(() => gatherCode.simulate('click'));
+        const docManager = ioc.get<IDocumentManager>(IDocumentManager) as MockDocumentManager;
+        assert.equal(docManager.activeTextEditor.document.getText(), `# This file contains the minimal amount of code required to produce the code cell you gathered.\n#%%\na=1\na\n\n`);
+    }, () => { return ioc; });
+
     runMountedTest('Copy back to source', async (_wrapper) => {
         ioc.addDocument(`#%%${os.EOL}print("bar")`, 'foo.py');
         const docManager = ioc.get<IDocumentManager>(IDocumentManager);
