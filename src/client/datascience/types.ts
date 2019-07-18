@@ -198,6 +198,7 @@ export interface IInteractiveWindow extends Disposable {
     collapseAllCells(): void;
     exportCells(): void;
     previewNotebook(notebookFile: string): Promise<void>;
+    scrollToCell(id: string): void;
 }
 
 export const IInteractiveWindowListener = Symbol('IInteractiveWindowListener');
@@ -238,6 +239,7 @@ export interface IDataScienceCodeLensProvider extends CodeLensProvider {
 // Wraps the Code Watcher API
 export const ICodeWatcher = Symbol('ICodeWatcher');
 export interface ICodeWatcher {
+    codeLensUpdated: Event<void>;
     setDocument(document: TextDocument): void;
     getFileName(): string;
     getVersion(): number;
@@ -261,6 +263,7 @@ export interface ICodeWatcher {
 
 export const ICodeLensFactory = Symbol('ICodeLensFactory');
 export interface ICodeLensFactory {
+    updateRequired: Event<void>;
     createCodeLenses(document: TextDocument): CodeLens[];
 }
 
@@ -287,6 +290,7 @@ export interface IInteractiveWindowInfo {
     cellCount: number;
     undoCount: number;
     redoCount: number;
+    visibleCells: ICell[];
 }
 
 export interface IMessageCell extends nbformat.IBaseCell {
@@ -427,6 +431,7 @@ export interface ICellHash {
     runtimeLine: number; // Line in the jupyter source to start at
     hash: string;
     executionCount: number;
+    id: string;         // Cell id as sent to jupyter
 }
 
 export interface IFileHashes {
@@ -441,5 +446,6 @@ export interface ICellHashListener {
 
 export const ICellHashProvider = Symbol('ICellHashProvider');
 export interface ICellHashProvider {
+    updated: Event<void>;
     getHashes(): IFileHashes[];
 }

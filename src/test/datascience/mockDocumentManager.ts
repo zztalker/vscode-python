@@ -107,8 +107,9 @@ export class MockDocumentManager implements IDocumentManager {
                 document: doc,
                 contentChanges
             };
-            this.didChangeTextDocumentEmitter.fire(ev);
+            // Changes are applied to the doc before it's sent.
             ev.contentChanges.forEach(doc.edit.bind(doc));
+            this.didChangeTextDocumentEmitter.fire(ev);
         }
     }
 

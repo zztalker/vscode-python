@@ -30,7 +30,7 @@ function uncommentMagicCommands(line: string): string {
     }
 }
 
-export function generateCodeCell(code: string[], file: string, line: number, id: string, magicCommandsAsComments: boolean): ICell {
+function generateCodeCell(code: string[], file: string, line: number, id: string, magicCommandsAsComments: boolean): ICell {
     // Code cells start out with just source and no outputs.
     return {
         data: {

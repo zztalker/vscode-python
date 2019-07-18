@@ -125,4 +125,5 @@ export function registerTypes(serviceManager: IServiceManager) {
     serviceManager.addBinding(IJupyterDebugger, ICellHashListener);
     serviceManager.addSingleton<IGatherExecution>(IGatherExecution, wrapType(GatherExecution));
     serviceManager.addBinding(IGatherExecution, INotebookExecutionLogger);
+    serviceManager.addBinding(ICodeLensFactory, IInteractiveWindowListener);
 }
