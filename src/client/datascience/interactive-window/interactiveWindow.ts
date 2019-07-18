@@ -26,14 +26,14 @@ import { EXTENSION_ROOT_DIR, PYTHON_LANGUAGE } from '../../common/constants';
 import { ContextKey } from '../../common/contextKey';
 import { traceError, traceInfo, traceWarning } from '../../common/logger';
 import { IFileSystem } from '../../common/platform/types';
-import { IConfigurationService, IDisposableRegistry, ILogger } from '../../common/types';
+import { IConfigurationService, IDisposableRegistry } from '../../common/types';
 import { createDeferred, Deferred } from '../../common/utils/async';
 import * as localize from '../../common/utils/localize';
 import { StopWatch } from '../../common/utils/stopWatch';
 import { IInterpreterService, PythonInterpreter } from '../../interpreter/contracts';
 import { captureTelemetry, sendTelemetryEvent } from '../../telemetry';
 import { generateCellRanges } from '../cellFactory';
-import { EditorContexts, Identifiers, Telemetry, CodeSnippits } from '../constants';
+import { EditorContexts, Identifiers, Telemetry } from '../constants';
 import { ColumnWarningSize } from '../data-viewing/types';
 import { JupyterInstallError } from '../jupyter/jupyterInstallError';
 import { JupyterKernelPromiseFailedError } from '../jupyter/jupyterKernelPromiseFailedError';
@@ -481,6 +481,12 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         });
     }
 
+    public gatherCode(args: ICell) {
+        this.gatherCodeInternal(args).catch(err => {
+            this.applicationShell.showErrorMessage(err);
+        });
+    }
+
     protected async activating() {
         // Only activate if the active editor is empty. This means that
         // vscode thinks we are actually supposed to have focus. It would be
@@ -816,7 +822,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         return result;
     }
 
-    private gatherCode = async (cell: ICell) => {
+    private gatherCodeInternal = async (cell: ICell) => {
         if (this.jupyterServer) {
             const slicedProgram = this.gatherExecution.gatherCode(cell);
 
