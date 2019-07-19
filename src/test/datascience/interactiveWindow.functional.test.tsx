@@ -607,6 +607,21 @@ for _ in range(50):
 
     }, () => { return ioc; });
 
+    runMountedTest('Gather code run from text editor', async (wrapper) => {
+        // Enter some code.
+        const code = '#%%\na=1\na';
+        await addCode(getOrCreateInteractiveWindow, wrapper, code);
+        addMockData(ioc, code, undefined);
+        const ImageButtons = getLastOutputCell(wrapper).find(ImageButton); // This isn't rendering correctly
+        assert.equal(ImageButtons.length, 4, 'Cell buttons not found');
+        const gatherCode = ImageButtons.at(0);
+
+        // Then click the gather code button
+        await waitForMessageResponse(() => gatherCode.simulate('click'));
+        const docManager = ioc.get<IDocumentManager>(IDocumentManager) as MockDocumentManager;
+        assert.equal(docManager.activeTextEditor.document.getText(), `# This file contains the minimal amount of code required to produce the code cell you gathered.\n#%%\na=1\na\n\n`);
+    }, () => { return ioc; });
+
     runMountedTest('Gather code run from input box', async (wrapper) => {
         // Create an interactive window so that it listens to the results.
         const interactiveWindow = await getOrCreateInteractiveWindow();
