@@ -66,8 +66,8 @@ export class MockDocumentManager implements IDocumentManager {
     }
     public showTextDocument(_document: TextDocument, _column?: ViewColumn, _preserveFocus?: boolean): Thenable<TextEditor>;
     public showTextDocument(_document: TextDocument | Uri, _options?: TextDocumentShowOptions): Thenable<TextEditor>;
-    public showTextDocument(_document: any, _column?: any, _preserveFocus?: any): Thenable<TextEditor> {
-        this.visibleTextEditors.push(_document);
+    public showTextDocument(document: any, _column?: any, _preserveFocus?: any): Thenable<TextEditor> {
+        this.visibleTextEditors.push(document);
         const mockEditor = new MockEditor(this, this.lastDocument as MockDocument);
         this.activeTextEditor = mockEditor;
         return Promise.resolve(mockEditor);
