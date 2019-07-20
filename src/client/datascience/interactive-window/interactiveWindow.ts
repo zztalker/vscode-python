@@ -82,6 +82,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
     private disposed: boolean = false;
     private loadPromise: Promise<void>;
     private interpreterChangedDisposable: Disposable;
+    private configurationChangedDisposable: Disposable;
     private closedEvent: EventEmitter<IInteractiveWindow>;
     private unfinishedCells: ICell[] = [];
     private restartingKernel: boolean = false;
@@ -134,6 +135,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
 
         // Sign up for configuration changes
         this.interpreterChangedDisposable = this.interpreterService.onDidChangeInterpreter(this.onInterpreterChanged);
+        this.configurationChangedDisposable = workspaceService.onDidChangeConfiguration(this.onConfigurationChange);
 
         // Create our event emitter
         this.closedEvent = new EventEmitter<IInteractiveWindow>();
@@ -825,6 +827,14 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
         }
 
         return result;
+    }
+
+    // We allow users to edit the default gather slicing rules via settings.json. We need to update this whenever
+    // settings.json is changed.
+    private onConfigurationChange() {
+        if (this.jupyterServer) {
+            this.gatherExecution.updateGatherRules();
+        }
     }
 
     private gatherCodeInternal = async (cell: ICell) => {

@@ -13,6 +13,10 @@ export class DataflowAnalyzer {
     this._sliceConfiguration = sliceConfiguration || [];
   }
 
+  public set sliceConfiguration(newSliceConfiguration: SliceConfiguration) {
+      this._sliceConfiguration = newSliceConfiguration;
+  }
+
   private _statementLocationKey(statement: ast.ISyntaxNode) {
     if (statement.cellExecutionEventId != undefined) {
       return (

@@ -15,13 +15,14 @@ import { CellSlice } from './model/cellslice';
 @injectable()
 export class GatherExecution implements IGatherExecution, INotebookExecutionLogger {
     private _executionSlicer: ExecutionLogSlicer;
+    private dataflowAnalyzer: DataflowAnalyzer;
 
     constructor(
         @inject(IConfigurationService) private configService: IConfigurationService
     ) {
         const rules = this.configService.getSettings().datascience.gatherRules;
-        const dataflowAnalyzer = new DataflowAnalyzer(rules); // Pass in a sliceConfiguration object, or not
-        this._executionSlicer = new ExecutionLogSlicer(dataflowAnalyzer);
+        this.dataflowAnalyzer = new DataflowAnalyzer(rules); // Pass in a sliceConfiguration object, or not
+        this._executionSlicer = new ExecutionLogSlicer(this.dataflowAnalyzer);
         traceInfo('Gathering tools have been activated');
     }
 
@@ -61,6 +62,11 @@ export class GatherExecution implements IGatherExecution, INotebookExecutionLogg
 
     public get executionSlicer() {
         return this._executionSlicer;
+    }
+
+    // Update DataflowAnalyzer's slice configuration. Is called onDidChangeConfiguration
+    public updateGatherRules() {
+        this.dataflowAnalyzer.sliceConfiguration = this.configService.getSettings().datascience.gatherRules;
     }
 }
 
