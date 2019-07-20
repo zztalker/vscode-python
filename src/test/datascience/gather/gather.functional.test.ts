@@ -3,13 +3,17 @@
 'use strict';
 
 import * as assert from 'assert';
+import * as TypeMoq from 'typemoq';
+import { IConfigurationService, IDataScienceSettings, IPythonSettings } from '../../../client/common/types';
 import { GatherExecution } from '../../../client/datascience/gather/gather';
 import { ICell as IVscCell } from '../../../client/datascience/types';
 
 // tslint:disable-next-line: max-func-body-length
 suite('DataScience code gathering tests', () => {
-    const gatherExecution = new GatherExecution();
-
+    let configurationService: TypeMoq.IMock<IConfigurationService>;
+    let gatherExecution: GatherExecution;
+    let dataScienceSettings: TypeMoq.IMock<IDataScienceSettings>;
+    let pythonSettings: TypeMoq.IMock<IPythonSettings>;
     const codeCells: IVscCell[] = [
         {
             id: '72ce5eda-e03a-454b-bfdf-7d53c4bfa91f',
@@ -83,7 +87,48 @@ suite('DataScience code gathering tests', () => {
         }
     ];
 
-    // tslint:disable-next-line: no-function-expression
+    configurationService = TypeMoq.Mock.ofType<IConfigurationService>();
+    pythonSettings = TypeMoq.Mock.ofType<IPythonSettings>();
+    dataScienceSettings = TypeMoq.Mock.ofType<IDataScienceSettings>();
+    const gatherRules = [
+        {
+            objectName: 'df',
+            functionName: 'head',
+            doesNotModify: ['OBJECT']
+        }, {
+            objectName: 'df',
+            functionName: 'tail',
+            doesNotModify: ['OBJECT']
+        }, {
+            objectName: 'df',
+            functionName: 'describe',
+            doesNotModify: ['OBJECT']
+        }, {
+            functionName: 'print',
+            doesNotModify: ['ARGUMENTS']
+        }, {
+            functionName: 'KMeans',
+            doesNotModify: ['ARGUMENTS']
+        }, {
+            functionName: 'scatter',
+            doesNotModify: ['ARGUMENTS']
+        }, {
+            functionName: 'fit',
+            doesNotModify: ['ARGUMENTS']
+        }, {
+            functionName: 'sum',
+            doesNotModify: ['ARGUMENTS']
+        }, {
+            functionName: 'len',
+            doesNotModify: ['ARGUMENTS']
+        }];
+
+    dataScienceSettings.setup(d => d.enabled).returns(() => true);
+    dataScienceSettings.setup(d => d.gatherRules).returns(() => gatherRules);
+    pythonSettings.setup(p => p.datascience).returns(() => dataScienceSettings.object);
+    configurationService.setup(c => c.getSettings(TypeMoq.It.isAny())).returns(() => pythonSettings.object);
+    gatherExecution = new GatherExecution(configurationService.object);
+
     test('Logs a cell execution', async () => {
         let count = 0;
         for (const c of codeCells) {
@@ -93,7 +138,6 @@ suite('DataScience code gathering tests', () => {
         }
     });
 
-    // tslint:disable-next-line: no-function-expression
     test('Gathers program slices for a cell', () => {
         const cell: IVscCell = codeCells[codeCells.length - 1];
         const program = gatherExecution.gatherCode(cell);
