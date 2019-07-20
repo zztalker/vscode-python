@@ -1,5 +1,6 @@
-import { injectable } from 'inversify';
+import { inject, injectable } from 'inversify';
 import { traceInfo } from '../../common/logger';
+import { IConfigurationService } from '../../common/types';
 import { noop } from '../../common/utils/misc';
 import { concatMultilineString } from '../common';
 import { CellState, ICell as IVscCell, IGatherExecution, INotebookExecutionLogger } from '../types';
@@ -7,39 +8,6 @@ import { DataflowAnalyzer } from './analysis/slice/data-flow';
 import { ExecutionLogSlicer } from './analysis/slice/log-slicer';
 import { ICell, LabCell } from './model/cell';
 import { CellSlice } from './model/cellslice';
-
-const DEFAULT_SLICECONFIG_RULES = [
-    {
-        objectName: 'df',
-        functionName: 'head',
-        doesNotModify: ['OBJECT']
-    }, {
-        objectName: 'df',
-        functionName: 'tail',
-        doesNotModify: ['OBJECT']
-    }, {
-        objectName: 'df',
-        functionName: 'describe',
-        doesNotModify: ['OBJECT']
-    }, {
-        functionName: 'print',
-        doesNotModify: ['ARGUMENTS']
-    }, {
-        functionName: 'KMeans',
-        doesNotModify: ['ARGUMENTS']
-    }, {
-        functionName: 'scatter',
-        doesNotModify: ['ARGUMENTS']
-    }, {
-        functionName: 'fit',
-        doesNotModify: ['ARGUMENTS']
-    }, {
-        functionName: 'sum',
-        doesNotModify: ['ARGUMENTS']
-    }, {
-        functionName: 'len',
-        doesNotModify: ['ARGUMENTS']
-    }];
 
 /**
  * An adapter class to wrap the code gathering functionality from [microsoft/gather](https://github.com/microsoft/gather).
@@ -49,8 +17,10 @@ export class GatherExecution implements IGatherExecution, INotebookExecutionLogg
     private _executionSlicer: ExecutionLogSlicer;
 
     constructor(
+        @inject(IConfigurationService) private configService: IConfigurationService
     ) {
-        const dataflowAnalyzer = new DataflowAnalyzer(DEFAULT_SLICECONFIG_RULES); // Pass in a sliceConfiguration object, or not
+        const rules = this.configService.getSettings().datascience.gatherRules;
+        const dataflowAnalyzer = new DataflowAnalyzer(rules); // Pass in a sliceConfiguration object, or not
         this._executionSlicer = new ExecutionLogSlicer(dataflowAnalyzer);
         traceInfo('Gathering tools have been activated');
     }
