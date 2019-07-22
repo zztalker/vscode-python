@@ -64,6 +64,17 @@ export class CellProgram {
     readonly hasError: boolean;
 }
 
+function isComment(code: string) {
+    const multiLine = code.split('\n');
+    for (let line of multiLine) {
+        // Once we find a line that isn't a comment, return false
+        if (!line.startsWith('#')) {
+            return false;
+        }
+    }
+    return true;
+}
+
 /**
  * Builds programs from a list of executed cells.
  */
@@ -91,6 +102,13 @@ export class ProgramBuilder {
                 // Parse the cell's code.
                 const rewritten = this._magicsRewriter.rewrite(cell.text);
                 traceInfo(`Parsing code ${rewritten}\n`);
+
+                // If the rewritten code is just a comment, do not attempt parse
+                // The resultant tree will be an empty string and tree.code === undefined
+                if (isComment(rewritten)) {
+                    traceInfo(`Skipping code cell that contains only comments ${rewritten}`);
+                    break;
+                }
 
                 let tree = ast.parse(rewritten + '\n');
                 statements = tree.code;
