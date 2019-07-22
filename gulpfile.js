@@ -74,7 +74,7 @@ gulp.task('compileTsc', done => {
         .on('finish', () => (failed ? done(new Error('TypeScript compilation errors')) : done()));
     });
 
-// Copy the gather code python parser because it's a js file and our tsconfig has allowJs = false by default
+// Copy the gather code python parser because it's a js file and our tsconfig has allowJs = false by default so gets ignored by tsc
 gulp.task('copyParser', done => {
     gulp
     .src('src/client/datascience/gather/analysis/parse/python/python3.js')

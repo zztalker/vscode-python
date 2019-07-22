@@ -843,10 +843,10 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
 
             // Don't want to open the gathered code on top of the interactive window
             let viewColumn: ViewColumn | undefined;
-            // Original file is visible
             const fileNameMatch = this.documentManager.visibleTextEditors.filter(textEditor => textEditor.document.fileName === cell.file);
             const definedVisibleEditors = this.documentManager.visibleTextEditors.filter(textEditor => textEditor.viewColumn !== undefined);
             if (this.documentManager.visibleTextEditors.length > 0 && fileNameMatch.length > 0) {
+                // Original file is visible
                 viewColumn = fileNameMatch[0].viewColumn;
             } else if (this.documentManager.visibleTextEditors.length > 0 && definedVisibleEditors.length > 0) {
                 // There is a visible text editor, just not the original file. Make sure viewColumn isn't undefined
@@ -862,6 +862,7 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
                 language: PYTHON_LANGUAGE
             });
             const editor = await this.documentManager.showTextDocument(doc, viewColumn);
+
             // Edit the document so that it is dirty (add a space at the end)
             editor.edit((editBuilder) => {
                 editBuilder.insert(new Position(editor.document.lineCount, 0), '\n');
