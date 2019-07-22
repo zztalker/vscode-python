@@ -9,7 +9,7 @@ import { GatherExecution } from '../../../client/datascience/gather/gather';
 import { ICell as IVscCell } from '../../../client/datascience/types';
 
 // tslint:disable-next-line: max-func-body-length
-suite('DataScience code gathering tests', () => {
+suite('DataScience code gathering unit tests', () => {
     let configurationService: TypeMoq.IMock<IConfigurationService>;
     let gatherExecution: GatherExecution;
     let dataScienceSettings: TypeMoq.IMock<IDataScienceSettings>;
@@ -123,8 +123,8 @@ suite('DataScience code gathering tests', () => {
             doesNotModify: ['ARGUMENTS']
         }];
 
-    dataScienceSettings.setup(d => d.enabled).returns(() => true);
     dataScienceSettings.setup(d => d.gatherRules).returns(() => gatherRules);
+    dataScienceSettings.setup(d => d.enabled).returns(() => true);
     pythonSettings.setup(p => p.datascience).returns(() => dataScienceSettings.object);
     configurationService.setup(c => c.getSettings(TypeMoq.It.isAny())).returns(() => pythonSettings.object);
     gatherExecution = new GatherExecution(configurationService.object);
