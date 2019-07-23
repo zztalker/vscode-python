@@ -8,7 +8,8 @@
         "lib": [
             "es6",
             "es2018",
-            "dom"
+            "dom",
+            "esnext.array"
         ],
         "jsx": "react",
         "sourceMap": true,
