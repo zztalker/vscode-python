@@ -2385,10 +2385,8 @@
         "verifyBundle": "gulp verifyBundle"
     },
     "dependencies": {
-        "@jupyterlab/cells": "^1.0.0",
-        "@jupyterlab/rendermime": "^1.0.0",
+        "@msrvida/python-program-analysis": "0.0.4",
         "@jupyterlab/services": "^3.2.1",
-        "@msrvida/python-program-analysis": "0.0.3",
         "ansi-regex": "^4.1.0",
         "arch": "^2.1.0",
         "azure-storage": "^2.10.1",
