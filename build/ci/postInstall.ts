@@ -19,6 +19,9 @@ function fixJupyterLabDTSFiles() {
     const relativePath = path.join(
         'node_modules',
         '@jupyterlab',
+        'services',
+        'node_modules',
+        '@jupyterlab',
         'coreutils',
         'lib',
         'settingregistry.d.ts'
