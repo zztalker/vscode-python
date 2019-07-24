@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
-import { isNil, min } from 'lodash';
+import { min } from 'lodash';
 import * as monacoEditor from 'monaco-editor/esm/vs/editor/editor.api';
 import * as React from 'react';
 import * as uuid from 'uuid/v4';
@@ -808,16 +808,6 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
             skipNextScroll: true,
             cellVMs: newCells
         });
-    }
-
-    // Helper function modeled after alterCellVM to update cellVM gather state
-    private alterCellVMGatherState = (cellVM: ICellViewModel) => {
-        if (cellVM.cell.data.cell_type === 'code') {
-            const newCellVM = { ...cellVM };
-            newCellVM.gathered = !newCellVM.gathered;
-            return newCellVM;
-        }
-        return cellVM;
     }
 
     // Adjust the visibility or collapsed state of a cell

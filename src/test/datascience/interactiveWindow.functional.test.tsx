@@ -619,7 +619,10 @@ for _ in range(50):
         // Then click the gather code button
         await waitForMessageResponse(() => gatherCode.simulate('click'));
         const docManager = ioc.get<IDocumentManager>(IDocumentManager) as MockDocumentManager;
-        assert.equal(docManager.activeTextEditor.document.getText(), `# This file contains the minimal amount of code required to produce the code cell you gathered.\n#%%\na=1\na\n\n`);
+        assert.notEqual(docManager.activeTextEditor, undefined);
+        if (docManager.activeTextEditor) {
+            assert.equal(docManager.activeTextEditor.document.getText(), `# This file contains the minimal amount of code required to produce the code cell you gathered.\n#%%\na=1\na\n\n`);
+        }
     }, () => { return ioc; });
 
     runMountedTest('Gather code run from input box', async (wrapper) => {
@@ -637,7 +640,10 @@ for _ in range(50):
         // Then click the gather code button
         await waitForMessageResponse(() => gatherCode.simulate('click'));
         const docManager = ioc.get<IDocumentManager>(IDocumentManager) as MockDocumentManager;
-        assert.equal(docManager.activeTextEditor.document.getText(), `# This file contains the minimal amount of code required to produce the code cell you gathered.\n#%%\na=1\na\n\n`);
+        assert.notEqual(docManager.activeTextEditor, undefined);
+        if (docManager.activeTextEditor) {
+            assert.equal(docManager.activeTextEditor.document.getText(), `# This file contains the minimal amount of code required to produce the code cell you gathered.\n#%%\na=1\na\n\n`);
+        }
     }, () => { return ioc; });
 
     runMountedTest('Copy back to source', async (_wrapper) => {
