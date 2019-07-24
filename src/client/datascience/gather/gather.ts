@@ -1,10 +1,10 @@
+import { DataflowAnalyzer } from '@msrvida/python-program-analysis';
 import { inject, injectable } from 'inversify';
 import { traceInfo } from '../../common/logger';
 import { IConfigurationService } from '../../common/types';
 import { noop } from '../../common/utils/misc';
 import { concatMultilineString } from '../common';
 import { CellState, ICell as IVscCell, IGatherExecution, INotebookExecutionLogger } from '../types';
-import { DataflowAnalyzer } from './analysis/slice/data-flow';
 import { ExecutionLogSlicer } from './analysis/slice/log-slicer';
 import { ICell, LabCell } from './model/cell';
 import { CellSlice } from './model/cellslice';
@@ -66,7 +66,7 @@ export class GatherExecution implements IGatherExecution, INotebookExecutionLogg
 
     // Update DataflowAnalyzer's slice configuration. Is called onDidChangeConfiguration
     public updateGatherRules() {
-        this.dataflowAnalyzer.sliceConfiguration = this.configService.getSettings().datascience.gatherRules;
+    //     this.dataflowAnalyzer._sliceConfiguration = this.configService.getSettings().datascience.gatherRules;
     }
 }
 

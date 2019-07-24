@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { parse } from '../../../client/datascience/gather/analysis/parse/python/python-parser';
+import { parse } from '@msrvida/python-program-analysis';
 import { LocationSet, slice } from '../../../client/datascience/gather/analysis/slice/slice';
 
 describe('slices', () => {

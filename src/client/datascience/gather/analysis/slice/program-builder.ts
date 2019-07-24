@@ -1,9 +1,7 @@
+import { DataflowAnalyzer, FOR, MODULE, Module, NumberSet, parse, Ref, SyntaxNode, walk } from '@msrvida/python-program-analysis';
 import { traceInfo } from '../../../../common/logger';
 import { ICell } from '../../model/cell';
-import * as ast from '../parse/python/python-parser';
-import { DataflowAnalyzer, Ref } from './data-flow';
 import { MagicsRewriter } from './rewrite-magics';
-import { NumberSet } from './set';
 
 /**
  * Maps to find out what line numbers over a program correspond to what cells.
@@ -20,7 +18,7 @@ export class Program {
      */
     constructor(
         text: string,
-        tree: ast.IModule,
+        tree: Module,
         cellToLineMap: CellToLineMap,
         lineToCellMap: LineToCellMap
     ) {
@@ -31,7 +29,7 @@ export class Program {
     }
 
     readonly text: string;
-    readonly tree: ast.IModule;
+    readonly tree: Module;
     readonly cellToLineMap: CellToLineMap;
     readonly lineToCellMap: LineToCellMap;
 }
@@ -45,7 +43,7 @@ export class CellProgram {
      */
     constructor(
         cell: ICell,
-        statements: ast.ISyntaxNode[],
+        statements: SyntaxNode[],
         defs: Ref[],
         uses: Ref[],
         hasError: boolean
@@ -58,7 +56,7 @@ export class CellProgram {
     }
 
     readonly cell: ICell;
-    readonly statements: ast.ISyntaxNode[];
+    readonly statements: SyntaxNode[];
     readonly defs: Ref[];
     readonly uses: Ref[];
     readonly hasError: boolean;
@@ -94,7 +92,7 @@ export class ProgramBuilder {
         for (let cell of cells) {
             // Proactively try to parse and find defs and uses in each block.
             // If there is a failure, discard that cell.
-            let statements: ast.ISyntaxNode[] = [];
+            let statements: SyntaxNode[] = [];
             let defs: Ref[] = undefined;
             let uses: Ref[] = undefined;
             let hasError = cell.hasError;
@@ -110,10 +108,10 @@ export class ProgramBuilder {
                     break;
                 }
 
-                let tree = ast.parse(rewritten + '\n');
+                let tree = parse(rewritten + '\n');
                 statements = tree.code;
                 // Annotate each node with cell ID info, for dataflow caching.
-                for (let node of ast.walk(tree)) {
+                for (let node of walk(tree)) {
                     // Sanity check that this is actually a node.
                     if (node.hasOwnProperty('type')) {
                         node.cellExecutionEventId = cell.executionEventId;
@@ -194,9 +192,9 @@ export class ProgramBuilder {
         let cellToLineMap: CellToLineMap = {};
 
         // Synthetic parse tree built from the cell parse trees.
-        let tree: ast.IModule = {
+        let tree: Module = {
             code: [],
-            type: ast.MODULE,
+            type: MODULE,
             location: undefined,
         };
 
@@ -230,12 +228,12 @@ export class ProgramBuilder {
             let cellStart = Math.min(...cellLines);
             for (let statement of cp.statements) {
                 let statementCopy = JSON.parse(JSON.stringify(statement));
-                for (let node of ast.walk(statementCopy)) {
+                for (let node of walk(statementCopy)) {
                     if (node.location) {
                         node.location.first_line += cellStart - 1;
                         node.location.last_line += cellStart - 1;
                     }
-                    if (node.type == ast.FOR) {
+                    if (node.type == FOR) {
                         node.decl_location.first_line += cellStart - 1;
                         node.decl_location.last_line += cellStart - 1;
                     }

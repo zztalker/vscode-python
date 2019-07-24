@@ -832,9 +832,9 @@ export class InteractiveWindow extends WebViewHost<IInteractiveWindowMapping> im
     // We allow users to edit the default gather slicing rules via settings.json. We need to update this whenever
     // settings.json is changed.
     private onConfigurationChange() {
-        if (this.jupyterServer) {
-            this.gatherExecution.updateGatherRules();
-        }
+    //     if (this.jupyterServer) {
+    //         this.gatherExecution.updateGatherRules();
+    //     }
     }
 
     private gatherCodeInternal = async (cell: ICell) => {

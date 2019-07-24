@@ -1212,34 +1212,61 @@
                         {
                             "objectName": "df",
                             "functionName": "head",
-                            "doesNotModify": ["OBJECT"]
-                        }, {
+                            "doesNotModify": [
+                                "OBJECT"
+                            ]
+                        },
+                        {
                             "objectName": "df",
                             "functionName": "describe",
-                            "doesNotModify": ["OBJECT"]
-                        }, {
+                            "doesNotModify": [
+                                "OBJECT"
+                            ]
+                        },
+                        {
                             "objectName": "df",
                             "functionName": "tail",
-                            "doesNotModify": ["OBJECT"]
-                        }, {
+                            "doesNotModify": [
+                                "OBJECT"
+                            ]
+                        },
+                        {
                             "functionName": "print",
-                            "doesNotModify": ["ARGUMENTS"]
-                        }, {
+                            "doesNotModify": [
+                                "ARGUMENTS"
+                            ]
+                        },
+                        {
                             "functionName": "KMeans",
-                            "doesNotModify": ["ARGUMENTS"]
-                        }, {
+                            "doesNotModify": [
+                                "ARGUMENTS"
+                            ]
+                        },
+                        {
                             "functionName": "scatter",
-                            "doesNotModify": ["ARGUMENTS"]
-                        }, {
+                            "doesNotModify": [
+                                "ARGUMENTS"
+                            ]
+                        },
+                        {
                             "functionName": "fit",
-                            "doesNotModify": ["ARGUMENTS"]
-                        }, {
+                            "doesNotModify": [
+                                "ARGUMENTS"
+                            ]
+                        },
+                        {
                             "functionName": "sum",
-                            "doesNotModify": ["ARGUMENTS"]
-                        }, {
+                            "doesNotModify": [
+                                "ARGUMENTS"
+                            ]
+                        },
+                        {
                             "functionName": "len",
-                            "doesNotModify": ["ARGUMENTS"]
-                        }]
+                            "doesNotModify": [
+                                "ARGUMENTS"
+                            ]
+                        }
+                    ]
                 },
                 "python.dataScience.askForLargeDataFrames": {
                     "type": "boolean",
@@ -2363,6 +2390,7 @@
         "@jupyterlab/cells": "^1.0.0",
         "@jupyterlab/rendermime": "^1.0.0",
         "@jupyterlab/services": "^3.2.1",
+        "@msrvida/python-program-analysis": "0.0.3",
         "ansi-regex": "^4.1.0",
         "arch": "^2.1.0",
         "azure-storage": "^2.10.1",

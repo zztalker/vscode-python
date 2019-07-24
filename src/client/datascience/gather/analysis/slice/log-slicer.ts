@@ -1,8 +1,7 @@
+import { DataflowAnalyzer } from '@msrvida/python-program-analysis';
 import { Signal } from '@phosphor/signaling';
-import { traceInfo } from '../../../../common/logger';
 import { ICell } from '../../model/cell';
 import { CellSlice } from '../../model/cellslice';
-import { DataflowAnalyzer } from './data-flow';
 import { CellProgram, ProgramBuilder } from './program-builder';
 import { LocationSet, slice } from './slice';
 
