@@ -63,7 +63,7 @@ const tslintFilter = [
     '!**/*.d.ts'
 ];
 
-gulp.task('compileTsc', done => {
+gulp.task('compile', done => {
     let failed = false;
     const tsProject = ts.createProject('tsconfig.json');
     tsProject
@@ -73,17 +73,6 @@ gulp.task('compileTsc', done => {
         .js.pipe(gulp.dest('out'))
         .on('finish', () => (failed ? done(new Error('TypeScript compilation errors')) : done()));
     });
-
-// Copy the gather code python parser because it's a js file and our tsconfig has allowJs = false by default so gets ignored by tsc
-gulp.task('copyParser', done => {
-    gulp
-    .src('src/client/datascience/gather/analysis/parse/python/python3.js')
-    .pipe(gulp.dest('./out/client/datascience/gather/analysis/parse/python/'));
-    done();
-});
-
-// As part of compilation process, copy the parser after source code has been compiled and written to out
-gulp.task('compile', gulp.series('compileTsc', 'copyParser'));
 
 gulp.task('precommit', done => run({ exitOnError: true, mode: 'staged' }, done));
 

@@ -2362,9 +2362,7 @@
     },
     "scripts": {
         "package": "gulp clean && gulp prePublishBundle && vsce package -o ms-python-insiders.vsix",
-        "compile": "gulp copyParser && tsc -watch -p ./",
-        "buildParser": "node ./node_modules/jison/lib/cli.js -o ./src/client/datascience/gather/analysis/parse/python/python3.js ./src/client/datascience/gather/analysis/parse/python/python3.jison",
-        "compile-no-watch": "gulp compile",
+        "compile": "tsc -watch -p ./",
         "compile-webviews-watch": "npx npx -n --max_old_space_size=4096 webpack --config webpack.datascience-ui.config.js --watch",
         "dump-datascience-webpack-stats": "npx -n --max_old_space_size=4096 webpack --config webpack.datascience-ui.config.js --profile --json > tmp/ds-stats.json",
         "compile-webviews": "gulp compile-webviews",
