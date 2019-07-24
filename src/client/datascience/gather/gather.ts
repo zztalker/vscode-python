@@ -1,16 +1,17 @@
 import { DataflowAnalyzer } from '@msrvida/python-program-analysis';
+import { JupyterCell as ICell, LabCell } from '@msrvida/python-program-analysis/lib/cell';
+import { CellSlice } from '@msrvida/python-program-analysis/lib/cellslice';
+import { ExecutionLogSlicer } from '@msrvida/python-program-analysis/lib/log-slicer';
+
 import { inject, injectable } from 'inversify';
 import { traceInfo } from '../../common/logger';
 import { IConfigurationService } from '../../common/types';
 import { noop } from '../../common/utils/misc';
 import { concatMultilineString } from '../common';
 import { CellState, ICell as IVscCell, IGatherExecution, INotebookExecutionLogger } from '../types';
-import { ExecutionLogSlicer } from './analysis/slice/log-slicer';
-import { ICell, LabCell } from './model/cell';
-import { CellSlice } from './model/cellslice';
 
 /**
- * An adapter class to wrap the code gathering functionality from [microsoft/gather](https://github.com/microsoft/gather).
+ * An adapter class to wrap the code gathering functionality from [microsoft/python-program-analysis](https://www.npmjs.com/package/@msrvida/python-program-analysis).
  */
 @injectable()
 export class GatherExecution implements IGatherExecution, INotebookExecutionLogger {
@@ -66,15 +67,8 @@ export class GatherExecution implements IGatherExecution, INotebookExecutionLogg
 
     // Update DataflowAnalyzer's slice configuration. Is called onDidChangeConfiguration
     public updateGatherRules() {
-    //     this.dataflowAnalyzer._sliceConfiguration = this.configService.getSettings().datascience.gatherRules;
+        //     this.dataflowAnalyzer._sliceConfiguration = this.configService.getSettings().datascience.gatherRules;
     }
-}
-
-/**
- * Accumulator to concatenate cell slices for a sliced program, preserving cell structures.
- */
-function concatWithoutCellMarkers(existingText: string, newText: CellSlice) {
-    return `${existingText}\n${newText.textSliceLines}\n\n`;
 }
 
 /**
@@ -104,7 +98,8 @@ function convertVscToGatherCell(cell: IVscCell): ICell | undefined {
             outputs: cell.data.outputs,
             hasError: cell.state === CellState.error,
             is_cell: true
-        };
+            // tslint:disable-next-line: no-any
+        } as any;
         return result;
     }
 }
