@@ -595,22 +595,7 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
 
     private gatherCode = (index: number) => {
         const cellVM = this.state.cellVMs[index];
-
-        // If the cell has no output, return
-        // if (cellVM.cell.data.cell_type === 'code' && !isNil(cellVM.cell.data.outputs) && cellVM.cell.data.outputs.length === 0) { return; }
-
-        // // Copy the array
-        // const cellVMArray: ICellViewModel[] = [...this.state.cellVMs];
-        // cellVMArray[index] = this.alterCellVMGatherState(cellVM);
-
-        // this.setState({
-        //     cellVMs: cellVMArray
-        // });
-
-        // Tell interactive window
-        // if (this.state.cellVMs[index].gathered) {
-            this.sendMessage(InteractiveWindowMessages.GatherCode, cellVM.cell);
-        // }
+        this.sendMessage(InteractiveWindowMessages.GatherCode, cellVM.cell);
     }
 
     private gotoCellCode = (index: number) => {
