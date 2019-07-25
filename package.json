@@ -2385,7 +2385,7 @@
         "verifyBundle": "gulp verifyBundle"
     },
     "dependencies": {
-        "@msrvida/python-program-analysis": "0.0.4",
+        "@msrvida/python-program-analysis": "0.0.5",
         "@jupyterlab/services": "^3.2.1",
         "ansi-regex": "^4.1.0",
         "arch": "^2.1.0",
