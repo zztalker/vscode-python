@@ -339,6 +339,7 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
                         copyCode={noop}
                         delete={noop}
                         gatherCode={noop}
+                        selectGatherCell={noop}
                         editExecutionCount={executionCount}
                         onCodeCreated={this.editableCodeCreated}
                         onCodeChange={this.codeChange}
@@ -442,27 +443,29 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
             onCodeChange: this.codeChange,
             openLink: this.openLink,
             expandImage: this.showPlot,
-            gatherCode: this.gatherCode
+            gatherCode: this.gatherCode,
+            selectGatherCell: this.selectGatherCell
         };
     }
     private getToolbarProps = (baseTheme: string): IToolbarPanelProps => {
        return {
-        addMarkdown: this.addMarkdown,
-        collapseAll: this.collapseAll,
-        expandAll: this.expandAll,
-        export: this.export,
-        restartKernel: this.restartKernel,
-        interruptKernel: this.interruptKernel,
-        undo: this.undo,
-        redo: this.redo,
-        clearAll: this.clearAll,
-        skipDefault: this.props.skipDefault,
-        canCollapseAll: this.canCollapseAll(),
-        canExpandAll: this.canExpandAll(),
-        canExport: this.canExport(),
-        canUndo: this.canUndo(),
-        canRedo: this.canRedo(),
-        baseTheme: baseTheme
+           addMarkdown: this.addMarkdown,
+           collapseAll: this.collapseAll,
+           expandAll: this.expandAll,
+           export: this.export,
+           restartKernel: this.restartKernel,
+           interruptKernel: this.interruptKernel,
+           undo: this.undo,
+           redo: this.redo,
+           clearAll: this.clearAll,
+           skipDefault: this.props.skipDefault,
+           canCollapseAll: this.canCollapseAll(),
+           canExpandAll: this.canExpandAll(),
+           canExport: this.canExport(),
+           canUndo: this.canUndo(),
+           canRedo: this.canRedo(),
+           gatherMultipleCells: this.gatherMultipleCells,
+           baseTheme: baseTheme
        };
     }
 
@@ -596,6 +599,27 @@ export class MainPanel extends React.Component<IMainPanelProps, IMainPanelState>
     private gatherCode = (index: number) => {
         const cellVM = this.state.cellVMs[index];
         this.sendMessage(InteractiveWindowMessages.GatherCode, cellVM.cell);
+    }
+
+    private selectGatherCell = (index: number) => {
+        // Update the cellVM.gathered property
+        const cellVM = this.state.cellVMs[index];
+        const newCellVM = {...cellVM};
+        newCellVM.gathered = !cellVM.gathered;
+        const newVMs: ICellViewModel[] = [...this.state.cellVMs];
+        newVMs[index] = newCellVM;
+        this.setState({
+            cellVMs: newVMs
+        });
+        this.sendInfo(newVMs);
+    }
+
+    // This function is called when the top-level gather button is pressed
+    private gatherMultipleCells = () => {
+        // Filter this.state.cellVMs for all cells for which gathered === true and send those cells to the other side
+        const gatheredCellVMs = this.state.cellVMs.filter(cellVM => cellVM.gathered === true);
+        const gatheredCells = gatheredCellVMs.map(cellVM => cellVM.cell);
+        this.sendMessage(InteractiveWindowMessages.GatherMultipleCells, gatheredCells);
     }
 
     private gotoCellCode = (index: number) => {

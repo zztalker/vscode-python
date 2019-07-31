@@ -1,8 +1,9 @@
 import { DataflowAnalyzer } from '@msrvida/python-program-analysis';
 import { JupyterCell as ICell, LabCell } from '@msrvida/python-program-analysis/lib/cell';
 import { CellSlice } from '@msrvida/python-program-analysis/lib/cellslice';
-import { ExecutionLogSlicer } from '@msrvida/python-program-analysis/lib/log-slicer';
+import { ExecutionLogSlicer, SlicedExecution } from '@msrvida/python-program-analysis/lib/log-slicer';
 
+import { LocationSet } from '@msrvida/python-program-analysis/lib/slice';
 import { inject, injectable } from 'inversify';
 import { traceInfo } from '../../common/logger';
 import { IConfigurationService } from '../../common/types';
@@ -61,6 +62,28 @@ export class GatherExecution implements IGatherExecution, INotebookExecutionLogg
         return descriptor.concat(program);
     }
 
+    public gatherMultipleExecutions(vscCells: IVscCell[]): string {
+        const cells = vscCells.map(vscCell => {
+            return convertVscToGatherCell(vscCell);
+        }).filter(cell => cell !== undefined);
+
+        const slicedExecutions: SlicedExecution[] = [];
+
+        cells.map(
+            cell => {
+                if (cell) {
+                    const slices: SlicedExecution[] = this._executionSlicer.sliceAllExecutions(cell);
+                    slicedExecutions.push(slices[0]);
+                }
+            }
+        );
+
+        const program = (merge(slicedExecutions)).cellSlices.reduce(concat, '');
+
+        const descriptor = '# This file contains the minimal amount of code required to produce the code cell you gathered.\n';
+        return descriptor.concat(program);
+    }
+
     public get executionSlicer() {
         return this._executionSlicer;
     }
@@ -102,4 +125,31 @@ function convertVscToGatherCell(cell: IVscCell): ICell | undefined {
         } as any;
         return result;
     }
+}
+
+function merge(slicedExecutions: SlicedExecution[]): SlicedExecution {
+    const cellSlices: { [cellExecutionEventId: string]: CellSlice } = {};
+    const mergedCellSlices = [];
+    for (const slicedExecution of slicedExecutions) {
+        for (const cellSlice of slicedExecution.cellSlices) {
+            const cell = cellSlice.cell;
+            if (!cellSlices[cell.executionEventId]) {
+                const newCellSlice = new CellSlice(
+                    cell,
+                    new LocationSet(),
+                    cellSlice.executionTime
+                );
+                cellSlices[cell.executionEventId] = newCellSlice;
+                mergedCellSlices.push(newCellSlice);
+            }
+            const mergedCellSlice = cellSlices[cell.executionEventId];
+            mergedCellSlice.slice = mergedCellSlice.slice.union(cellSlice.slice);
+        }
+    }
+    return new SlicedExecution(
+        new Date(), // Date doesn't mean anything for the merged slice.
+        mergedCellSlices.sort(
+            (a, b) => a.cell.executionCount - b.cell.executionCount
+        )
+    );
 }

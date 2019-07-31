@@ -47,6 +47,7 @@ interface ICellProps {
     copyCode(): void;
     delete(): void;
     gatherCode(): void;
+    selectGatherCell(): void;
     submitNewCode(code: string): void;
     onCodeChange(changes: monacoEditor.editor.IModelContentChange[], cellId: string, modelId: string): void;
     onCodeCreated(code: string, file: string, cellId: string, modelId: string): void;
@@ -146,9 +147,9 @@ export class Cell extends React.Component<ICellProps> {
         return getLocString('DataScience.deleteButtonTooltip', 'Remove cell');
     }
 
-    private getGatherCodeString = () => {
-        return getLocString('DataScience.gatherCodeTooltip', 'Gather code');
-    }
+    // private getGatherCodeString = () => {
+    //     return getLocString('DataScience.gatherCodeTooltip', 'Gather code');
+    // }
 
     private getGoToCodeString = () => {
         return getLocString('DataScience.gotoCodeButtonTooltip', 'Go to code');
@@ -156,6 +157,10 @@ export class Cell extends React.Component<ICellProps> {
 
     private getCopyBackToSourceString = () => {
         return getLocString('DataScience.copyBackToSourceButtonTooltip', 'Paste code into file');
+    }
+
+    private getSelectGatherCellString = () => {
+        return getLocString('DataScience.selectGatherCell', 'Gather cell');
     }
 
     private getCell = () => {
@@ -194,9 +199,12 @@ export class Cell extends React.Component<ICellProps> {
             return (
                 <div className={cellWrapperClass} role={this.props.role} onClick={this.onMouseClick}>
                     <MenuBar baseTheme={this.props.baseTheme}>
-                        <ImageButton baseTheme={this.props.baseTheme} onClick={this.props.gatherCode} tooltip={this.getGatherCodeString()} hidden={this.props.cellVM.editable || !this.isCodeCell()}>
-                            <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.GatherCode} />
+                        <ImageButton baseTheme={this.props.baseTheme} onClick={this.props.selectGatherCell} tooltip={this.getSelectGatherCellString()} hidden={this.props.cellVM.editable || !this.isCodeCell()}>
+                            <Image baseTheme={this.props.baseTheme} class='image-button-image' image={this.props.cellVM.gathered ? ImageName.Gathered : ImageName.NotGathered } />
                         </ImageButton>
+                        {/* <ImageButton baseTheme={this.props.baseTheme} onClick={this.props.gatherCode} tooltip={this.getGatherCodeString()} hidden={this.props.cellVM.editable || !this.isCodeCell()}>
+                            <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.GatherCode} />
+                        </ImageButton> */}
                         <ImageButton baseTheme={this.props.baseTheme} onClick={this.props.gotoCode} tooltip={this.getGoToCodeString()} hidden={hasNoSource}>
                             <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.GoToSourceCode} />
                         </ImageButton>

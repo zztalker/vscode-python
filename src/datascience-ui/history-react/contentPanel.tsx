@@ -28,6 +28,7 @@ export interface IContentPanelProps {
     copyCellCode(index: number): void;
     deleteCell(index: number): void;
     gatherCode(index: number): void;
+    selectGatherCell(index: number): void;
     onCodeChange(changes: monacoEditor.editor.IModelContentChange[], cellId: string, modelId: string): void;
     onCodeCreated(code: string, file: string, cellId: string, modelId: string): void;
     openLink(uri: monacoEditor.Uri): void;
@@ -105,6 +106,7 @@ export class ContentPanel extends React.Component<IContentPanelProps> {
                             copyCode={() => this.props.copyCellCode(index)}
                             delete={() => this.props.deleteCell(index)}
                             gatherCode={() => this.props.gatherCode(index)}
+                            selectGatherCell={() => this.props.selectGatherCell(index)}
                             onCodeChange={this.props.onCodeChange}
                             onCodeCreated={this.props.onCodeCreated}
                             monacoTheme={this.props.monacoTheme}

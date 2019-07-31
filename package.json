@@ -1454,6 +1454,7 @@
                     "description": "Modify plot output so that it can be expanded into a plot viewer window.",
                     "scope": "resource"
                 },
+
                 "python.dataScience.codeLenses": {
                     "type": "string",
                     "default": "python.datascience.runcell,  python.datascience.runallcellsabove, python.datascience.debugcell",

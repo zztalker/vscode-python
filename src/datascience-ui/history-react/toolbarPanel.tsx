@@ -19,6 +19,7 @@ export interface IToolbarPanelProps {
     canUndo: boolean;
     canRedo: boolean;
     skipDefault?: boolean;
+    gatherMultipleCells(): void;
     addMarkdown(): void;
     collapseAll(): void;
     expandAll(): void;
@@ -40,6 +41,9 @@ export class ToolbarPanel extends React.Component<IToolbarPanelProps> {
         return(
             <div id='toolbar-panel'>
                 <MenuBar baseTheme={this.props.baseTheme}>
+                    <ImageButton baseTheme={this.props.baseTheme} onClick={this.props.gatherMultipleCells} tooltip={getLocString('DataScience.gatherMultipleCells', 'Gather selected cells')}>
+                        <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.GatherCode}/>
+                    </ImageButton>
                     <ImageButton baseTheme={this.props.baseTheme} onClick={this.props.clearAll} tooltip={getLocString('DataScience.clearAll', 'Remove all cells')}>
                         <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.Cancel}/>
                     </ImageButton>

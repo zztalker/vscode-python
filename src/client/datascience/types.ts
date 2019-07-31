@@ -100,6 +100,7 @@ export const IGatherExecution = Symbol('IGatherExecution');
 export interface IGatherExecution {
     updateGatherRules(): void;
     gatherCode(vscCell: ICell): string;
+    gatherMultipleExecutions(vscCells: ICell[]): string;
 }
 
 export const IJupyterExecution = Symbol('IJupyterExecution');

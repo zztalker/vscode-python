@@ -60,6 +60,7 @@ export namespace InteractiveWindowMessages {
     export const StopDebugging = 'stop_debugging';
     export const GatherCode = 'gather_code';
     export const ScrollToCell = 'scroll_to_cell';
+    export const GatherMultipleCells = 'gather_multiple_cells';
 }
 
 // These are the messages that will mirror'd to guest/hosts in
@@ -233,5 +234,6 @@ export class IInteractiveWindowMapping {
     public [InteractiveWindowMessages.StartDebugging]: never | undefined;
     public [InteractiveWindowMessages.StopDebugging]: never | undefined;
     public [InteractiveWindowMessages.GatherCode]: ICell;
+    public [InteractiveWindowMessages.GatherMultipleCells]: ICell[];
     public [InteractiveWindowMessages.ScrollToCell]: IScrollToCell;
 }
