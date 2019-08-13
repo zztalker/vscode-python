@@ -2,6 +2,13 @@
 
 ## 2019.8.1 (13 August 2019)
 
+### Code Health
+
+1. Bump version of [PTVSD](https://pypi.org/project/ptvsd/) to `4.3.2`
+    * Fix an issue with Jump to cursor command. [#1667](https://github.com/microsoft/ptvsd/issues/1667)
+    * Fix "Unable to find threadStateIndex for the current thread" message in terminal. [#1587](https://github.com/microsoft/ptvsd/issues/1587)
+    * Fixes crash when using python 3.7.4. [#1688](https://github.com/microsoft/ptvsd/issues/1688)
+
 ### Fixes
 
 1. Revert changes to resolve unexpected indentation behavior after previous update.
