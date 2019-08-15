@@ -29,7 +29,7 @@
 # 'venvTests'
 
 steps:
-  - template: initialization_steps.yml
+  - template: steps/initialization.yml
     parameters:
       PythonVersion: $(PythonVersion)
       workingDirectory: $(Build.SourcesDirectory)
@@ -80,7 +80,7 @@ steps:
       artifactName: 'coverage-output-$(Agent.Os)'
     condition: contains(variables['TestsToRun'], 'testUnitTests')
 
-  - template: generate_upload_coverage.yml
+  - template: steps/generate_upload_coverage.yml
 
   # Install the requirements for the Python or the system tests. This includes the supporting libs that
   # we ship in our extension such as PTVSD and Jedi.

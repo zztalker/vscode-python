@@ -15,23 +15,18 @@ trigger: none
 
 # Variables that are available for the entire pipeline.
 variables:
-  PythonVersion: '3.7'
-  NodeVersion: '10.5.0'
-  NpmVersion: 'latest'
-  MOCHA_FILE: '$(Build.ArtifactStagingDirectory)/test-junit.xml' # All test files will write their JUnit xml output to this file, clobbering the last time it was written.
-  MOCHA_REPORTER_JUNIT: true # Use the mocha-multi-reporters and send output to both console (spec) and JUnit (mocha-junit-reporter).
-  VSC_PYTHON_LOG_FILE: '$(Build.ArtifactStagingDirectory)/pvsc.log'
+- template: templates/globals.yml
 
 stages:
 - stage: Build_and_Compile
   jobs:
-  - template: templates/build_compile_jobs.yml
+  - template: templates/jobs/build_compile.yml
 
-- stage: UI_Tests
+- stage: Smoke_Tests
   dependsOn:
   - Build_and_Compile
   jobs:
-  - template: templates/uitest_jobs.yml
+  - template: templates/jobs/uitest.yml
     parameters:
       # In PRs, test only against stable version of VSC.
       vscodeChannels: ['stable', 'insider']
@@ -150,15 +145,9 @@ stages:
 
 - stage: Reports
   dependsOn:
-  - UI_Tests
+  - Smoke_Tests
   - Tests
   condition: always()
   jobs:
-  - template: templates/merge_upload_uitest_report.yml
-  - job: Coverage
-    pool:
-      vmImage: "macos-latest"
-    variables:
-      TestsToRun: 'testUnitTests'
-    steps:
-      - template: templates/merge_upload_coverage.yml
+  - template: templates/jobs/merge_upload_uitest_report.yml
+  - template: templates/jobs/coverage.yml

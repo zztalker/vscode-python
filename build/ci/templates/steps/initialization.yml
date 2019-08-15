@@ -11,6 +11,7 @@
 #   Working directory.
 # 2. PythonVersion
 #   Python version to be used.
+#   If not provided, python will not be setup on CI.
 parameters:
   workingDirectory: ''
   PythonVersion: ''
@@ -24,9 +25,9 @@ steps:
       condition: eq(variables['system.debug'], 'true')
 
     - task: NodeTool@0
-      displayName: "Use Node 10.5.0"
+      displayName: "Use Node $(NodeVersion)"
       inputs:
-          versionSpec: '10.5.0'
+          versionSpec: $(NodeVersion)
 
     - task: UsePythonVersion@0
       displayName: "Use Python ${{ parameters.PythonVersion }}"
@@ -53,13 +54,6 @@ steps:
         echo '##vso[task.prependpath]'$HOME/py-$version/bin
       displayName: 'Setup python to run with sqlite on 3.*'
       condition: and(succeeded(), eq('${{ parameters.sqlite }}', 'true'), not(eq('${{ parameters.PythonVersion }}', '')), not(eq('${{ parameters.PythonVersion }}', '2.7')), eq(variables['Agent.Os'], 'Linux'))
-
-    - task: Npm@1
-      displayName: "Use NPM latest"
-      inputs:
-          command: custom
-          verbose: true
-          customCommand: "install -g npm@latest"
 
     - task: Npm@1
       displayName: "npm ci"

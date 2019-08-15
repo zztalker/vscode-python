@@ -12,7 +12,7 @@
 #   If `true`, means we need to build the VSIX, else just compile.
 
 steps:
-    - template: initialization_steps.yml
+    - template: initialization.yml
       parameters:
         PythonVersion: $(PythonVersion)
         workingDirectory: $(Build.SourcesDirectory)
