@@ -1,15 +1,15 @@
 ---
-name: Jupyter Notebook, Interactive Window, or code-cell Bug
+name: Notebook Editor, Interactive Window, or .py file Notebook cells
 about: Create a report to help us improve
 labels: type-bug, "data science"
 ---
-# Jupyter Notebook, Interactive Window, or code-cell Bug
+# Notebook Editor, Interactive Window, .py file Notebook cells Bug
 
 <!-----------------------------------------------------------------------------------------------
                                                       ***PLEASE READ***
 If this issue doesn't relate to Jupyter Notebooks, Python Interactive Window features
-or other "cell"-based features of the Python extension, please use the main Python bug template
-instead of this one. ***Thank you!***
+or other notebook or "cell"-based features of the Python extension, please use the main Python
+bug template instead of this one. ***Thank you!***
 ------------------------------------------------------------------------------------------------->
 
 ## Steps to cause the bug to occur
