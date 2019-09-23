@@ -34,7 +34,6 @@ https://github.com/phw/peek or https://www.screentogif.com/ to create one.
 
 ## Developer Tools Console Output
 <!-----------------------------------------------------------------------------------------------
-                                             Optional, but sometimes useful
 Copy/paste the output in the "Console" tab in the "Developer Tools" panel (Help >
 Toggle Developer Tools). For better details, run the "Enable source map support for
 extension debugging" command in VS Code at least once beforehand.
