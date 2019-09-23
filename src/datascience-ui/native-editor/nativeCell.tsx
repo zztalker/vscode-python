@@ -589,13 +589,13 @@ export class NativeCell extends React.Component<INativeCellProps, INativeCellSta
 
         return (
             <div className='native-editor-celltoolbar-middle'>
+                {switchButton}
                 <ImageButton baseTheme={this.props.baseTheme} onClick={runAbove} disabled={!canRunAbove} tooltip={getLocString('DataScience.runAbove', 'Run cells above')}>
                     <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.RunAbove} />
                 </ImageButton>
                 <ImageButton baseTheme={this.props.baseTheme} onClick={runBelow} disabled={!canRunBelow} tooltip={getLocString('DataScience.runBelow', 'Run cell and below')}>
                     <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.RunBelow} />
                 </ImageButton>
-                {switchButton}
                 <ImageButton baseTheme={this.props.baseTheme} onClick={deleteCell} tooltip={getLocString('DataScience.deleteCell', 'Delete cell')}>
                     <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.Delete} />
                 </ImageButton>
