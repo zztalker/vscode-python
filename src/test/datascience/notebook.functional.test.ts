@@ -22,7 +22,7 @@ import { IFileSystem } from '../../client/common/platform/types';
 import { IProcessServiceFactory, IPythonExecutionFactory, Output } from '../../client/common/process/types';
 import { createDeferred, waitForPromise } from '../../client/common/utils/async';
 import { noop } from '../../client/common/utils/misc';
-import { concatMultilineString } from '../../client/datascience/common';
+import { concatMultilineStringInput } from '../../client/datascience/common';
 import { Identifiers } from '../../client/datascience/constants';
 import { JupyterExecutionFactory } from '../../client/datascience/jupyter/jupyterExecutionFactory';
 import { JupyterKernelPromiseFailedError } from '../../client/datascience/jupyter/jupyterKernelPromiseFailedError';
@@ -168,7 +168,7 @@ suite('DataScience notebook tests', () => {
         } else if (cellType === 'markdown') {
             assert.equal(cells[0].data.cell_type, cellType, `${index}: Wrong type of cell returned`);
             const cell = cells[0].data as nbformat.IMarkdownCell;
-            const outputSource = concatMultilineString(cell.source);
+            const outputSource = concatMultilineStringInput(cell.source);
             verifyValue(outputSource);
         } else if (cellType === 'error') {
             const cell = cells[0].data as nbformat.ICodeCell;
@@ -788,7 +788,7 @@ df.head()`,
                 mimeType: 'text/plain',
                 cellType: 'markdown',
                 result: '#HEADER',
-                verifyValue: (d) => assert.equal(d, '#HEADER', 'Markdown incorrect')
+                verifyValue: (d) => assert.equal(d, ' #HEADER', 'Markdown incorrect')
             },
             {
                 markdownRegEx: '\\s*#\\s*<markdowncell>',
@@ -798,7 +798,7 @@ df.head()`,
                 mimeType: 'text/plain',
                 cellType: 'markdown',
                 result: '#HEADER',
-                verifyValue: (d) => assert.equal(d, '#HEADER', 'Markdown incorrect')
+                verifyValue: (d) => assert.equal(d, ' #HEADER', 'Markdown incorrect')
             },
             {
                 // Test relative directories too.
@@ -1038,7 +1038,7 @@ plt.show()`,
         @injectable()
         class Logger implements INotebookExecutionLogger {
             public async preExecute(cell: ICell, _silent: boolean): Promise<void> {
-                cellInputs.push(concatMultilineString(cell.data.source));
+                cellInputs.push(concatMultilineStringInput(cell.data.source));
             }
             public async postExecute(cell: ICell, _silent: boolean): Promise<void> {
                 outputs.push(extractDataOutput(cell));
