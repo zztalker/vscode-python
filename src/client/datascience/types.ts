@@ -257,6 +257,7 @@ export interface INotebookEditor extends IInteractiveBase {
     runAllCells(): void;
     runSelectedCell(): void;
     addCellBelow(): void;
+    addCode(code: string, file: string, line: number, editor?: TextEditor, runningStopWatch?: StopWatch): Promise<boolean>;
 }
 
 export const IInteractiveWindowListener = Symbol('IInteractiveWindowListener');
