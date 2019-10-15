@@ -24,7 +24,7 @@
         "theme": "dark"
     },
     "engines": {
-        "vscode": "^1.36.0"
+        "vscode": "^1.38.0"
     },
     "keywords": [
         "python",
@@ -72,6 +72,7 @@
         "onCommand:python.switchOffInsidersChannel",
         "onCommand:python.switchToDailyChannel",
         "onCommand:python.switchToWeeklyChannel",
+        "onCommand:python.datascience.createnewnotebook",
         "onCommand:python.datascience.showhistorypane",
         "onCommand:python.datascience.importnotebook",
         "onCommand:python.datascience.importnotebookfile",
@@ -962,8 +963,7 @@
                 {
                     "command": "python.datascience.createnewnotebook",
                     "title": "%python.command.python.datascience.createnewnotebook.title%",
-                    "category": "Python",
-                    "when": "python.datascience.featureenabled"
+                    "category": "Python"
                 }
             ],
             "view/title": [
@@ -1934,11 +1934,12 @@
                 "python.analysis.cachingLevel": {
                     "type": "string",
                     "enum": [
+                        "Default",
                         "None",
                         "System",
                         "Library"
                     ],
-                    "default": "None",
+                    "default": "Default",
                     "description": "Defines which types of modules get their analysis cached.",
                     "scope": "resource"
                 },
@@ -2670,12 +2671,13 @@
         "verifyBundle": "gulp verifyBundle"
     },
     "dependencies": {
+        "@blueprintjs/select": "3.10.0",
         "@jupyterlab/services": "^3.2.1",
         "@msrvida/python-program-analysis": "^0.2.6",
-        "@blueprintjs/select": "3.10.0",
         "ansi-regex": "^4.1.0",
         "arch": "^2.1.0",
         "azure-storage": "^2.10.3",
+        "detect-indent": "^6.0.0",
         "diff-match-patch": "^1.0.0",
         "fast-deep-equal": "^2.0.1",
         "fs-extra": "^4.0.3",
@@ -2685,7 +2687,6 @@
         "hash.js": "^1.1.7",
         "iconv-lite": "^0.4.21",
         "inversify": "^4.11.1",
-        "jison": "^0.4.18",
         "jsonc-parser": "^2.0.3",
         "less-plugin-inline-urls": "^1.2.0",
         "line-by-line": "^0.1.6",
@@ -2790,7 +2791,7 @@
         "@types/tmp": "0.0.33",
         "@types/untildify": "^3.0.0",
         "@types/uuid": "^3.4.3",
-        "@types/vscode": "^1.36.0",
+        "@types/vscode": "^1.38.0",
         "@types/webpack-bundle-analyzer": "^2.13.0",
         "@types/winreg": "^1.2.30",
         "@types/ws": "^6.0.1",

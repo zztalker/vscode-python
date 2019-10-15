@@ -7,7 +7,7 @@ import { nbformat } from '@jupyterlab/coreutils';
 import * as fastDeepEqual from 'fast-deep-equal';
 import * as React from 'react';
 
-import { concatMultilineString } from '../../client/datascience/common';
+import { concatMultilineStringInput } from '../../client/datascience/common';
 import { Identifiers } from '../../client/datascience/constants';
 import { NativeCommandType } from '../../client/datascience/interactive-common/interactiveWindowTypes';
 import { CellState, ICell } from '../../client/datascience/types';
@@ -52,7 +52,7 @@ export class NativeCell extends React.Component<INativeCellProps> {
 
     public render() {
         if (this.props.cellVM.cell.data.cell_type === 'messages') {
-            return <InformationMessages messages={this.props.cellVM.cell.data.messages} type={this.props.cellVM.cell.type}/>;
+            return <InformationMessages messages={this.props.cellVM.cell.data.messages}/>;
         } else {
             return this.renderNormalCell();
         }
@@ -248,6 +248,13 @@ export class NativeCell extends React.Component<INativeCellProps> {
                     this.arrowDownFromCell(e);
                 }
                 break;
+            case 's':
+                if (e.ctrlKey) {
+                    // This is save, save our cells
+                    this.props.stateController.save();
+                }
+                break;
+
             case 'Escape':
                 if (isFocusedWhenNotSuggesting) {
                     this.escapeCell(e);
@@ -474,7 +481,7 @@ export class NativeCell extends React.Component<INativeCellProps> {
             content = possibleContents;
         } else {
             // Outside editor, just use the cell
-            content = concatMultilineString(this.props.cellVM.cell.data.source);
+            content = concatMultilineStringInput(this.props.cellVM.cell.data.source);
         }
 
         // Send to jupyter
@@ -563,7 +570,7 @@ export class NativeCell extends React.Component<INativeCellProps> {
         const switchToMarkdown = () => {
             this.props.stateController.changeCellType(cellId, 'markdown');
             this.props.stateController.sendCommand(NativeCommandType.ChangeToMarkdown, 'mouse');
-            setTimeout(() => this.props.focusCell(cellId, true), 10);
+            setTimeout(() => this.props.focusCell(cellId, true), 0);
         };
         const switchToCode = () => {
             const handler = () => {
@@ -571,7 +578,7 @@ export class NativeCell extends React.Component<INativeCellProps> {
                     this.props.stateController.changeCellType(cellId, 'code');
                     this.props.stateController.sendCommand(NativeCommandType.ChangeToCode, 'mouse');
                     this.props.focusCell(cellId, true);
-                }, 10);
+                }, 0);
             };
 
             // This is special. Coming in on a mouse down event so we get
@@ -613,7 +620,7 @@ export class NativeCell extends React.Component<INativeCellProps> {
             this.props.cellVM.cell.data.execution_count.toString() : '-';
         const runCell = () => {
             this.props.stateController.updateCellSource(cellId);
-            this.runAndMove(concatMultilineString(this.props.cellVM.cell.data.source));
+            this.runAndMove(concatMultilineStringInput(this.props.cellVM.cell.data.source));
             this.props.stateController.sendCommand(NativeCommandType.Run, 'mouse');
         };
         const canRunBelow = this.props.cellVM.cell.state === CellState.finished || this.props.cellVM.cell.state === CellState.error;

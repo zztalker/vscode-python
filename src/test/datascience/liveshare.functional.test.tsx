@@ -171,7 +171,7 @@ suite('DataScience LiveShare tests', () => {
         return waitForResults(role, async (both: boolean) => {
             if (!both) {
                 const window = await getOrCreateWindow(role, isNotebook);
-                await window.addCode(code, 'foo.py', 2);
+                await window.addCode(code, Uri.file('foo.py').fsPath, 2);
             } else {
                 // Add code to the apropriate container
                 const host = await getOrCreateWindow(vsls.Role.Host, isNotebook);
@@ -179,9 +179,9 @@ suite('DataScience LiveShare tests', () => {
                 // Make sure guest is still creatable
                 if (isSessionStarted(vsls.Role.Guest, isNotebook)) {
                     const guest = await getOrCreateWindow(vsls.Role.Guest, isNotebook);
-                    (role === vsls.Role.Host ? await host.addCode(code, 'foo.py', 2) : await guest.addCode(code, 'foo.py', 2));
+                    (role === vsls.Role.Host ? await host.addCode(code, Uri.file('foo.py').fsPath, 2) : await guest.addCode(code, Uri.file('foo.py').fsPath, 2));
                 } else {
-                    await host.addCode(code, 'foo.py', 2);
+                    await host.addCode(code, Uri.file('foo.py').fsPath, 2);
                 }
             }
         }, isNotebook, expectedRenderCount);
@@ -422,7 +422,7 @@ suite('DataScience LiveShare tests', () => {
         await startSession(vsls.Role.Guest, isNotebook);
 
         // Create a document on the guest
-        guest!.addDocument('#%%\na=1\na', 'foo.py');
+        guest!.addDocument('#%%\na=1\na', Uri.file('foo.py').fsPath);
         guest!.get<IDocumentManager>(IDocumentManager).showTextDocument(Uri.file('foo.py'));
 
         // Attempt to export a file from the guest by running an ExportFileAndOutputAsNotebook
@@ -430,7 +430,7 @@ suite('DataScience LiveShare tests', () => {
         assert.ok(executePromise, 'Export file did not return a promise');
         const savedUri = await executePromise;
         assert.ok(savedUri, 'Uri not returned from export');
-        assert.equal(savedUri.fsPath, 'test.ipynb', 'Export did not work');
+        assert.equal(savedUri.fsPath, Uri.file('test.ipynb').fsPath, 'Export did not work');
         assert.ok(outputContents, 'Output not exported');
         assert.ok(outputContents!.includes('data'), 'Output is empty');
     }

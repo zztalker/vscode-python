@@ -98,7 +98,8 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
             const cellId = this.state.cellVMs.length > 0 ? this.state.cellVMs[0].cell.id : undefined;
             const newCell = this.stateController.insertAbove(cellId, true);
             if (newCell) {
-                this.selectCell(newCell);
+                // Make async because the click changes focus.
+                setTimeout(() => this.focusCell(newCell, true), 0);
             }
         };
         const addCellLine = this.state.cellVMs.length === 0 ? null :
@@ -175,7 +176,8 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
             const newCell = this.stateController.addNewCell();
             this.stateController.sendCommand(NativeCommandType.AddToEnd, 'mouse');
             if (newCell) {
-                this.stateController.selectCell(newCell.cell.id, newCell.cell.id);
+                // Has to be async because the click will change the focus on mouse up
+                setTimeout(() => this.focusCell(newCell.cell.id, true), 0);
             }
         };
         const runAll = () => {
@@ -211,7 +213,7 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
                     <ImageButton baseTheme={this.props.baseTheme} onClick={toggleVariableExplorer} className='native-button' tooltip={variableExplorerTooltip}>
                         <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.VariableExplorer} />
                     </ImageButton>
-                    <ImageButton baseTheme={this.props.baseTheme} onClick={this.stateController.save} disabled={!this.state.dirty} className='native-button' tooltip={getLocString('DataScience.save', 'Save File')}>
+                    <ImageButton baseTheme={this.props.baseTheme} onClick={this.saveFromToolbar} disabled={!this.state.dirty} className='native-button' tooltip={getLocString('DataScience.save', 'Save File')}>
                         <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.SaveAs} />
                     </ImageButton>
                     <ImageButton baseTheme={this.props.baseTheme} onClick={this.stateController.export} disabled={!this.stateController.canExport()} className='save-button' tooltip={getLocString('DataScience.exportAsPythonFileTooltip', 'Save As Python File')}>
@@ -221,6 +223,11 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
                 <div className='toolbar-divider'/>
             </div>
         );
+    }
+
+    private saveFromToolbar = () => {
+        this.stateController.save();
+        this.stateController.sendCommand(NativeCommandType.Save, 'mouse');
     }
 
     private renderVariablePanel(baseTheme: string) {
@@ -321,6 +328,7 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
                 if (event.ctrlKey) {
                     // This is save, save our cells
                     this.stateController.save();
+                    this.stateController.sendCommand(NativeCommandType.Save, 'keyboard');
                 }
                 break;
 
@@ -370,7 +378,8 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
             const newCell = this.stateController.insertBelow(cellVM.cell.id, true);
             this.stateController.sendCommand(NativeCommandType.AddToEnd, 'mouse');
             if (newCell) {
-                this.selectCell(newCell);
+                // Has to be async because the click will change the focus on mouse up
+                setTimeout(() => this.focusCell(newCell, true), 0);
             }
         };
         const lastLine = index === this.state.cellVMs.length - 1 ?
@@ -425,7 +434,7 @@ export class NativeEditor extends React.Component<INativeEditorProps, IMainState
             // Bounce this so state has time to update.
             setTimeout(() => {
                 this.focusCell(newCell, true);
-            }, 10);
+            }, 0);
         }
     }
 }

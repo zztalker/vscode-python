@@ -7,13 +7,13 @@ import { parse } from 'node-html-parser';
 import * as os from 'os';
 import * as path from 'path';
 import * as TypeMoq from 'typemoq';
-import { Disposable, Selection, TextDocument, TextEditor } from 'vscode';
+import { Disposable, Selection, TextDocument, TextEditor, Uri } from 'vscode';
 
 import { IApplicationShell, IDocumentManager } from '../../client/common/application/types';
 import { createDeferred, waitForPromise } from '../../client/common/utils/async';
 import { noop } from '../../client/common/utils/misc';
 import { generateCellsFromDocument } from '../../client/datascience/cellFactory';
-import { concatMultilineString } from '../../client/datascience/common';
+import { concatMultilineStringInput } from '../../client/datascience/common';
 import { EditorContexts } from '../../client/datascience/constants';
 import { InteractiveWindow } from '../../client/datascience/interactive-window/interactiveWindow';
 import { InteractivePanel } from '../../datascience-ui/history-react/interactivePanel';
@@ -254,7 +254,7 @@ for _ in range(50):
         const docManager = TypeMoq.Mock.ofType<IDocumentManager>();
         const visibleEditor = TypeMoq.Mock.ofType<TextEditor>();
         const dummyDocument = TypeMoq.Mock.ofType<TextDocument>();
-        dummyDocument.setup(d => d.fileName).returns(() => 'foo.py');
+        dummyDocument.setup(d => d.fileName).returns(() => Uri.file('foo.py').fsPath);
         visibleEditor.setup(v => v.show()).returns(() => showedEditor.resolve());
         visibleEditor.setup(v => v.revealRange(TypeMoq.It.isAny())).returns(noop);
         visibleEditor.setup(v => v.document).returns(() => dummyDocument.object);
@@ -394,7 +394,7 @@ for _ in range(50):
         const updatePromise = waitForUpdate(wrapper, InteractivePanel);
 
         // Send some code to the interactive window
-        await interactiveWindow.addCode('a=1\na', 'foo.py', 2);
+        await interactiveWindow.addCode('a=1\na', Uri.file('foo.py').fsPath, 2);
 
         // Wait for the render to go through
         await updatePromise;
@@ -533,13 +533,13 @@ for _ in range(50):
         const executed = createDeferred();
         // We have to wait until the execute goes through before we reset.
         interactiveWindow.onExecutedCode(() => executed.resolve());
-        const added = interactiveWindow.addCode('import time\r\ntime.sleep(1000)', 'foo', 0);
+        const added = interactiveWindow.addCode('import time\r\ntime.sleep(1000)', Uri.file('foo').fsPath, 0);
         await executed.promise;
         await interactiveWindow.restartKernel();
         await added;
 
         // Now see if our wrapper still works. Interactive window should have forced a restart
-        await interactiveWindow.addCode('a=1\na', 'foo', 0);
+        await interactiveWindow.addCode('a=1\na', Uri.file('foo').fsPath, 0);
         verifyHtmlOnCell(wrapper, 'InteractiveCell', '<span>1</span>', CellPosition.Last);
 
     }, () => { return ioc; });
@@ -557,10 +557,10 @@ for _ in range(50):
             assert.equal(cells.length, 2, 'Not enough cells generated');
 
             // Run the first cell
-            await addCode(ioc, wrapper, concatMultilineString(cells[0].data.source), 4);
+            await addCode(ioc, wrapper, concatMultilineStringInput(cells[0].data.source), 4);
 
             // Last cell should generate a series of updates. Verify we end up with a single image
-            await addCode(ioc, wrapper, concatMultilineString(cells[1].data.source), 10);
+            await addCode(ioc, wrapper, concatMultilineStringInput(cells[1].data.source), 10);
             const cell = getLastOutputCell(wrapper, 'InteractiveCell');
 
             const output = cell!.find('div.cell-output');

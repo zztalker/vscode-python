@@ -250,6 +250,11 @@ export interface INotebookEditor extends IInteractiveBase {
     closed: Event<INotebookEditor>;
     executed: Event<INotebookEditor>;
     modified: Event<INotebookEditor>;
+    saved: Event<INotebookEditor>;
+    /**
+     * `true` if there are unpersisted changes.
+     */
+    readonly isDirty: boolean;
     readonly file: Uri;
     readonly visible: boolean;
     readonly active: boolean;
@@ -341,7 +346,6 @@ export interface ICell {
     file: string;
     line: number;
     state: CellState;
-    type: 'preview' | 'execute';
     data: nbformat.ICodeCell | nbformat.IRawCell | nbformat.IMarkdownCell | IMessageCell;
     extraLines?: number[];
 }
@@ -395,6 +399,11 @@ export interface IJupyterCommandFactory {
 }
 
 // Config settings we pass to our react code
+export type FileSettings = {
+    autoSaveDelay: number;
+    autoSave: 'afterDelay' | 'off' | 'onFocusChange' | 'onWindowChange';
+};
+
 export interface IDataScienceExtraSettings extends IDataScienceSettings {
     extraSettings: {
         editorCursor: string;
