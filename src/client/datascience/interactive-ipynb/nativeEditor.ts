@@ -641,8 +641,6 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
         if (!this.loadedAllCells) {
             this.loadedAllCells = true;
             sendTelemetryEvent(Telemetry.NotebookOpenTime, this.startupTimer.elapsedTime);
-
-            // this.submitCode('a=1\na', 'foo.py', 2).ignoreErrors();
         }
     }
 }
