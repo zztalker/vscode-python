@@ -76,6 +76,7 @@ export async function addCell(wrapper: ReactWrapper<any, Readonly<{}>, React.Com
     assert.ok(reactEditor, 'Cannot find the main panel during adding a cell');
     let update = waitForUpdate(wrapper, NativeEditor, 1);
     const vm = reactEditor!.stateController.addNewCell();
+    vm!.cell.id = '3D3AB152-ADC1-4501-B813-4B83B49B0C10';
 
     if (submit) {
         // Then use that cell to stick new input.

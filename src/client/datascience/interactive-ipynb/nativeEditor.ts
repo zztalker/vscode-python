@@ -9,7 +9,7 @@ import * as fastDeepEqual from 'fast-deep-equal';
 import { inject, injectable, multiInject, named } from 'inversify';
 import * as path from 'path';
 import * as uuid from 'uuid/v4';
-import { Event, EventEmitter, Memento, TextEditor, Uri, ViewColumn } from 'vscode';
+import { Event, EventEmitter, Memento, Uri, ViewColumn } from 'vscode';
 
 import {
     IApplicationShell,
@@ -154,11 +154,6 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
     public dispose(): void {
         super.dispose();
         this.close().ignoreErrors();
-    }
-
-    public addCode(code: string, file: string, line: number, editor?: TextEditor): Promise<boolean> {
-        // Call the internal method.
-        return this.submitCode(code, file, line, undefined, editor, false);
     }
 
     public async load(contents: string, file: Uri): Promise<void> {

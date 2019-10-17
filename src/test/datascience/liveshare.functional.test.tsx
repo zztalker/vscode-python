@@ -31,8 +31,10 @@ import { NativeEditor } from '../../datascience-ui/native-editor/nativeEditor';
 import { asyncDump } from '../common/asyncDump';
 import { DataScienceIocContainer } from './dataScienceIocContainer';
 import { createDocument } from './editor-integration/helpers';
+import { addCell } from './nativeEditorTestHelpers';
 import { waitForUpdate } from './reactHelpers';
-import { addMockData, CellPosition, verifyHtmlOnCell } from './testHelpers';
+import { addMockData, CellPosition, getMainPanel, verifyHtmlOnCell } from './testHelpers';
+
 //tslint:disable:trailing-comma no-any no-multiline-string
 
 // tslint:disable-next-line:max-func-body-length no-any
@@ -105,11 +107,17 @@ suite('DataScience LiveShare tests', () => {
         return result;
     }
 
-    function getOrCreateWindow(role: vsls.Role, isNotebook: boolean): Promise<INotebookEditor | IInteractiveWindow> {
+    function getOrCreateWindow(role: vsls.Role, isNotebook: boolean, uri?: Uri, contents?: string): Promise<INotebookEditor | IInteractiveWindow> {
         // Get the container to use based on the role.
         if (isNotebook) {
             const container = role === vsls.Role.Host ? NotebookHostContainer : NotebookGuestContainer;
-            return container!.get<INotebookEditorProvider>(INotebookEditorProvider).createNew();
+            const notebookProvider = container!.get<INotebookEditorProvider>(INotebookEditorProvider);
+
+            if (uri && contents) {
+                return notebookProvider.open(uri, contents);
+            } else {
+                return notebookProvider.createNew();
+            }
         } else {
             const container = role === vsls.Role.Host ? InteractiveHostContainer : InteractiveGuestContainer;
             return container!.get<IInteractiveWindowProvider>(IInteractiveWindowProvider).getOrCreateActive();
@@ -170,18 +178,43 @@ suite('DataScience LiveShare tests', () => {
     async function addCodeToRole(role: vsls.Role, code: string, isNotebook: boolean, expectedRenderCount: number = 5): Promise<ReactWrapper<any, Readonly<{}>, React.Component>> {
         return waitForResults(role, async (both: boolean) => {
             if (!both) {
-                const window = await getOrCreateWindow(role, isNotebook);
-                await window.addCode(code, Uri.file('foo.py').fsPath, 2);
+                if (isNotebook) {
+                    await getOrCreateWindow(role, isNotebook);
+                    const container = getContainer(role, isNotebook);
+                    await addCell(container.wrapper!, code);
+                } else {
+                    const window = await getOrCreateWindow(role, isNotebook);
+                    await (window as IInteractiveWindow).addCode(code, Uri.file('foo.py').fsPath, 2);
+                }
             } else {
                 // Add code to the apropriate container
                 const host = await getOrCreateWindow(vsls.Role.Host, isNotebook);
 
                 // Make sure guest is still creatable
                 if (isSessionStarted(vsls.Role.Guest, isNotebook)) {
-                    const guest = await getOrCreateWindow(vsls.Role.Guest, isNotebook);
-                    (role === vsls.Role.Host ? await host.addCode(code, Uri.file('foo.py').fsPath, 2) : await guest.addCode(code, Uri.file('foo.py').fsPath, 2));
+                    if (isNotebook) {
+                        // add code to notebook editor
+                        const container = getContainer(role, isNotebook);
+                        const reactEditor = getMainPanel<NativeEditor>(container.wrapper!, NativeEditor);
+                        const vm = reactEditor!.stateController.addNewCell();
+                        reactEditor!.stateController.submitInput(code, vm!);
+                    } else {
+                        const guest = await getOrCreateWindow(vsls.Role.Guest, isNotebook);
+
+                        (role === vsls.Role.Host ?
+                            await (host as IInteractiveWindow).addCode(code, Uri.file('foo.py').fsPath, 2) :
+                            await (guest as IInteractiveWindow).addCode(code, Uri.file('foo.py').fsPath, 2));
+                    }
                 } else {
-                    await host.addCode(code, Uri.file('foo.py').fsPath, 2);
+                    if (isNotebook) {
+                        // add code to notebook editor
+                        const container = getContainer(role, isNotebook);
+                        const reactEditor = getMainPanel<NativeEditor>(container.wrapper!, NativeEditor);
+                        const vm = reactEditor!.stateController.addNewCell();
+                        reactEditor!.stateController.submitInput(code, vm!);
+                    } else {
+                        await (host as IInteractiveWindow).addCode(code, Uri.file('foo.py').fsPath, 2);
+                    }
                 }
             }
         }, isNotebook, expectedRenderCount);
@@ -243,7 +276,7 @@ suite('DataScience LiveShare tests', () => {
         test(`${name} (notebook)`, async () => testFunc(true));
     }
 
-    runDoubleLiveshareTest('Liveshare - Host alone', hostAloneTest);
+    test('Liveshare - Host alone (interactive)', async () => hostAloneTest(false));
 
     async function hostAloneTest(isNotebook: boolean) {
         const host = getContainer(vsls.Role.Host, isNotebook);
@@ -258,7 +291,23 @@ suite('DataScience LiveShare tests', () => {
         verifyHtmlOnCell(wrapper, isNotebook ? 'NativeCell' : 'InteractiveCell', '<span>1</span>', CellPosition.Last);
     }
 
-    runDoubleLiveshareTest('Liveshare - Host & Guest Simple', hostAndGuestSimpleTest);
+    test('Liveshare - Host alone (notebook)', async () => {
+        const isNotebook = true;
+        await getOrCreateWindow(vsls.Role.Host, isNotebook);
+        const container = getContainer(vsls.Role.Host, isNotebook);
+
+        // Should only need mock data in host
+        addMockData(container!, 'a=1\na', 1);
+
+        // Start the host session first
+        await startSession(vsls.Role.Host, isNotebook);
+
+        // Just run some code in the host
+        await addCell(container.wrapper!, 'a=1\na');
+        verifyHtmlOnCell(container.wrapper!, isNotebook ? 'NativeCell' : 'InteractiveCell', '<span>1</span>', CellPosition.Last);
+    });
+
+    test('Liveshare - Host & Guest Simple (interactive)', async () => hostAndGuestSimpleTest(false));
 
     async function hostAndGuestSimpleTest(isNotebook: boolean) {
         const host = getContainer(vsls.Role.Host, isNotebook);
@@ -281,6 +330,46 @@ suite('DataScience LiveShare tests', () => {
         assert.ok(guest.wrapper, 'Guest wrapper not created');
         verifyHtmlOnCell(guest.wrapper!, isNotebook ? 'NativeCell' : 'InteractiveCell', '<span>1</span>', CellPosition.Last);
     }
+
+    test('Liveshare - Host & Guest Simple (notebook)', async () => {
+        const isNotebook = true;
+        // const host = getContainer(vsls.Role.Host, isNotebook);
+        // const guest = getContainer(vsls.Role.Guest, isNotebook);
+
+        // Should only need mock data in host
+
+        // Create the host history and then the guest history
+        // await getOrCreateWindow(vsls.Role.Host, isNotebook);
+        // await startSession(vsls.Role.Host, isNotebook);
+        // await getOrCreateWindow(vsls.Role.Guest, isNotebook);
+        // await startSession(vsls.Role.Guest, isNotebook);
+
+        // Send code through the host
+        // const wrapper = await addCodeToRole(vsls.Role.Host, 'a=1\na', isNotebook);
+        await getOrCreateWindow(vsls.Role.Host, isNotebook);
+        const container = getContainer(vsls.Role.Host, isNotebook);
+        addMockData(container!, 'a=1\na', 1);
+        await startSession(vsls.Role.Host, isNotebook);
+
+        await getOrCreateWindow(vsls.Role.Guest, isNotebook);
+        const guest = getContainer(vsls.Role.Guest, isNotebook);
+        await startSession(vsls.Role.Guest, isNotebook);
+
+        while (!isSessionStarted(vsls.Role.Host, isNotebook)) {
+            // asd
+        }
+
+        while (!isSessionStarted(vsls.Role.Guest, isNotebook)) {
+            // asd
+        }
+
+        await addCell(container.wrapper!, 'a=1\na');
+        verifyHtmlOnCell(container.wrapper!, isNotebook ? 'NativeCell' : 'InteractiveCell', '<span>1</span>', CellPosition.Last);
+
+        // Verify it ended up on the guest too
+        assert.ok(guest.wrapper, 'Guest wrapper not created');
+        verifyHtmlOnCell(guest.wrapper!, isNotebook ? 'NativeCell' : 'InteractiveCell', '<span>1</span>', CellPosition.Last);
+    });
 
     runDoubleLiveshareTest('Liveshare - Host starts LiveShare after starting Jupyter', hostStartsLiveshareAfterStartingJupyterTest);
 
