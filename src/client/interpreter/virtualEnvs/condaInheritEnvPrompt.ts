@@ -6,8 +6,9 @@ import { ConfigurationTarget, Uri } from 'vscode';
 import { IExtensionActivationService } from '../../activation/types';
 import { IApplicationShell, IWorkspaceService } from '../../common/application/types';
 import { traceDecorators, traceError } from '../../common/logger';
-import { IPersistentStateFactory } from '../../common/types';
-import { InteractiveShiftEnterBanner, Interpreters } from '../../common/utils/localize';
+import { IPlatformService } from '../../common/platform/types';
+import { IBrowserService, IPersistentStateFactory } from '../../common/types';
+import { Common, InteractiveShiftEnterBanner, Interpreters } from '../../common/utils/localize';
 import { sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
 import { IInterpreterService, InterpreterType } from '../contracts';
@@ -19,10 +20,12 @@ export class CondaInheritEnvPrompt implements IExtensionActivationService {
     constructor(
         @inject(IInterpreterService) private readonly interpreterService: IInterpreterService,
         @inject(IWorkspaceService) private readonly workspaceService: IWorkspaceService,
+        @inject(IBrowserService) private browserService: IBrowserService,
         @inject(IApplicationShell) private readonly appShell: IApplicationShell,
         @inject(IPersistentStateFactory) private readonly persistentStateFactory: IPersistentStateFactory,
+        @inject(IPlatformService) private readonly platformService: IPlatformService,
         @optional() public hasPromptBeenShownInCurrentSession: boolean = false
-    ) { }
+    ) {}
 
     public async activate(resource: Uri): Promise<void> {
         this.initializeInBackground(resource).ignoreErrors();
@@ -43,8 +46,8 @@ export class CondaInheritEnvPrompt implements IExtensionActivationService {
         if (!notificationPromptEnabled.value) {
             return;
         }
-        const prompts = [InteractiveShiftEnterBanner.bannerLabelYes(), InteractiveShiftEnterBanner.bannerLabelNo()];
-        const telemetrySelections: ['Yes', 'No'] = ['Yes', 'No'];
+        const prompts = [InteractiveShiftEnterBanner.bannerLabelYes(), InteractiveShiftEnterBanner.bannerLabelNo(), Common.moreInfo()];
+        const telemetrySelections: ['Yes', 'No', 'More Info'] = ['Yes', 'No', 'More Info'];
         const selection = await this.appShell.showInformationMessage(Interpreters.condaInheritEnvMessage(), ...prompts);
         sendTelemetryEvent(EventName.CONDA_INHERIT_ENV_PROMPT, undefined, { selection: selection ? telemetrySelections[prompts.indexOf(selection)] : undefined });
         if (!selection) {
@@ -54,12 +57,17 @@ export class CondaInheritEnvPrompt implements IExtensionActivationService {
             await this.workspaceService.getConfiguration('terminal').update('integrated.inheritEnv', false, ConfigurationTarget.Global);
         } else if (selection === prompts[1]) {
             await notificationPromptEnabled.updateValue(false);
+        } else if (selection === prompts[2]) {
+            this.browserService.launch('https://aka.ms/AA66i8f');
         }
     }
 
     @traceDecorators.error('Failed to check whether to display prompt for conda inherit env setting')
     public async shouldShowPrompt(resource: Uri): Promise<boolean> {
         if (this.hasPromptBeenShownInCurrentSession) {
+            return false;
+        }
+        if (this.platformService.isWindows) {
             return false;
         }
         const interpreter = await this.interpreterService.getActiveInterpreter(resource);
