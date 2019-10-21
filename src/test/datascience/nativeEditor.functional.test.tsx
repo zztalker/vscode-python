@@ -262,7 +262,7 @@ suite('DataScience Native Editor', () => {
             const runAllButton = findButton(wrapper, NativeEditor, 3);
             await waitForMessageResponse(ioc, () => runAllButton!.simulate('click'));
 
-            await waitForUpdate(wrapper, NativeEditor, 16);
+            await waitForUpdate(wrapper, NativeEditor, 15);
 
             verifyHtmlOnCell(wrapper, 'NativeCell', `1`, 0);
             verifyHtmlOnCell(wrapper, 'NativeCell', `2`, 1);
@@ -285,7 +285,7 @@ suite('DataScience Native Editor', () => {
             // Run everything
             let runAllButton = findButton(wrapper, NativeEditor, 3);
             await waitForMessageResponse(ioc, () => runAllButton!.simulate('click'));
-            await waitForUpdate(wrapper, NativeEditor, 16);
+            await waitForUpdate(wrapper, NativeEditor, 15);
 
             // Close editor. Should still have the server up
             await closeNotebook(editor, wrapper);
