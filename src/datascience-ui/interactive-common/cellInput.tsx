@@ -7,7 +7,7 @@ import { nbformat } from '@jupyterlab/coreutils';
 import * as monacoEditor from 'monaco-editor/esm/vs/editor/editor.api';
 import * as React from 'react';
 
-import { concatMultilineString } from '../../client/datascience/common';
+import { concatMultilineStringInput } from '../../client/datascience/common';
 import { IKeyboardEvent } from '../react-common/event';
 import { getLocString } from '../react-common/locReactSide';
 import { Code } from './code';
@@ -26,7 +26,6 @@ interface ICellInputProps {
     monacoTheme: string | undefined;
     editorOptions?: monacoEditor.editor.IEditorOptions;
     editorMeasureClassName?: string;
-    focusedCell?: string;
     showLineNumbers?: boolean;
     font: IFont;
     onCodeChange(changes: monacoEditor.editor.IModelContentChange[], cellId: string, modelId: string): void;
@@ -56,7 +55,7 @@ export class CellInput extends React.Component<ICellInputProps> {
     }
 
     public componentDidUpdate(prevProps: ICellInputProps) {
-        if (this.props.focusedCell === this.props.cellVM.cell.id && prevProps.focusedCell !== this.props.focusedCell) {
+        if (this.props.cellVM.focused && !prevProps.cellVM.focused) {
             this.giveFocus();
         }
     }
@@ -140,7 +139,7 @@ export class CellInput extends React.Component<ICellInputProps> {
 
     private renderMarkdownInputs = () => {
         if (this.shouldRenderMarkdownEditor()) {
-            const source = concatMultilineString(this.getMarkdownCell().source);
+            const source = concatMultilineStringInput(this.getMarkdownCell().source);
             return (
                 <div className='cell-input'>
                     <Markdown

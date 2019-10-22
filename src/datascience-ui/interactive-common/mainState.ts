@@ -9,7 +9,7 @@ import * as path from 'path';
 
 import { IDataScienceSettings } from '../../client/common/types';
 import { CellMatcher } from '../../client/datascience/cellMatcher';
-import { concatMultilineString, splitMultilineString } from '../../client/datascience/common';
+import { concatMultilineStringInput, splitMultilineString } from '../../client/datascience/common';
 import { Identifiers } from '../../client/datascience/constants';
 import { CellState, ICell, IJupyterVariable, IMessageCell } from '../../client/datascience/types';
 import { noop } from '../../test/core';
@@ -26,6 +26,8 @@ export interface ICellViewModel {
     showLineNumbers?: boolean;
     hideOutput?: boolean;
     useQuickEdit?: boolean;
+    selected: boolean;
+    focused: boolean;
     inputBlockToggled(id: string): void;
 }
 
@@ -53,11 +55,11 @@ export interface IMainState {
     pendingVariableCount: number;
     debugging: boolean;
     dirty?: boolean;
-    selectedCell?: string;
-    focusedCell?: string;
+    selectedCellId?: string;
+    focusedCellId?: string;
     enableGather: boolean;
     isAtBottom: boolean;
-    newCell?: string;
+    newCellId?: string;
     loadTotal?: number;
 }
 
@@ -132,8 +134,7 @@ export function createEmptyCell(id: string | undefined, executionCount: number |
         id: id ? id : Identifiers.EditCellId,
         file: Identifiers.EmptyFileName,
         line: 0,
-        state: CellState.finished,
-        type: 'execute'
+        state: CellState.finished
     };
 }
 
@@ -145,7 +146,9 @@ export function createEditableCellVM(executionCount: number): ICellViewModel {
         inputBlockShow: true,
         inputBlockText: '',
         inputBlockCollapseNeeded: false,
-        inputBlockToggled: noop
+        inputBlockToggled: noop,
+        selected: false,
+        focused: false
     };
 }
 
@@ -169,7 +172,7 @@ export function extractInputText(inputCell: ICell, settings: IDataScienceSetting
         }
     }
 
-    return concatMultilineString(source);
+    return concatMultilineStringInput(source);
 }
 
 export function createCellVM(inputCell: ICell, settings: IDataScienceSettings | undefined, inputBlockToggled: (id: string) => void, editable: boolean): ICellViewModel {
@@ -186,12 +189,14 @@ export function createCellVM(inputCell: ICell, settings: IDataScienceSettings | 
         inputBlockShow: true,
         inputBlockText: inputText,
         inputBlockCollapseNeeded: (inputLinesCount > 1),
-        inputBlockToggled: inputBlockToggled
+        inputBlockToggled: inputBlockToggled,
+        selected: false,
+        focused: false
     };
 }
 
 function generateVMs(inputBlockToggled: (id: string) => void, filePath: string, editable: boolean): ICellViewModel[] {
-    const cells = generateCells(filePath);
+    const cells = generateCells(filePath, 10);
     return cells.map((cell: ICell) => {
         const vm = createCellVM(cell, undefined, inputBlockToggled, editable);
         vm.useQuickEdit = false;
@@ -199,16 +204,20 @@ function generateVMs(inputBlockToggled: (id: string) => void, filePath: string, 
     });
 }
 
-function generateCells(filePath: string): ICell[] {
+export function generateCells(filePath: string, repetitions: number): ICell[] {
     // Dupe a bunch times for perf reasons
     let cellData: (nbformat.ICodeCell | nbformat.IMarkdownCell | nbformat.IRawCell | IMessageCell)[] = [];
-    for (let i = 0; i < 10; i += 1) {
+    for (let i = 0; i < repetitions; i += 1) {
         cellData = [...cellData, ...generateCellData()];
     }
+    // Dynamically require vscode, this is testing code.
+    // Obfuscate the import to prevent webpack from picking this up.
+    // tslint:disable-next-line: no-eval (webpack is smart enough to look for `require` and `eval`).
+    const Uri = eval('req' + 'uire')('vscode').Uri;
     return cellData.map((data: nbformat.ICodeCell | nbformat.IMarkdownCell | nbformat.IRawCell | IMessageCell, key: number) => {
         return {
             id: key.toString(),
-            file: path.join(filePath, 'foo.py'),
+            file: Uri.file(path.join(filePath, 'foo.py')).fsPath,
             line: 1,
             state: key === cellData.length - 1 ? CellState.executing : CellState.finished,
             type: key === 3 ? 'preview' : 'execute',
@@ -454,7 +463,7 @@ function generateCellData(): (nbformat.ICodeCell | nbformat.IMarkdownCell | nbfo
                 'Nunc quis orci ante. Vivamus vel blandit velit.\n","Sed mattis dui diam, et blandit augue mattis vestibulum.\n',
                 'Suspendisse ornare interdum velit. Suspendisse potenti.\n',
                 'Morbi molestie lacinia sapien nec porttitor. Nam at vestibulum nisi.\n',
-                '\"\"\" '
+                '\"\"\"'
             ]
         },
         {

@@ -33,11 +33,12 @@ export interface IMonacoEditorProps {
     lineCountChanged(newCount: number): void;
 }
 
-interface IMonacoEditorState {
+export interface IMonacoEditorState {
     editor?: monacoEditor.editor.IStandaloneCodeEditor;
     model: monacoEditor.editor.ITextModel | null;
     visibleLineCount: number;
-    attached: boolean;
+    attached: boolean; // Keeps track of when we reparent the editor out of the dummy dom node.
+    widgetsReparented: boolean; // Keeps track of when we reparent the hover widgets so they work inside something with overflow
 }
 
 // Need this to prevent wiping of the current value on a componentUpdate. react-monaco-editor has that problem.
@@ -59,9 +60,18 @@ export class MonacoEditor extends React.Component<IMonacoEditorProps, IMonacoEdi
     private throttledUpdateWidgetPosition = throttle(this.updateWidgetPosition.bind(this), 100);
     private monacoContainer : HTMLDivElement | undefined;
 
+    /**
+     * Reference to parameter widget (used by monaco to display parameter docs).
+     *
+     * @private
+     * @type {Element}
+     * @memberof MonacoEditor
+     */
+    private parameterWidget?: Element;
+
     constructor(props: IMonacoEditorProps) {
         super(props);
-        this.state = { editor: undefined, model: null, visibleLineCount: -1, attached: false };
+        this.state = { editor: undefined, model: null, visibleLineCount: -1, attached: false, widgetsReparented: false };
         this.containerRef = React.createRef<HTMLDivElement>();
         this.measureWidthRef = React.createRef<HTMLDivElement>();
         this.debouncedUpdateEditorSize = debounce(this.updateEditorSize.bind(this), 150);
@@ -156,6 +166,17 @@ export class MonacoEditor extends React.Component<IMonacoEditorProps, IMonacoEdi
                 }
             }));
 
+            // When editor loses focus, hide parameter widgets (if any currently displayed).
+            this.subscriptions.push(editor.onDidBlurEditorWidget(() => {
+                this.hideParameterWidget();
+            }));
+
+            // Track focus changes to make sure we update our widget parent and widget position
+            this.subscriptions.push(editor.onDidFocusEditorWidget(() => {
+                this.throttledUpdateWidgetPosition();
+                this.updateWidgetParent(editor);
+            }));
+
             // Update our margin to include the correct line number style
             this.updateMargin(editor);
 
@@ -185,7 +206,10 @@ export class MonacoEditor extends React.Component<IMonacoEditorProps, IMonacoEdi
         if (window) {
             window.removeEventListener('resize', this.windowResized);
         }
-
+        if (this.parameterWidget){
+            this.parameterWidget.removeEventListener('mouseleave', this.outermostParentLeave);
+            this.parameterWidget = undefined;
+        }
         if (this.outermostParent) {
             this.outermostParent.removeEventListener('mouseleave', this.outermostParentLeave);
             this.outermostParent = null;
@@ -346,6 +370,10 @@ export class MonacoEditor extends React.Component<IMonacoEditorProps, IMonacoEdi
                         `position: absolute; left: ${rect.left}px; top: ${rect.top}px; width:${width ? width : rect.width}px`);
                 }
             }
+        } else {
+            // If widget parent isn't set yet, try again later
+            this.updateWidgetParent(this.state.editor);
+            this.throttledUpdateWidgetPosition(width);
         }
     }
 
@@ -376,16 +404,22 @@ export class MonacoEditor extends React.Component<IMonacoEditorProps, IMonacoEdi
                 // Make sure to attach to a real dom node.
                 if (!this.state.attached && this.state.editor && this.monacoContainer) {
                     this.containerRef.current.appendChild(this.monacoContainer);
-
-                    // Make sure our suggest and hover windows show up on top of other stuff
-                    this.updateWidgetParent(this.state.editor);
+                    this.monacoContainer.addEventListener('mousemove', this.onContainerMove);
                 }
                 this.setState({visibleLineCount: currLineCount, attached: true});
                 this.state.editor.layout({width, height});
-
-                // Also need to update our widget positions
-                this.throttledUpdateWidgetPosition(width);
             }
+        }
+    }
+
+    private onContainerMove = () => {
+        if (!this.widgetParent && !this.state.widgetsReparented && this.monacoContainer) {
+            // Only need to do this once, but update the widget parents and move them.
+            this.updateWidgetParent(this.state.editor);
+            this.startUpdateWidgetPosition();
+
+            // Since only doing this once, remove the listener.
+            this.monacoContainer.removeEventListener('mousemove', this.onContainerMove);
         }
     }
 
@@ -421,7 +455,106 @@ export class MonacoEditor extends React.Component<IMonacoEditorProps, IMonacoEdi
         if (this.state.editor && !this.enteredHover) {
             // If we haven't already entered hover, then act like it shuts down
             this.onHoverLeave();
+            // Possible user is viewing the parameter hints, wait before user moves the mouse.
+            // Waiting for 1s is too long to move the mouse and hide the hints (100ms seems like a good fit).
+            setTimeout(() => this.hideParameterWidget(), 100);
         }
+    }
+
+    /**
+     * This will hide the parameter widget if the user is not hovering over
+     * the parameter widget for this monaco editor.
+     *
+     * Notes: See issue https://github.com/microsoft/vscode-python/issues/7851 for further info.
+     * Hide the parameter widget if all of the following conditions have been met:
+     * - ditor doesn't have focus
+     * - Mouse is not over the editor
+     * - Mouse is not over (hovering) the parameter widget
+     *
+     * @private
+     * @returns
+     * @memberof MonacoEditor
+     */
+    private hideParameterWidget(){
+        if (!this.state.editor || !this.state.editor.getDomNode() || !this.widgetParent){
+            return;
+        }
+        // Find all elements that the user is hovering over.
+        // Its possible the parameter widget is one of them.
+        const hoverElements: Element[] = Array.prototype.slice.call(document.querySelectorAll(':hover'));
+        // Find all parameter widgets related to this monaco editor that are currently displayed.
+        const visibleParameterHintsWidgets: Element[] = Array.prototype.slice.call(this.widgetParent.querySelectorAll('.parameter-hints-widget.visible'));
+        if (hoverElements.length === 0 && visibleParameterHintsWidgets.length === 0){
+            // If user is not hovering over anything and there are no visible parameter widgets,
+            // then, we have nothing to do but get out of here.
+            return;
+        }
+
+        // Find all parameter widgets related to this monaco editor.
+        const knownParameterHintsWidgets: HTMLDivElement[] = Array.prototype.slice.call(this.widgetParent.querySelectorAll('.parameter-hints-widget'));
+
+        // Lets not assume we'll have the exact same DOM for parameter widgets.
+        // So, just remove the event handler, and add it again later.
+        if (this.parameterWidget){
+            this.parameterWidget.removeEventListener('mouseleave', this.outermostParentLeave);
+        }
+        // These are the classes that will appear on a parameter widget when they are visible.
+        const parameterWidgetClasses = ['editor-widget', 'parameter-hints-widget', 'visible'];
+
+        // Find the parameter widget the user is currently hovering over.
+        this.parameterWidget = hoverElements.find(item => {
+            if (!item.className) {
+                return false;
+            }
+            // Check if user is hovering over a parameter widget.
+            const classes = item.className.split(' ');
+            if (!parameterWidgetClasses.every(cls => classes.indexOf(cls) >= 0)){
+                // Not all classes required in a parameter hint widget are in this element.
+                // Hence this is not a parameter widget.
+                return false;
+            }
+
+            // Ok, this element that the user is hovering over is a parameter widget.
+
+            // Next, check whether this parameter widget belongs to this monaco editor.
+            // We have a list of parameter widgets that belong to this editor, hence a simple lookup.
+            return knownParameterHintsWidgets.some(widget => widget === item);
+        });
+
+        if (this.parameterWidget){
+            // We know the user is hovering over the parameter widget for this editor.
+            // Hovering could mean the user is scrolling through a large parameter list.
+            // We need to add a mouse leave event handler, so as to hide this.
+            this.parameterWidget.addEventListener('mouseleave', this.outermostParentLeave);
+
+            // In case the event handler doesn't get fired, have a backup of checking within 1s.
+            setTimeout(() => this.hideParameterWidget(), 1000);
+            return;
+        }
+        if (visibleParameterHintsWidgets.length === 0){
+            // There are no parameter widgets displayed for this editor.
+            // Hence nothing to do.
+            return;
+        }
+        // If the editor has focus, don't hide the parameter widget.
+        // This is the default behavior. Let the user hit `Escape` or click somewhere
+        // to forcefully hide the parameter widget.
+        if (this.state.editor.hasWidgetFocus()) {
+            return;
+        }
+
+        // If we got here, then the user is not hovering over the paramter widgets.
+        // & the editor doesn't have focus.
+        // However some of the parameter widgets associated with this monaco editor are visible.
+        // We need to hide them.
+
+        // Solution: Hide the widgets manually.
+        knownParameterHintsWidgets.forEach(widget => {
+            widget.setAttribute('class', widget.className.split(' ').filter(cls => cls !== 'visible').join(' '));
+            if (widget.style.visibility !== 'hidden') {
+                widget.style.visibility = 'hidden';
+            }
+        });
     }
 
     private updateMargin(editor: monacoEditor.editor.IStandaloneCodeEditor) {
@@ -452,14 +585,15 @@ export class MonacoEditor extends React.Component<IMonacoEditorProps, IMonacoEdi
         }
     }
 
-    private updateWidgetParent(editor: monacoEditor.editor.IStandaloneCodeEditor) {
+    private updateWidgetParent(editor: monacoEditor.editor.IStandaloneCodeEditor | undefined) {
         // Reparent the hover widgets. They cannot be inside anything that has overflow hidden or scrolling or they won't show
         // up overtop of anything. Warning, this is a big hack. If the class name changes or the logic
         // for figuring out the position of hover widgets changes, this won't work anymore.
         // appendChild on a DOM node moves it, but doesn't clone it.
         // https://developer.mozilla.org/en-US/docs/Web/API/Node/appendChild
-        const editorNode = editor.getDomNode();
-        if (editorNode) {
+        const editorNode = editor ? editor.getDomNode() : undefined;
+        if (editor && editorNode && !this.state.widgetsReparented) {
+            this.setState({widgetsReparented: true});
             try {
                 const elements = editorNode.getElementsByClassName('overflowingContentWidgets');
                 if (elements && elements.length) {

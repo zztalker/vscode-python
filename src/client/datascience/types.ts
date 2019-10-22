@@ -250,10 +250,22 @@ export interface INotebookEditor extends IInteractiveBase {
     closed: Event<INotebookEditor>;
     executed: Event<INotebookEditor>;
     modified: Event<INotebookEditor>;
+    saved: Event<INotebookEditor>;
+    /**
+     * Is this notebook representing an untitled file which has never been saved yet.
+     */
+    readonly isUntitled: boolean;
+    /**
+     * `true` if there are unpersisted changes.
+     */
+    readonly isDirty: boolean;
     readonly file: Uri;
     readonly visible: boolean;
     readonly active: boolean;
     load(contents: string, file: Uri): Promise<void>;
+    runAllCells(): void;
+    runSelectedCell(): void;
+    addCellBelow(): void;
 }
 
 export const IInteractiveWindowListener = Symbol('IInteractiveWindowListener');
@@ -337,7 +349,6 @@ export interface ICell {
     file: string;
     line: number;
     state: CellState;
-    type: 'preview' | 'execute';
     data: nbformat.ICodeCell | nbformat.IRawCell | nbformat.IMarkdownCell | IMessageCell;
     extraLines?: number[];
 }
@@ -347,6 +358,7 @@ export interface IInteractiveWindowInfo {
     undoCount: number;
     redoCount: number;
     visibleCells: ICell[];
+    selectedCell: string | undefined;
 }
 
 export interface IMessageCell extends nbformat.IBaseCell {
@@ -390,6 +402,11 @@ export interface IJupyterCommandFactory {
 }
 
 // Config settings we pass to our react code
+export type FileSettings = {
+    autoSaveDelay: number;
+    autoSave: 'afterDelay' | 'off' | 'onFocusChange' | 'onWindowChange';
+};
+
 export interface IDataScienceExtraSettings extends IDataScienceSettings {
     extraSettings: {
         editorCursor: string;
