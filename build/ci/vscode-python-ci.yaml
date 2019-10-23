@@ -271,11 +271,11 @@ stages:
     dependsOn: []
     strategy:
       matrix:
-        'Mac-Py3.7':
-            PythonVersion: '3.7'
-            VMImageName: 'macos-10.13'
-            TestsToRun: 'testSmoke'
-            NeedsPythonTestReqs: true
+        # 'Mac-Py3.7':
+        #     PythonVersion: '3.7'
+        #     VMImageName: 'macos-10.13'
+        #     TestsToRun: 'testSmoke'
+        #     NeedsPythonTestReqs: true
         'Linux-Py3.7':
             PythonVersion: '3.7'
             VMImageName: 'ubuntu-16.04'
