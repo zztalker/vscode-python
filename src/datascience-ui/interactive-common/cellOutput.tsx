@@ -172,11 +172,50 @@ export class CellOutput extends React.Component<ICellOutputProps> {
     private renderMarkdownOutputs = () => {
         const markdown = this.getMarkdownCell();
         // React-markdown expects that the source is a string
-        const source = concatMultilineStringInput(markdown.source);
+        const source = this.fixLatexEquations(concatMultilineStringInput(markdown.source));
         const Transform = transforms['text/markdown'];
         const MarkdownClassName = 'markdown-cell-output';
 
         return [<div key={0} className={MarkdownClassName}><Transform key={0} data={source} /></div>];
+    }
+
+    // Adds '$$' to latex formulas that don't have a '$', allowing users to input the formula directly.
+    private fixLatexEquations(input: string): string {
+        const block = '\n$$\n';
+
+        const beginIndexes = this.getAllIndexesOf(input, '\\begin');
+        const endIndexes = this.getAllIndexesOf(input, '\\end');
+
+        for (let i = 0; i < beginIndexes.length; i += 1) {
+            const endOfEnd = input.indexOf('}', endIndexes[i] + 1);
+
+            // Edge case, if the input starts with the latex formula we add the block at the beggining.
+            if (beginIndexes[i] === 0 && input[beginIndexes[i]] === '\\') {
+                input = block + input.slice(0, endOfEnd + 1) + block + input.slice(endOfEnd + 1, input.length - 1);
+            // Normal case, if the latex formula starts with a '$' we don nothing.
+            // Otherwise, we insert the block at the beginning and ending of the latex formula.
+            } else if (input[beginIndexes[i] - 1] !== '$') {
+                input = input.slice(0, beginIndexes[i] - 1) + block + input.slice(beginIndexes[i], endOfEnd + 1) + block + input.slice(endOfEnd + 1, input.length - 1);
+            }
+        }
+
+        return input;
+    }
+
+    private getAllIndexesOf(arr: string, value: string): number[] {
+        const indexes = [];
+
+        for (let i = -1;;) {
+            i = arr.indexOf(value, i + 1);
+
+            if (i === -1) {
+                break;
+            } else {
+                indexes.push(i);
+            }
+        }
+
+        return indexes;
     }
 
     // tslint:disable-next-line: max-func-body-length
