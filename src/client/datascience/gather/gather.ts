@@ -89,22 +89,6 @@ export class GatherExecution implements IGatherExecution, INotebookExecutionLogg
         // Add a comment at the top of the file explaining what gather does
         const descriptor = '# This file contains the minimal amount of code required to produce the code cell you gathered.\n';
         return descriptor.concat(program);
-
-        // const slicedExecution: SlicedExecution = <SlicedExecution>this._executionSlicer.sliceAllExecutions(gatherCell.executionEventId).pop();
-        // const depCells = this._executionSlicer.getDependentCells(gatherCell.executionEventId);
-
-        // const descriptor = '# This file contains the minimal amount of code required to produce the code cell you gathered.\n';
-        // let script: string = `${descriptor}`;
-        // if (slicedExecution.cellSlices.length > 0) {
-        //     slicedExecution.cellSlices.forEach((c: CellSlice) => { script = script.concat(c.cell.text); });
-        // }
-
-        // if (depCells.length > 0) {
-        //     depCells.forEach((c) => { script = script.concat(c.text); });
-        // }
-        // script = script.replace(/#%%/g, defaultCellMarker);
-
-        // return script;
     }
 
     public get executionSlicer() {
