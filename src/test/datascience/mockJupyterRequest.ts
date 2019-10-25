@@ -1,8 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
-import { nbformat } from '@jupyterlab/coreutils';
 import { Kernel, KernelMessage } from '@jupyterlab/services';
+import { nbformat } from '@jupyterlab/services/node_modules/@jupyterlab/coreutils';
 import { CancellationToken } from 'vscode-jsonrpc';
 
 import { createDeferred, Deferred } from '../../client/common/utils/async';

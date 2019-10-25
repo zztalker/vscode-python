@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
-import { nbformat } from '@jupyterlab/coreutils';
+import { nbformat } from '@jupyterlab/services/node_modules/@jupyterlab/coreutils';
 import * as assert from 'assert';
 import * as typemoq from 'typemoq';
 

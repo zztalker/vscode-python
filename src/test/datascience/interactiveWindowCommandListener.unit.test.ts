@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
-import { nbformat } from '@jupyterlab/coreutils/lib/nbformat';
+import { nbformat } from '@jupyterlab/services/node_modules/@jupyterlab/coreutils/lib/nbformat';
 import { assert } from 'chai';
 import { anything, instance, mock, when } from 'ts-mockito';
 import { Matcher } from 'ts-mockito/lib/matcher/type/Matcher';

@@ -3,7 +3,7 @@
 'use strict';
 import '../../common/extensions';
 
-import { nbformat } from '@jupyterlab/coreutils/lib/nbformat';
+import { nbformat } from '@jupyterlab/services/node_modules/@jupyterlab/coreutils/lib/nbformat';
 import * as detectIndent from 'detect-indent';
 import { inject, injectable, multiInject, named } from 'inversify';
 import * as path from 'path';
