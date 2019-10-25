@@ -1,3 +1,5 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
 // Adds '$$' to latex formulas that don't have a '$', allowing users to input the formula directly.
 function fixLatexEquations(input: string): string {
     const block = '\n$$\n';
