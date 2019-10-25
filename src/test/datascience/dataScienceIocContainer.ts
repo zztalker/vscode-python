@@ -704,7 +704,7 @@ export class DataScienceIocContainer extends UnitTestIocContainer {
     }
 
     public enableJedi(enabled: boolean) {
-        this.pythonSettings.jediEnabled = enabled;
+        this.pythonSettings.languageServer = enabled ? 'jedi' : 'microsoft';
     }
 
     private findPythonPath(): string {
