@@ -115,12 +115,6 @@ export function generateCellRangesFromString(source: string, settings?: IDataSci
     for (let index = 0; index < lines.length; index += 1) {
         if (matcher.isCell(lines[index])) {
 
-            // // If we have at least one cell...
-            // if (cells.length > 0) {
-            //     const previousCell = cells[cells.length - 1];
-            //     previousCell.range = new Range(previousCell.range.start, new Position(index - 1, lines[index - 1].length));
-            // }
-
             // We have a cell, find the next cell
             let j = index + 1;
             while (j < lines.length && !matcher.isCell(lines[j])) {
@@ -137,12 +131,6 @@ export function generateCellRangesFromString(source: string, settings?: IDataSci
             }
         }
     }
-
-    // if (cells.length >= 1) {
-    //     const previousCell = cells[cells.length - 1];
-    //     previousCell.range = new Range(previousCell.range.start, new Position(lines.length - 1, lines[lines.length - 1].length));
-    // }
-
 
     return cells;
 }
