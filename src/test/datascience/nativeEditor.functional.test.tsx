@@ -13,6 +13,7 @@ import * as TypeMoq from 'typemoq';
 import { Disposable, TextDocument, TextEditor, Uri, WindowState } from 'vscode';
 
 import { IApplicationShell, IDocumentManager } from '../../client/common/application/types';
+import { IFileSystem } from '../../client/common/platform/types';
 import { createDeferred, waitForPromise } from '../../client/common/utils/async';
 import { createTemporaryFile } from '../../client/common/utils/fs';
 import { noop } from '../../client/common/utils/misc';
@@ -37,6 +38,7 @@ import {
     addCell,
     closeNotebook,
     createNewEditor,
+    focusCell,
     getNativeCellResults,
     mountNativeWebView,
     openEditor,
@@ -54,6 +56,7 @@ import {
     getLastOutputCell,
     getNativeFocusedEditor,
     getOutputCell,
+    injectCode,
     isCellFocused,
     isCellSelected,
     srcDirectory,
@@ -274,6 +277,9 @@ for _ in range(50):
         }, () => { return ioc; });
 
         runMountedTest('Startup and shutdown', async (wrapper) => {
+            // Stub the `stat` method to return a dummy value.
+            sinon.stub(ioc.serviceContainer.get<IFileSystem>(IFileSystem), 'stat').resolves({mtime: 0} as any);
+
             addMockData(ioc, 'b=2\nb', 2);
             addMockData(ioc, 'c=3\nc', 3);
 
@@ -887,6 +893,14 @@ for _ in range(50):
                     0
                 );
 
+                // Force focus so we can change the text. Use special method
+                // because we can't key down on the editor
+                await focusCell(ioc, wrapper, 1);
+
+                // Change the markdown
+                let editor = getNativeFocusedEditor(wrapper);
+                injectCode(editor, 'foo');
+
                 // Switch back to code mode.
                 // At this moment, there's no cell input element, hence send key strokes to the wrapper.
                 const wrapperElement = wrapper
@@ -904,6 +918,11 @@ for _ in range(50):
                         .find(MonacoEditor).length,
                     1
                 );
+
+                // Confirm editor still has the same text
+                editor = getNativeFocusedEditor(wrapper);
+                const monacoEditor = editor!.instance() as MonacoEditor;
+                assert.equal('foo', monacoEditor.state.editor!.getValue(), 'Changing cell type lost input');
             });
 
             test('Test undo using the key \'z\'', async () => {

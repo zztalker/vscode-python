@@ -2,9 +2,10 @@
 // Licensed under the MIT License.
 'use strict';
 import { expect } from 'chai';
-import { instance, mock, when } from 'ts-mockito';
+import { anything, instance, mock, when } from 'ts-mockito';
 import { ConfigurationChangeEvent, Disposable, EventEmitter, TextEditor, Uri } from 'vscode';
 
+import * as sinon from 'sinon';
 import { ApplicationShell } from '../../../client/common/application/applicationShell';
 import { CommandManager } from '../../../client/common/application/commandManager';
 import { DocumentManager } from '../../../client/common/application/documentManager';
@@ -53,9 +54,10 @@ import {
 import { IInterpreterService } from '../../../client/interpreter/contracts';
 import { InterpreterService } from '../../../client/interpreter/interpreterService';
 import { createEmptyCell } from '../../../datascience-ui/interactive-common/mainState';
+import { waitForCondition } from '../../common';
 import { MockMemento } from '../../mocks/mementos';
 
-// tslint:disable: no-any
+// tslint:disable: no-any chai-vague-errors no-unused-expression
 
 // tslint:disable: max-func-body-length
 suite('Data Science - Native Editor', () => {
@@ -80,7 +82,8 @@ suite('Data Science - Native Editor', () => {
     let jupyterVariables: IJupyterVariables;
     let jupyterDebugger: IJupyterDebugger;
     let importer: INotebookImporter;
-    const storage: MockMemento = new MockMemento();
+    let storage: MockMemento;
+    let storageUpdateSpy: sinon.SinonSpy<[string, any], Thenable<void>>;
     const baseFile = `{
  "cells": [
   {
@@ -179,6 +182,8 @@ suite('Data Science - Native Editor', () => {
 }`;
 
     setup(() => {
+        storage = new MockMemento();
+        storageUpdateSpy = sinon.spy(storage, 'update');
         configService = mock(ConfigurationService);
         fileSystem = mock(FileSystem);
         doctManager = mock(DocumentManager);
@@ -215,11 +220,11 @@ suite('Data Science - Native Editor', () => {
 
         const sessionChangedEvent = new EventEmitter<void>();
         when(executionProvider.sessionChanged).thenReturn(sessionChangedEvent.event);
-
     });
 
     teardown(() => {
         storage.clear();
+        sinon.reset();
     });
 
     function createEditor() {
@@ -298,5 +303,117 @@ suite('Data Science - Native Editor', () => {
         expect(editor.cells[0].id).to.be.match(/NotebookImport#1/);
         editor.onMessage(InteractiveWindowMessages.DeleteAllCells, {});
         expect(editor.cells).to.be.lengthOf(0);
+    });
+
+    async function loadEditorAddCellAndWaitForMementoUpdate(file: Uri) {
+        const editor = createEditor();
+        await editor.load(baseFile, file);
+        expect(editor.contents).to.be.equal(baseFile);
+        storageUpdateSpy.resetHistory();
+        editor.onMessage(InteractiveWindowMessages.InsertCell, { index: 0, cell: createEmptyCell('1', 1) });
+        expect(editor.cells).to.be.lengthOf(4);
+
+        // Wait for contents to be stored in memento.
+        // Editor will save uncommitted changes into storage, wait for it to be saved.
+        await waitForCondition(() => Promise.resolve(storageUpdateSpy.calledOnce), 500, 'Storage not updated');
+        storageUpdateSpy.resetHistory();
+
+        // Confirm contents were saved.
+        expect(storage.get(`notebook-storage-${file.toString()}`)).not.to.be.undefined;
+        expect(editor.contents).not.to.be.equal(baseFile);
+
+        return editor;
+    }
+
+    test('Editing a notebook will save uncommitted changes into memento', async () => {
+        const file = Uri.parse('file://foo.ipynb');
+
+        // Initially nothing in memento
+        expect(storage.get(`notebook-storage-${file.toString()}`)).to.be.undefined;
+
+        await loadEditorAddCellAndWaitForMementoUpdate(file);
+    });
+
+    test('Opening a notebook will restore uncommitted changes', async () => {
+        const file = Uri.parse('file://foo.ipynb');
+        when(fileSystem.stat(anything())).thenResolve({ mtime: 1 } as any);
+
+        // Initially nothing in memento
+        expect(storage.get(`notebook-storage-${file.toString()}`)).to.be.undefined;
+
+        const editor = await loadEditorAddCellAndWaitForMementoUpdate(file);
+
+        storageUpdateSpy.resetHistory();
+        // Close the editor.
+        await editor.dispose();
+        // Editor will save uncommitted changes into storage, wait for it to be saved.
+        await waitForCondition(() => Promise.resolve(storageUpdateSpy.calledOnce), 500, 'Storage not updated');
+
+        // Open a new one.
+        const newEditor = createEditor();
+        await newEditor.load(baseFile, file);
+
+        // Verify contents are different.
+        // Meaning it was not loaded from file, but loaded from our storage.
+        expect(newEditor.contents).not.to.be.equal(baseFile);
+        const notebook = JSON.parse(newEditor.contents);
+        // 4 cells (1 extra for what was added)
+        expect(notebook.cells).to.be.lengthOf(4);
+    });
+
+    test('Opening a notebook will restore uncommitted changes (ignoring contents of file)', async () => {
+        const file = Uri.parse('file://foo.ipynb');
+        when(fileSystem.stat(anything())).thenResolve({ mtime: 1 } as any);
+
+        // Initially nothing in memento
+        expect(storage.get(`notebook-storage-${file.toString()}`)).to.be.undefined;
+
+        const editor = await loadEditorAddCellAndWaitForMementoUpdate(file);
+
+        storageUpdateSpy.resetHistory();
+        // Close the editor.
+        await editor.dispose();
+        // Editor will save uncommitted changes into storage, wait for it to be saved.
+        await waitForCondition(() => Promise.resolve(storageUpdateSpy.calledOnce), 500, 'Storage not updated');
+
+        // Open a new one with the same file.
+        const newEditor = createEditor();
+        // However, pass in some bosu content, to confirm it is NOT loaded from file.
+        await newEditor.load('crap', file);
+
+        // Verify contents are different.
+        // Meaning it was not loaded from file, but loaded from our storage.
+        expect(newEditor.contents).not.to.be.equal(baseFile);
+        const notebook = JSON.parse(newEditor.contents);
+        // 4 cells (1 extra for what was added)
+        expect(notebook.cells).to.be.lengthOf(4);
+    });
+
+    test('Opening a notebook will NOT restore uncommitted changes if file has been modified since', async () => {
+        const file = Uri.parse('file://foo.ipynb');
+        when(fileSystem.stat(anything())).thenResolve({ mtime: 1 } as any);
+
+        // Initially nothing in memento
+        expect(storage.get(`notebook-storage-${file.toString()}`)).to.be.undefined;
+
+        const editor = await loadEditorAddCellAndWaitForMementoUpdate(file);
+
+        storageUpdateSpy.resetHistory();
+        // Close the editor.
+        await editor.dispose();
+        // Editor will save uncommitted changes into storage, wait for it to be saved.
+        await waitForCondition(() => Promise.resolve(storageUpdateSpy.calledOnce), 500, 'Storage not updated');
+
+        // Mimic changes to file (by returning a new modified time).
+        when(fileSystem.stat(anything())).thenResolve({ mtime: Date.now() } as any);
+
+        // Open a new one.
+        const newEditor = createEditor();
+        await newEditor.load(baseFile, file);
+
+        // Verify contents are different.
+        // Meaning it was not loaded from file, but loaded from our storage.
+        expect(newEditor.contents).to.be.equal(baseFile);
+        expect(newEditor.cells).to.be.lengthOf(3);
     });
 });
