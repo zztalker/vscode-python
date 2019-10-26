@@ -69,6 +69,10 @@ export class GatherExecution implements IGatherExecution, INotebookExecutionLogg
         }
     }
 
+    public async resetLog(): Promise<void> {
+        this._executionSlicer.reset();
+    }
+
     /**
      * For a given code cell, returns a string representing a program containing all the code it depends on.
      */

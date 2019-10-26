@@ -1,8 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
+import { nbformat } from '@jupyterlab/coreutils';
 import { Kernel, KernelMessage } from '@jupyterlab/services/lib/kernel';
-import { nbformat } from '@jupyterlab/services/node_modules/@jupyterlab/coreutils';
 import { JSONObject } from '@phosphor/coreutils';
 import { Observable } from 'rxjs/Observable';
 import {
@@ -119,6 +119,7 @@ export const IGatherExecution = Symbol('IGatherExecution');
 export interface IGatherExecution {
     enabled: boolean;
     gatherCode(vscCell: ICell): string;
+    resetLog(): void;
 }
 
 export const IJupyterExecution = Symbol('IJupyterExecution');

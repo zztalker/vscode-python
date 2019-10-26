@@ -3,7 +3,7 @@
 'use strict';
 import '../../client/common/extensions';
 
-import { nbformat } from '@jupyterlab/services/node_modules/@jupyterlab/coreutils';
+import { nbformat } from '@jupyterlab/coreutils';
 import * as fastDeepEqual from 'fast-deep-equal';
 import * as React from 'react';
 
@@ -557,6 +557,9 @@ export class NativeCell extends React.Component<INativeCellProps> {
 
     private renderMiddleToolbar = () => {
         const cellId = this.props.cellVM.cell.id;
+        const gatherCell = () => {
+            this.props.stateController.gatherCell(this.props.cellVM);
+        };
         const deleteCell = () => {
             this.props.stateController.possiblyDeleteCell(cellId);
             this.props.stateController.sendCommand(NativeCommandType.DeleteCell, 'mouse');
@@ -568,6 +571,9 @@ export class NativeCell extends React.Component<INativeCellProps> {
         const runBelow = () => {
             this.props.stateController.runBelow(cellId);
             this.props.stateController.sendCommand(NativeCommandType.RunBelow, 'mouse');
+        };
+        const gatherDisabled = () => {
+            return this.props.cellVM.cell.data.execution_count === null || this.props.cellVM.cell.data.cell_type !== 'code' || getSettings().enableGather === false;
         };
         const canRunAbove = this.props.stateController.canRunAbove(cellId);
         const canRunBelow = this.props.cellVM.cell.state === CellState.finished || this.props.cellVM.cell.state === CellState.error;
@@ -614,6 +620,9 @@ export class NativeCell extends React.Component<INativeCellProps> {
                 {switchButton}
                 <ImageButton baseTheme={this.props.baseTheme} onClick={deleteCell} tooltip={getLocString('DataScience.deleteCell', 'Delete cell')}>
                     <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.Delete} />
+                </ImageButton>
+                <ImageButton baseTheme={this.props.baseTheme} onClick={gatherCell} tooltip={getLocString('DataScience.gatherCell', 'Gather code to generate this cell')} hidden={gatherDisabled()}>
+                    <Image baseTheme={this.props.baseTheme} class='image-button-image' image={ImageName.GatherCode} />
                 </ImageButton>
             </div>
         );

@@ -4,6 +4,7 @@ import { IApplicationShell, IDocumentManager } from '../../common/application/ty
 import { PYTHON_LANGUAGE } from '../../common/constants';
 import { IFileSystem } from '../../common/platform/types';
 import { noop } from '../../common/utils/misc';
+import { generateCellsFromString } from '../cellFactory';
 import { InteractiveWindowMessages } from '../interactive-common/interactiveWindowTypes';
 import { ICell, IGatherExecution, IInteractiveWindowListener } from '../types';
 
@@ -16,8 +17,7 @@ export class GatherListener implements IInteractiveWindowListener {
         @inject(IDocumentManager) private documentManager: IDocumentManager,
         @inject(IApplicationShell) private applicationShell: IApplicationShell,
         @inject(IGatherExecution) private gatherExecution: IGatherExecution,
-        @inject(IFileSystem) private fileSystem: IFileSystem
-    ) { }
+        @inject(IFileSystem) private fileSystem: IFileSystem) { }
 
     public dispose() {
         noop();
@@ -36,6 +36,10 @@ export class GatherListener implements IInteractiveWindowListener {
                     const cell = payload as ICell;
                     this.gatherCode(cell);
                 }
+                break;
+
+            case InteractiveWindowMessages.RestartKernel:
+                this.gatherExecution.resetLog();
                 break;
 
             default:
@@ -65,6 +69,12 @@ export class GatherListener implements IInteractiveWindowListener {
         } else {
             // Only one panel open and interactive window is occupying it, or original file is open but hidden
             viewColumn = ViewColumn.Beside;
+        }
+
+        // Create new notebook with the returned program and open it.
+        const cells: ICell[] = generateCellsFromString(slicedProgram);
+        if (cells.length === 0) {
+            return;
         }
 
         // Create a new open editor with the returned program in the right panel

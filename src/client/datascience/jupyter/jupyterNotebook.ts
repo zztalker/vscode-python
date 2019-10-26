@@ -3,8 +3,8 @@
 'use strict';
 import '../../common/extensions';
 
+import { nbformat } from '@jupyterlab/coreutils';
 import { Kernel, KernelMessage } from '@jupyterlab/services';
-import { nbformat } from '@jupyterlab/services/node_modules/@jupyterlab/coreutils';
 import * as fs from 'fs-extra';
 import { Observable } from 'rxjs/Observable';
 import { Subscriber } from 'rxjs/Subscriber';

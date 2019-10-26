@@ -6,7 +6,7 @@ import '../../client/common/extensions';
 // tslint:disable-next-line: no-var-requires no-require-imports
 const ansiToHtml = require('ansi-to-html');
 
-import { nbformat } from '@jupyterlab/services/node_modules/@jupyterlab/coreutils';
+import { nbformat } from '@jupyterlab/coreutils';
 import { JSONObject } from '@phosphor/coreutils';
 import ansiRegex from 'ansi-regex';
 // tslint:disable-next-line: no-require-imports

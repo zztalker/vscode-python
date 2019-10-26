@@ -3,7 +3,7 @@
 'use strict';
 import '../../client/common/extensions';
 
-import { nbformat } from '@jupyterlab/services/node_modules/@jupyterlab/coreutils';
+import { nbformat } from '@jupyterlab/coreutils';
 import * as monacoEditor from 'monaco-editor/esm/vs/editor/editor.api';
 import * as React from 'react';
 

@@ -1695,7 +1695,7 @@
                 "python.dataScience.enableGather": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Enable code gathering for single cells in the interactive window (experimental).",
+                    "description": "Enable code gather. For a gathered cell, it and all the code cells it depends on can be exported to a script or a notebook.",
                     "scope": "resource"
                 },
                 "python.dataScience.codeLenses": {
@@ -2679,6 +2679,7 @@
     "dependencies": {
         "@blueprintjs/select": "3.10.0",
         "@jupyterlab/services": "^3.2.1",
+        "@jupyterlab/coreutils": "^3.1.0",
         "@msrvida/python-program-analysis": "^0.4.1",
         "ansi-regex": "^4.1.0",
         "arch": "^2.1.0",

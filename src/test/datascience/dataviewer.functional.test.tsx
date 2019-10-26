@@ -4,7 +4,7 @@
 // tslint:disable:max-func-body-length trailing-comma no-any no-multiline-string
 import '../../client/common/extensions';
 
-import { nbformat } from '@jupyterlab/services/node_modules/@jupyterlab/coreutils';
+import { nbformat } from '@jupyterlab/coreutils';
 import * as assert from 'assert';
 import { mount, ReactWrapper } from 'enzyme';
 import { parse } from 'node-html-parser';
