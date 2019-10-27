@@ -4,7 +4,7 @@
 import '../common/extensions';
 
 import * as uuid from 'uuid/v4';
-import { Range, TextDocument, Position } from 'vscode';
+import { Range, TextDocument } from 'vscode';
 
 import { noop } from '../../test/core';
 import { IDataScienceSettings } from '../common/types';
