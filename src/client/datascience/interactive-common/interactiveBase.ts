@@ -561,6 +561,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
             file: Identifiers.EmptyFileName,
             line: 0,
             state: CellState.finished,
+            executedInCurrentKernel: false,
             data: {
                 cell_type: 'messages',
                 messages: [message],
@@ -588,6 +589,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
                 case CellState.executing:
                     // Tell the react controls we have an update
                     this.postMessage(InteractiveWindowMessages.UpdateCell, cell).ignoreErrors();
+                    cell.executedInCurrentKernel = true;
                     break;
 
                 case CellState.error:

@@ -574,7 +574,10 @@ export class NativeCell extends React.Component<INativeCellProps> {
             this.props.stateController.sendCommand(NativeCommandType.RunBelow, 'mouse');
         };
         const gatherDisabled = () => {
-            return this.props.cellVM.cell.data.execution_count === null || this.props.cellVM.cell.data.cell_type !== 'code' || getSettings().enableGather === false;
+            return this.props.cellVM.cell.data.execution_count === null ||
+            this.props.cellVM.cell.executedInCurrentKernel === false ||
+            this.props.cellVM.cell.data.cell_type !== 'code' ||
+            getSettings().enableGather === false;
         };
         const canRunAbove = this.props.stateController.canRunAbove(cellId);
         const canRunBelow = this.props.cellVM.cell.state === CellState.finished || this.props.cellVM.cell.state === CellState.error;

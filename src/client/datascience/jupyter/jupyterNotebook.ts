@@ -301,7 +301,8 @@ export class JupyterNotebookBase implements INotebook {
             id: uuid(),
             file: '',
             line: 0,
-            state: CellState.finished
+            state: CellState.finished,
+            executedInCurrentKernel: true
         };
     }
 

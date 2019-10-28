@@ -6,7 +6,7 @@ import { IFileSystem } from '../../common/platform/types';
 import { noop } from '../../common/utils/misc';
 import { generateCellsFromString } from '../cellFactory';
 import { InteractiveWindowMessages } from '../interactive-common/interactiveWindowTypes';
-import { ICell, IGatherExecution, IInteractiveWindowListener } from '../types';
+import { ICell, IGatherExecution, IInteractiveWindowListener, INotebookEditorProvider, INotebookExporter } from '../types';
 
 @injectable()
 export class GatherListener implements IInteractiveWindowListener {
@@ -14,6 +14,8 @@ export class GatherListener implements IInteractiveWindowListener {
     private postEmitter: EventEmitter<{ message: string; payload: any }> = new EventEmitter<{ message: string; payload: any }>();
 
     constructor(
+        @inject(INotebookExporter) private jupyterExporter: INotebookExporter,
+        @inject(INotebookEditorProvider) private ipynbProvider: INotebookEditorProvider,
         @inject(IDocumentManager) private documentManager: IDocumentManager,
         @inject(IApplicationShell) private applicationShell: IApplicationShell,
         @inject(IGatherExecution) private gatherExecution: IGatherExecution,
@@ -76,6 +78,12 @@ export class GatherListener implements IInteractiveWindowListener {
         if (cells.length === 0) {
             return;
         }
+
+        const notebook = await this.jupyterExporter.translateToNotebook(cells);
+        const contents = JSON.stringify(notebook);
+
+        const newuri = await this.ipynbProvider.getNextNewNotebookUri();
+        await (await this.ipynbProvider.open(newuri, contents)).show();
 
         // Create a new open editor with the returned program in the right panel
         const doc = await this.documentManager.openTextDocument({

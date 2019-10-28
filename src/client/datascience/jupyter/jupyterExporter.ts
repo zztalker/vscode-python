@@ -63,12 +63,13 @@ export class JupyterExporter implements INotebookExporter {
         const matcher = new CellMatcher(this.configService.getSettings().datascience);
 
         // Combine this into a JSON object
-        return {
+        const obj = {
             cells: this.pruneCells(cells, matcher),
             nbformat: 4,
             nbformat_minor: 2,
             metadata: metadata
         };
+        return obj;
     }
 
     // For exporting, put in a cell that will change the working directory back to the workspace directory so relative data paths will load correctly
@@ -89,7 +90,8 @@ export class JupyterExporter implements INotebookExporter {
                 id: uuid(),
                 file: Identifiers.EmptyFileName,
                 line: 0,
-                state: CellState.finished
+                state: CellState.finished,
+                executedInCurrentKernel: false
             };
 
             return [cell, ...cells];

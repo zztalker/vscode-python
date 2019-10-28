@@ -259,6 +259,10 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
                 this.handleMessage(message, payload, this.loadCellsComplete);
                 break;
 
+            case InteractiveWindowMessages.RestartKernel:
+                this.handleMessage(message, payload, this.onRestartKernel);
+                break;
+
             default:
                 break;
         }
@@ -377,7 +381,8 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
                     id: info.id,
                     file: Identifiers.EmptyFileName,
                     line: 0,
-                    state: CellState.error
+                    state: CellState.error,
+                    executedInCurrentKernel: true
                 }
             ]);
 
@@ -511,6 +516,7 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
                 file: Identifiers.EmptyFileName,
                 line: 0,
                 state: CellState.finished,
+                executedInCurrentKernel: false,
                 data: c
             };
         }), forceDirty);
@@ -525,6 +531,7 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
                 line: 0,
                 file: Identifiers.EmptyFileName,
                 state: CellState.finished,
+                executedInCurrentKernel: false,
                 data: {
                     cell_type: 'code',
                     outputs: [],
@@ -560,11 +567,11 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
      * @memberof NativeEditor
      */
     private async getStoredContents(): Promise<string | undefined> {
-        const data = this.globalStorage.get<{contents?: string; lastModifiedTimeMs?: number}>(this.getStorageKey());
+        const data = this.globalStorage.get<{ contents?: string; lastModifiedTimeMs?: number }>(this.getStorageKey());
         // Check whether the file has been modified since the last time the contents were saved.
-        if (data && data.lastModifiedTimeMs && !this.isUntitled && this.file.scheme === 'file'){
+        if (data && data.lastModifiedTimeMs && !this.isUntitled && this.file.scheme === 'file') {
             const stat = await this.fileSystem.stat(this.file.fsPath);
-            if (stat.mtime > data.lastModifiedTimeMs){
+            if (stat.mtime > data.lastModifiedTimeMs) {
                 return;
             }
         }
@@ -585,7 +592,7 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
         const key = this.getStorageKey();
         // Keep track of the time when this data was saved.
         // This way when we retrieve the data we can compare it against last modified date of the file.
-        await this.globalStorage.update(key, {contents, lastModifiedTimeMs: Date.now()});
+        await this.globalStorage.update(key, { contents, lastModifiedTimeMs: Date.now() });
     }
 
     private async close(): Promise<void> {
@@ -847,5 +854,12 @@ export class NativeEditor extends InteractiveBase implements INotebookEditor {
             this.loadedAllCells = true;
             sendTelemetryEvent(Telemetry.NotebookOpenTime, this.startupTimer.elapsedTime);
         }
+    }
+
+    private onRestartKernel() {
+        if (this.cells.length > 0) {
+            this.cells.forEach((c) => { c.executedInCurrentKernel = false; });
+        }
+        this.sendCellsToWebView(this.cells);
     }
 }

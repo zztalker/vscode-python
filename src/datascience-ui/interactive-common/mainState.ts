@@ -135,7 +135,8 @@ export function createEmptyCell(id: string | undefined, executionCount: number |
         id: id ? id : Identifiers.EditCellId,
         file: Identifiers.EmptyFileName,
         line: 0,
-        state: CellState.finished
+        state: CellState.finished,
+        executedInCurrentKernel: false
     };
 }
 
@@ -217,6 +218,7 @@ export function generateCells(filePath: string, repetitions: number): ICell[] {
             file: path.join(filePath, 'foo.py').toLowerCase(),
             line: 1,
             state: key === cellData.length - 1 ? CellState.executing : CellState.finished,
+            executedInCurrentKernel: false,
             type: key === 3 ? 'preview' : 'execute',
             data: data
         };
