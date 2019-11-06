@@ -29,7 +29,7 @@ import * as localize from '../../common/utils/localize';
 import { StopWatch } from '../../common/utils/stopWatch';
 import { IInterpreterService, PythonInterpreter } from '../../interpreter/contracts';
 import { captureTelemetry, sendTelemetryEvent } from '../../telemetry';
-import { generateCellRanges } from '../cellFactory';
+import { generateCellRangesFromDocument } from '../cellFactory';
 import { CellMatcher } from '../cellMatcher';
 import { Identifiers, Telemetry } from '../constants';
 import { ColumnWarningSize } from '../data-viewing/types';
@@ -346,7 +346,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
     @captureTelemetry(Telemetry.Interrupt)
     public async interruptKernel(): Promise<void> {
         if (this.notebook && !this.restartingKernel) {
-            const status = this.statusProvider.set(localize.DataScience.interruptKernelStatus(), undefined, undefined, this);
+            const status = this.statusProvider.set(localize.DataScience.interruptKernelStatus(), true, undefined, undefined, this);
 
             const settings = this.configuration.getSettings();
             const interruptTimeout = settings.datascience.jupyterInterruptTimeout;
@@ -463,7 +463,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         }
 
         // Start a status item
-        const status = this.setStatus(localize.DataScience.executingCode());
+        const status = this.setStatus(localize.DataScience.executingCode(), false);
 
         // Transmit this submission to all other listeners (in a live share session)
         if (!id) {
@@ -662,8 +662,8 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         }
     }
 
-    protected setStatus = (message: string): Disposable => {
-        const result = this.statusProvider.set(message, undefined, undefined, this);
+    protected setStatus = (message: string, showInWebView: boolean): Disposable => {
+        const result = this.statusProvider.set(message, showInWebView, undefined, undefined, this);
         this.potentiallyUnfinishedStatus.push(result);
         return result;
     }
@@ -733,7 +733,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
     private async startServerImpl(): Promise<void> {
         // Status depends upon if we're about to connect to existing server or not.
         const status = (await this.jupyterExecution.getServer(await this.getNotebookOptions())) ?
-            this.setStatus(localize.DataScience.connectingToJupyter()) : this.setStatus(localize.DataScience.startingJupyter());
+            this.setStatus(localize.DataScience.connectingToJupyter(), true) : this.setStatus(localize.DataScience.startingJupyter(), true);
 
         // Check to see if we support ipykernel or not
         try {
@@ -899,7 +899,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         this.finishOutstandingCells();
 
         // Set our status
-        const status = this.statusProvider.set(localize.DataScience.restartingKernelStatus(), undefined, undefined, this);
+        const status = this.statusProvider.set(localize.DataScience.restartingKernelStatus(), true, undefined, undefined, this);
 
         try {
             if (this.notebook) {
@@ -935,7 +935,9 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
 
     private onInterpreterChanged = () => {
         // Update our load promise. We need to restart the jupyter server
-        this.loadPromise = this.reloadWithNew();
+        if (this.loadPromise) {
+            this.loadPromise = this.reloadWithNew();
+        }
     }
 
     private async stopServer(): Promise<void> {
@@ -951,7 +953,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
     }
 
     private async reloadWithNew(): Promise<void> {
-        const status = this.setStatus(localize.DataScience.startingJupyter());
+        const status = this.setStatus(localize.DataScience.startingJupyter(), true);
         try {
             // Not the same as reload, we need to actually wait for the server.
             await this.stopServer();
@@ -1013,7 +1015,7 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         }
         if (editor && (editor.document.languageId === PYTHON_LANGUAGE || editor.document.isUntitled)) {
             // Figure out if any cells in this document already.
-            const ranges = generateCellRanges(editor.document, this.generateDataScienceExtraSettings());
+            const ranges = generateCellRangesFromDocument(editor.document, this.generateDataScienceExtraSettings());
             const hasCellsAlready = ranges.length > 0;
             const line = editor.selection.start.line;
             const revealLine = line + 1;
@@ -1086,6 +1088,11 @@ export abstract class InteractiveBase extends WebViewHost<IInteractiveWindowMapp
         // Then create a new notebook
         if (server) {
             this.notebook = await server.createNotebook(await this.getNotebookIdentity());
+        }
+
+        if (this.notebook) {
+            const uri: Uri = await this.getNotebookIdentity();
+            this.postMessage(InteractiveWindowMessages.NotebookExecutionActivated, uri).ignoreErrors();
         }
 
         traceInfo('Connected to jupyter server.');

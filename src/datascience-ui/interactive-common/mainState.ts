@@ -28,7 +28,14 @@ export interface ICellViewModel {
     useQuickEdit?: boolean;
     selected: boolean;
     focused: boolean;
+    hasBeenRun?: boolean;
     inputBlockToggled(id: string): void;
+}
+
+export enum CursorPos {
+    Top,
+    Bottom,
+    Current
 }
 
 export interface IMainState {
@@ -86,7 +93,7 @@ export function generateTestState(inputBlockToggled: (id: string) => void, fileP
     return {
         cellVMs: generateVMs(inputBlockToggled, filePath, editable),
         editCellVM: createEditableCellVM(1),
-        busy: true,
+        busy: false,
         skipNextScroll: false,
         undoStack: [],
         redoStack: [],
@@ -192,7 +199,8 @@ export function createCellVM(inputCell: ICell, settings: IDataScienceSettings | 
         inputBlockCollapseNeeded: (inputLinesCount > 1),
         inputBlockToggled: inputBlockToggled,
         selected: false,
-        focused: false
+        focused: false,
+        hasBeenRun: false
     };
 }
 

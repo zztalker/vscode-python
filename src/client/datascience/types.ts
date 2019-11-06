@@ -98,6 +98,7 @@ export interface INotebook extends IAsyncDisposable {
     setLaunchingFile(file: string): Promise<void>;
     getSysInfo(): Promise<ICell | undefined>;
     setMatplotLibStyle(useDark: boolean): Promise<void>;
+    addLogger(logger: INotebookExecutionLogger): void;
 }
 
 export interface INotebookServerOptions {
@@ -106,6 +107,7 @@ export interface INotebookServerOptions {
     usingDarkTheme?: boolean;
     useDefaultConfig?: boolean;
     workingDir?: string;
+    interpreterPath?: string;
     purpose: string;
 }
 
@@ -118,7 +120,9 @@ export interface INotebookExecutionLogger {
 export const IGatherExecution = Symbol('IGatherExecution');
 export interface IGatherExecution {
     enabled: boolean;
+    logExecution(vscCell: ICell): void;
     gatherCode(vscCell: ICell): string;
+    resetLog(): void;
 }
 
 export const IJupyterExecution = Symbol('IJupyterExecution');
@@ -186,7 +190,7 @@ export interface IJupyterKernelSpec extends IAsyncDisposable {
 
 export const INotebookImporter = Symbol('INotebookImporter');
 export interface INotebookImporter extends Disposable {
-    importFromFile(file: string): Promise<string>;
+    importFromFile(contentsFile: string, originalFile?: string): Promise<string>; // originalFile is the base file if file is a temp file / location
     importCellsFromFile(file: string): Promise<ICell[]>;
     importCells(json: string): Promise<ICell[]>;
 }
@@ -241,7 +245,7 @@ export interface INotebookEditorProvider {
     readonly editors: INotebookEditor[];
     open(file: Uri, contents: string): Promise<INotebookEditor>;
     show(file: Uri): Promise<INotebookEditor | undefined>;
-    createNew(): Promise<INotebookEditor>;
+    createNew(contents?: string): Promise<INotebookEditor>;
     getNotebookOptions(): Promise<INotebookServerOptions>;
 }
 
@@ -383,10 +387,10 @@ export const IStatusProvider = Symbol('IStatusProvider');
 export interface IStatusProvider {
     // call this function to set the new status on the active
     // interactive window. Dispose of the returned object when done.
-    set(message: string, timeout?: number, canceled?: () => void, interactivePanel?: IInteractiveBase): Disposable;
+    set(message: string, showInWebView: boolean, timeout?: number, canceled?: () => void, interactivePanel?: IInteractiveBase): Disposable;
 
     // call this function to wait for a promise while displaying status
-    waitWithStatus<T>(promise: () => Promise<T>, message: string, timeout?: number, canceled?: () => void, interactivePanel?: IInteractiveBase): Promise<T>;
+    waitWithStatus<T>(promise: () => Promise<T>, message: string, showInWebView: boolean, timeout?: number, canceled?: () => void, interactivePanel?: IInteractiveBase): Promise<T>;
 }
 
 export interface IJupyterCommand {

@@ -399,7 +399,8 @@ export class MainStateController implements IMessageHandler {
 
     public clearAllOutputs = () => {
         const newList = this.pendingState.cellVMs.map(cellVM => {
-            return immutable.updateIn(cellVM, ['cell', 'data', 'outputs'], () => []);
+            const updatedVm = immutable.updateIn(cellVM, ['cell', 'data', 'outputs'], () => []);
+            return immutable.removeIn(updatedVm, ['cell', 'data', 'execution_count']);
         });
         this.setState({
             cellVMs: newList
@@ -431,7 +432,7 @@ export class MainStateController implements IMessageHandler {
 
     public gatherCell = (cellVM: ICellViewModel | undefined) => {
         if (cellVM) {
-            this.sendMessage(InteractiveWindowMessages.GatherCode, cellVM.cell);
+            this.sendMessage(InteractiveWindowMessages.GatherCodeRequest, cellVM.cell);
         }
     }
 
@@ -913,7 +914,7 @@ export class MainStateController implements IMessageHandler {
     }
 
     // tslint:disable:no-any
-    private computeEditorOptions(): monacoEditor.editor.IEditorOptions {
+    protected computeEditorOptions(): monacoEditor.editor.IEditorOptions {
         const intellisenseOptions = getSettings().intellisenseOptions;
         const extraSettings = getSettings().extraSettings;
         if (intellisenseOptions && extraSettings) {
@@ -969,19 +970,27 @@ export class MainStateController implements IMessageHandler {
     private handleRestarted() {
         this.suspendUpdates();
 
-        // When we restart, make sure to turn off all executing cells. They aren't executing anymore
-        const executingCells = this.pendingState.cellVMs
-            .map((cvm, i) => { return { cvm, i }; })
-            .filter(s => s.cvm.cell.state !== CellState.error && s.cvm.cell.state !== CellState.finished);
+        const newVMs = [...this.pendingState.cellVMs];
 
-        if (executingCells && executingCells.length) {
-            const newVMs = [...this.pendingState.cellVMs];
-            executingCells.forEach(s => {
-                newVMs[s.i] = immutable.updateIn(s.cvm, ['cell', 'state'], () => CellState.finished);
+        // When we restart, reset all code cells to indicate they haven't been run in the new kernel.
+        // Also make sure to turn off all executing cells as they aren't executing anymore.
+        const executableCells = newVMs
+            .map((cvm, i) => { return { cvm, i }; })
+            .filter(s => s.cvm.cell.data.cell_type === 'code');
+
+        if (executableCells) {
+            executableCells.forEach(s => {
+                if (newVMs[s.i].hasBeenRun && newVMs[s.i].hasBeenRun === true) {
+                    newVMs[s.i] = immutable.updateIn(s.cvm, ['hasBeenRun'], () => false);
+                }
+
+                if (newVMs[s.i].cell.state !== CellState.error && newVMs[s.i].cell.state !== CellState.finished) {
+                    newVMs[s.i] = immutable.updateIn(s.cvm, ['cell', 'state'], () => CellState.finished);
+                }
             });
-            this.setState({ cellVMs: newVMs });
         }
-        this.setState({ currentExecutionCount: 0 });
+
+        this.setState({ cellVMs: newVMs, currentExecutionCount: 0 });
         this.resumeUpdates();
 
         // Update our variables
@@ -1152,6 +1161,8 @@ export class MainStateController implements IMessageHandler {
                 this.refreshVariables(newExecutionCount);
             }
 
+            this.pendingState.cellVMs[index].hasBeenRun = true;
+
             // Have to make a copy of the cell VM array or
             // we won't actually update.
             const newVMs = [...this.pendingState.cellVMs];
@@ -1160,24 +1171,19 @@ export class MainStateController implements IMessageHandler {
             // Check to see if our code still matches for the cell (in liveshare it might be updated from the other side)
             // if (concatMultilineStringInput(this.pendingState.cellVMs[index].cell.data.source) !== concatMultilineStringInput(cell.data.source)) {
 
-            // If cell state changes, then update just the state and the cell data (excluding source).
             // Prevent updates to the source, as its possible we have recieved a response for a cell execution
             // and the user has updated the cell text since then.
-            if (this.pendingState.cellVMs[index].cell.state !== cell.state) {
-                newVMs[index] = {
-                    ...newVMs[index],
-                    cell: {
-                        ...newVMs[index].cell,
-                        state: cell.state,
-                        data: {
-                            ...cell.data,
-                            source: newVMs[index].cell.data.source
-                        }
+            newVMs[index] = {
+                ...newVMs[index],
+                cell: {
+                    ...newVMs[index].cell,
+                    state: cell.state,
+                    data: {
+                        ...cell.data,
+                        source: newVMs[index].cell.data.source
                     }
-                };
-            } else {
-                newVMs[index] = { ...newVMs[index], cell: cell };
-            }
+                }
+            };
 
             this.setState({
                 cellVMs: newVMs,
