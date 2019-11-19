@@ -6,6 +6,7 @@
 import * as monacoEditor from 'monaco-editor/esm/vs/editor/editor.api';
 import * as React from 'react';
 import { IDisposable } from '../../client/common/types';
+import { logMessage } from './logger';
 
 // tslint:disable-next-line:no-require-imports no-var-requires
 const debounce = require('lodash/debounce') as typeof import('lodash/debounce');
@@ -88,13 +89,6 @@ export class MonacoEditor extends React.Component<IMonacoEditorProps, IMonacoEdi
         this.measureWidthRef = React.createRef<HTMLDivElement>();
         this.debouncedUpdateEditorSize = debounce(this.updateEditorSize.bind(this), 150);
         this.hideAllOtherHoverAndParameterWidgets = debounce(this.hideAllOtherHoverAndParameterWidgets.bind(this), 150);
-
-        // JSDOM has MutationObserver in the window object
-        if ('MutationObserver' in window) {
-            // tslint:disable-next-line: no-string-literal no-any
-            const ctor = (window as any)['MutationObserver'];
-            this.styleObserver = new ctor(this.watchStyles);
-        }
     }
 
     // tslint:disable-next-line: max-func-body-length
@@ -319,9 +313,9 @@ export class MonacoEditor extends React.Component<IMonacoEditorProps, IMonacoEdi
             const cursor = this.state.editor.getPosition();
             if (cursor) {
                 const top = this.state.editor.getTopForPosition(cursor.lineNumber, cursor.column);
-                const lines = this.getVisibleLines();
-                const lineTops = lines.length === this.lineTops.length ? this.lineTops : this.computeLineTops();
-                for (let i = 0; i < lines.length; i += 1) {
+                const count = this.getVisibleLineCount();
+                const lineTops = count === this.lineTops.length ? this.lineTops : this.computeLineTops();
+                for (let i = 0; i < count; i += 1) {
                     if (top <= lineTops[i]) {
                         return i;
                     }
@@ -347,10 +341,12 @@ export class MonacoEditor extends React.Component<IMonacoEditorProps, IMonacoEdi
 
     private computeLineTops(): number[] {
         const lines = this.getVisibleLines();
+
+        // Lines are not sorted by monaco, so we have to sort them by their top value
         this.lineTops = lines.map(l => {
             const match = l.style.top ? /(.+)px/.exec(l.style.top) : null;
             return match ? parseInt(match[0], 10) : Infinity;
-        });
+        }).sort((a, b) => a - b);
         return this.lineTops;
     }
 
@@ -358,31 +354,8 @@ export class MonacoEditor extends React.Component<IMonacoEditorProps, IMonacoEdi
         // Scroll to the visible line that has our current line
         const visibleLineDivs = this.getVisibleLines();
         const current = this.getCurrentVisibleLine();
-        if (current !== undefined && current >= 0) {
-            window.console.log(`Scrolling to line ${current}`);
+        if (current !== undefined && current >= 0 && visibleLineDivs[current].scrollIntoView) {
             visibleLineDivs[current].scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'nearest' });
-        }
-    }
-
-    private watchStyles = (mutations: MutationRecord[], _observer: MutationObserver): void => {
-        try {
-            if (mutations && mutations.length > 0 && this.styleObserver) {
-                mutations.forEach(m => {
-                    if (m.type === 'attributes' && m.attributeName === 'style') {
-                        const element = m.target as HTMLDivElement;
-                        if (element && element.style && element.style.left) {
-                            const left = element.style.left.endsWith('px') ? parseInt(element.style.left.substr(0, element.style.left.length - 2), 10) : -1;
-                            if (left > 10) {
-                                this.styleObserver!.disconnect();
-                                element.style.left = `${left + 3}px`;
-                                this.styleObserver!.observe(element, { attributes: true, attributeFilter: ['style']});
-                            }
-                        }
-                    }
-                });
-            }
-        } catch {
-            // Skip doing anything if it fails
         }
     }
 
@@ -751,7 +724,7 @@ export class MonacoEditor extends React.Component<IMonacoEditorProps, IMonacoEdi
             } catch (e) {
                 // If something fails, then the hover will just work inside the main frame
                 if (!this.props.testMode) {
-                    window.console.warn(`Error moving editor widgets: ${e}`);
+                    logMessage(`Error moving editor widgets: ${e}`);
                 }
 
                 // Make sure we don't try moving it around.

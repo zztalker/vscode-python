@@ -194,7 +194,9 @@ function getAllowedWarningsForWebPack(buildConfig) {
                 'WARNING in ./node_modules/ws/lib/BufferUtil.js',
                 'WARNING in ./node_modules/ws/lib/buffer-util.js',
                 'WARNING in ./node_modules/ws/lib/Validation.js',
-                'WARNING in ./node_modules/ws/lib/validation.js'
+                'WARNING in ./node_modules/ws/lib/validation.js',
+                'WARNING in ./node_modules/@jupyterlab/services/node_modules/ws/lib/buffer-util.js',
+                'WARNING in ./node_modules/@jupyterlab/services/node_modules/ws/lib/validation.js'
             ];
         case 'extension':
             return [
@@ -229,7 +231,8 @@ gulp.task('verifyBundle', async () => {
 });
 
 gulp.task('prePublishBundle', gulp.series('webpack', 'renameSourceMaps'));
-gulp.task('prePublishNonBundle', gulp.series('checkNativeDependencies', 'check-datascience-dependencies', 'compile', 'compile-webviews'));
+gulp.task('checkDependencies', gulp.series('checkNativeDependencies', 'check-datascience-dependencies'));
+gulp.task('prePublishNonBundle', gulp.series('compile', 'compile-webviews'));
 
 gulp.task('installPythonRequirements', async () => {
     const requirements = fs

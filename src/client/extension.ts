@@ -183,7 +183,10 @@ async function activateUnsafe(context: ExtensionContext): Promise<IExtensionApi>
     context.subscriptions.push(deprecationMgr);
 
     context.subscriptions.push(new ReplProvider(serviceContainer));
-    context.subscriptions.push(new TerminalProvider(serviceContainer));
+
+    const terminalProvider = new TerminalProvider(serviceContainer);
+    await terminalProvider.initialize(window.activeTerminal);
+    context.subscriptions.push(terminalProvider);
 
     context.subscriptions.push(languages.registerCodeActionsProvider(PYTHON, new PythonCodeActionProvider(), { providedCodeActionKinds: [CodeActionKind.SourceOrganizeImports] }));
 
@@ -353,7 +356,7 @@ async function getActivationTelemetryProps(serviceContainer: IServiceContainer):
     const preferredWorkspaceInterpreter = getPreferredWorkspaceInterpreter(mainWorkspaceUri, serviceContainer);
     const usingGlobalInterpreter = isUsingGlobalInterpreterInWorkspace(settings.pythonPath, serviceContainer);
     const usingAutoSelectedWorkspaceInterpreter = preferredWorkspaceInterpreter ? settings.pythonPath === getPreferredWorkspaceInterpreter(mainWorkspaceUri, serviceContainer) : false;
-    const hasPython3 = interpreters
+    const hasPython3 = interpreters!
         .filter(item => item && item.version ? item.version.major === 3 : false)
         .length > 0;
 
