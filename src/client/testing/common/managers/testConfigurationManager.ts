@@ -1,9 +1,10 @@
 import * as path from 'path';
 import { OutputChannel, QuickPickItem, Uri } from 'vscode';
 import { IApplicationShell } from '../../../common/application/types';
-import { IInstaller, ILogger, IOutputChannel } from '../../../common/types';
+import { traceInfo } from '../../../common/logger';
+import { IFileSystem } from '../../../common/platform/types';
+import { IInstaller, IOutputChannel } from '../../../common/types';
 import { createDeferred } from '../../../common/utils/async';
-import { getSubDirectories } from '../../../common/utils/fs';
 import { IServiceContainer } from '../../../ioc/types';
 import { ITestConfigSettingsService, ITestConfigurationManager } from '../../types';
 import { TEST_OUTPUT_CHANNEL, UNIT_TEST_PRODUCTS } from '../constants';
@@ -13,22 +14,27 @@ export abstract class TestConfigurationManager implements ITestConfigurationMana
     protected readonly outputChannel: OutputChannel;
     protected readonly installer: IInstaller;
     protected readonly testConfigSettingsService: ITestConfigSettingsService;
-    constructor(protected workspace: Uri,
+    constructor(
+        protected workspace: Uri,
         protected product: UnitTestProduct,
         protected readonly serviceContainer: IServiceContainer,
         cfg?: ITestConfigSettingsService
     ) {
         this.outputChannel = serviceContainer.get<OutputChannel>(IOutputChannel, TEST_OUTPUT_CHANNEL);
         this.installer = serviceContainer.get<IInstaller>(IInstaller);
-        this.testConfigSettingsService = cfg ? cfg : serviceContainer.get<ITestConfigSettingsService>(ITestConfigSettingsService);
+        this.testConfigSettingsService = cfg
+            ? cfg
+            : serviceContainer.get<ITestConfigSettingsService>(ITestConfigSettingsService);
     }
     public abstract configure(wkspace: Uri): Promise<void>;
     public abstract requiresUserToConfigure(wkspace: Uri): Promise<boolean>;
     public async enable() {
         // Disable other test frameworks.
-        await Promise.all(UNIT_TEST_PRODUCTS
-            .filter(prod => prod !== this.product)
-            .map(prod => this.testConfigSettingsService.disable(this.workspace, prod)));
+        await Promise.all(
+            UNIT_TEST_PRODUCTS.filter((prod) => prod !== this.product).map((prod) =>
+                this.testConfigSettingsService.disable(this.workspace, prod)
+            )
+        );
         await this.testConfigSettingsService.enable(this.workspace, this.product);
     }
     // tslint:disable-next-line:no-any
@@ -43,7 +49,7 @@ export abstract class TestConfigurationManager implements ITestConfigurationMana
             placeHolder: 'Select the directory containing the tests'
         };
         let items: QuickPickItem[] = subDirs
-            .map(dir => {
+            .map((dir) => {
                 const dirName = path.relative(rootDir, dir);
                 if (dirName.indexOf('.') === 0) {
                     return;
@@ -53,16 +59,16 @@ export abstract class TestConfigurationManager implements ITestConfigurationMana
                     description: ''
                 };
             })
-            .filter(item => item !== undefined)
-            .map(item => item!);
+            .filter((item) => item !== undefined)
+            .map((item) => item!);
 
         items = [{ label: '.', description: 'Root directory' }, ...items];
         items = customOptions.concat(items);
         const def = createDeferred<string>();
         const appShell = this.serviceContainer.get<IApplicationShell>(IApplicationShell);
-        appShell.showQuickPick(items, options).then(item => {
+        appShell.showQuickPick(items, options).then((item) => {
             if (!item) {
-                this.handleCancelled();  // This will throw an exception.
+                this.handleCancelled(); // This will throw an exception.
                 return;
             }
 
@@ -80,18 +86,18 @@ export abstract class TestConfigurationManager implements ITestConfigurationMana
             placeHolder: 'Select the pattern to identify test files'
         };
         const items: QuickPickItem[] = [
-            { label: '*test.py', description: 'Python Files ending with \'test\'' },
-            { label: '*_test.py', description: 'Python Files ending with \'_test\'' },
-            { label: 'test*.py', description: 'Python Files beginning with \'test\'' },
-            { label: 'test_*.py', description: 'Python Files beginning with \'test_\'' },
-            { label: '*test*.py', description: 'Python Files containing the word \'test\'' }
+            { label: '*test.py', description: "Python Files ending with 'test'" },
+            { label: '*_test.py', description: "Python Files ending with '_test'" },
+            { label: 'test*.py', description: "Python Files beginning with 'test'" },
+            { label: 'test_*.py', description: "Python Files beginning with 'test_'" },
+            { label: '*test*.py', description: "Python Files containing the word 'test'" }
         ];
 
         const def = createDeferred<string>();
         const appShell = this.serviceContainer.get<IApplicationShell>(IApplicationShell);
-        appShell.showQuickPick(items, options).then(item => {
+        appShell.showQuickPick(items, options).then((item) => {
             if (!item) {
-                this.handleCancelled();  // This will throw an exception.
+                this.handleCancelled(); // This will throw an exception.
                 return;
             }
 
@@ -101,12 +107,13 @@ export abstract class TestConfigurationManager implements ITestConfigurationMana
         return def.promise;
     }
     protected getTestDirs(rootDir: string): Promise<string[]> {
-        return getSubDirectories(rootDir).then(subDirs => {
+        const fs = this.serviceContainer.get<IFileSystem>(IFileSystem);
+        return fs.getSubDirectories(rootDir).then((subDirs) => {
             subDirs.sort();
 
             // Find out if there are any dirs with the name test and place them on the top.
-            const possibleTestDirs = subDirs.filter(dir => dir.match(/test/i));
-            const nonTestDirs = subDirs.filter(dir => possibleTestDirs.indexOf(dir) === -1);
+            const possibleTestDirs = subDirs.filter((dir) => dir.match(/test/i));
+            const nonTestDirs = subDirs.filter((dir) => possibleTestDirs.indexOf(dir) === -1);
             possibleTestDirs.push(...nonTestDirs);
 
             // The test dirs are now on top.
@@ -115,8 +122,7 @@ export abstract class TestConfigurationManager implements ITestConfigurationMana
     }
 
     private handleCancelled() {
-        const logger = this.serviceContainer.get<ILogger>(ILogger);
-        logger.logInformation('testing configuration (in UI) cancelled');
+        traceInfo('testing configuration (in UI) cancelled');
         throw Error('cancelled');
     }
 }

@@ -10,9 +10,16 @@ import { TestCollectionStorageService } from '../../../../client/testing/common/
 import { TestsStatusUpdaterService } from '../../../../client/testing/common/services/testsStatusService';
 import { visitRecursive } from '../../../../client/testing/common/testVisitors/visitor';
 import {
-    FlattenedTestFunction, FlattenedTestSuite, ITestCollectionStorageService,
-    ITestsStatusUpdaterService, TestFile, TestFolder, TestFunction, Tests,
-    TestStatus, TestSuite
+    FlattenedTestFunction,
+    FlattenedTestSuite,
+    ITestCollectionStorageService,
+    ITestsStatusUpdaterService,
+    TestFile,
+    TestFolder,
+    TestFunction,
+    Tests,
+    TestStatus,
+    TestSuite
 } from '../../../../client/testing/common/types';
 import { TestDataItem, TestDataItemType } from '../../../../client/testing/types';
 import { createMockTestDataItem } from '../testUtils.unit.test';
@@ -125,8 +132,8 @@ suite('Unit Tests - Tests Status Updater', () => {
         }
         tests.testFolders.forEach(validate);
         tests.testFiles.forEach(validate);
-        tests.testFunctions.forEach(func => validate(func.testFunction));
-        tests.testSuites.forEach(suite => validate(suite.testSuite));
+        tests.testFunctions.forEach((func) => validate(func.testFunction));
+        tests.testSuites.forEach((suite) => validate(suite.testSuite));
     });
     test('Updating unknown status will recursively update all items and triggers an update for each', () => {
         updater.updateStatusAsUnknown(workspaceUri, tests);
@@ -137,8 +144,8 @@ suite('Unit Tests - Tests Status Updater', () => {
         }
         tests.testFolders.forEach(validate);
         tests.testFiles.forEach(validate);
-        tests.testFunctions.forEach(func => validate(func.testFunction));
-        tests.testSuites.forEach(suite => validate(suite.testSuite));
+        tests.testFunctions.forEach((func) => validate(func.testFunction));
+        tests.testSuites.forEach((suite) => validate(suite.testSuite));
     });
     test('Updating running status will recursively update all items and triggers an update for each', () => {
         updater.updateStatusAsRunning(workspaceUri, tests);
@@ -149,8 +156,8 @@ suite('Unit Tests - Tests Status Updater', () => {
         }
         tests.testFolders.forEach(validate);
         tests.testFiles.forEach(validate);
-        tests.testFunctions.forEach(func => validate(func.testFunction));
-        tests.testSuites.forEach(suite => validate(suite.testSuite));
+        tests.testFunctions.forEach((func) => validate(func.testFunction));
+        tests.testSuites.forEach((suite) => validate(suite.testSuite));
     });
     test('Updating running status for failed tests will recursively update all items and triggers an update for each', () => {
         tests.testFolders[1].status = TestStatus.Fail;
@@ -184,7 +191,7 @@ suite('Unit Tests - Tests Status Updater', () => {
             tests.testSuites[1].testSuite,
             tests.testSuites[2].testSuite
         ];
-        failedItems.forEach(failedItem => visitRecursive(tests, failedItem, visitor));
+        failedItems.forEach((failedItem) => visitRecursive(tests, failedItem, visitor));
 
         for (const item of updatedItems) {
             assert.equal(item.status, TestStatus.Running);
@@ -233,8 +240,8 @@ suite('Unit Tests - Tests Status Updater', () => {
         const updatedItems: TestDataItem[] = [
             ...tests.testFolders,
             ...tests.testFiles,
-            ...tests.testFunctions.map(item => item.testFunction),
-            ...tests.testSuites.map(item => item.testSuite)
+            ...tests.testFunctions.map((item) => item.testFunction),
+            ...tests.testSuites.map((item) => item.testSuite)
         ];
 
         for (const item of updatedItems) {

@@ -11,22 +11,32 @@ import * as fs from 'fs-extra';
 import * as os from 'os';
 import * as path from 'path';
 import { instance, mock } from 'ts-mockito';
-import { createMessageConnection, MessageConnection, RequestType, StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc';
+import {
+    createMessageConnection,
+    MessageConnection,
+    RequestType,
+    StreamMessageReader,
+    StreamMessageWriter
+} from 'vscode-jsonrpc';
 import { PythonDaemonExecutionService } from '../../../client/common/process/pythonDaemon';
-import { PythonExecutionService } from '../../../client/common/process/pythonProcess';
 import { IPythonExecutionService, PythonVersionInfo } from '../../../client/common/process/types';
 import { IDisposable } from '../../../client/common/types';
-import { createTemporaryFile } from '../../../client/common/utils/fs';
 import { Architecture } from '../../../client/common/utils/platform';
 import { parsePythonVersion } from '../../../client/common/utils/version';
 import { EXTENSION_ROOT_DIR } from '../../../client/constants';
 import { isPythonVersion, PYTHON_PATH } from '../../common';
+import { createTemporaryFile } from '../../utils/fs';
 use(chaiPromised);
 
 // tslint:disable-next-line: max-func-body-length
 suite('Daemon', () => {
     // Set PYTHONPATH to pickup our module and the jsonrpc modules.
-    const envPythonPath = `${path.join(EXTENSION_ROOT_DIR, 'pythonFiles')}${path.delimiter}${path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'lib', 'python')}`;
+    const envPythonPath = `${path.join(EXTENSION_ROOT_DIR, 'pythonFiles')}${path.delimiter}${path.join(
+        EXTENSION_ROOT_DIR,
+        'pythonFiles',
+        'lib',
+        'python'
+    )}`;
     const env = { PYTHONPATH: envPythonPath, PYTHONUNBUFFERED: '1' };
     let pythonProc: ChildProcess;
     let connection: MessageConnection;
@@ -43,17 +53,25 @@ suite('Daemon', () => {
         }
     });
     setup(async function () {
-        if (isPythonVersion('2.7')){
+        if (isPythonVersion('2.7')) {
             // tslint:disable-next-line: no-invalid-this
             return this.skip();
         }
         // Enable the following to log everything going on at pyton end.
-        // pythonProc = spawn(fullyQualifiedPythonPath, ['-m', 'datascience.daemon', '-v', `--log-file=${path.join(EXTENSION_ROOT_DIR, 'test.log')}`], { env });
-        pythonProc = spawn(fullyQualifiedPythonPath, ['-m', 'datascience.daemon'], { env });
-        connection = createMessageConnection(new StreamMessageReader(pythonProc.stdout), new StreamMessageWriter(pythonProc.stdin));
+        // pythonProc = spawn(fullyQualifiedPythonPath, ['-m', 'vscode_datascience_helpers.daemon', '-v', `--log-file=${path.join(EXTENSION_ROOT_DIR, 'test.log')}`], { env });
+        pythonProc = spawn(fullyQualifiedPythonPath, ['-m', 'vscode_datascience_helpers.daemon'], { env });
+        connection = createMessageConnection(
+            new StreamMessageReader(pythonProc.stdout),
+            new StreamMessageWriter(pythonProc.stdin)
+        );
         connection.listen();
-        pythonExecutionService = mock(PythonExecutionService);
-        pythonDaemon = new PythonDaemonExecutionService(instance(pythonExecutionService), fullyQualifiedPythonPath, pythonProc, connection);
+        pythonExecutionService = mock<IPythonExecutionService>();
+        pythonDaemon = new PythonDaemonExecutionService(
+            instance(pythonExecutionService),
+            fullyQualifiedPythonPath,
+            pythonProc,
+            connection
+        );
     });
     teardown(() => {
         pythonProc.kill();
@@ -61,7 +79,7 @@ suite('Daemon', () => {
             connection.dispose();
         }
         pythonDaemon.dispose();
-        disposables.forEach(item => item.dispose());
+        disposables.forEach((item) => item.dispose());
         disposables = [];
     });
 
@@ -87,13 +105,21 @@ suite('Daemon', () => {
     });
 
     test('Interpreter Information', async () => {
-        type InterpreterInfo = { versionInfo: PythonVersionInfo; sysPrefix: string; sysVersion: string; is64Bit: boolean };
+        type InterpreterInfo = {
+            versionInfo: PythonVersionInfo;
+            sysPrefix: string;
+            sysVersion: string;
+            is64Bit: boolean;
+        };
         const json: InterpreterInfo = JSON.parse(
             spawnSync(fullyQualifiedPythonPath, [path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'interpreterInfo.py')])
                 .stdout.toString()
                 .trim()
         );
-        const versionValue = json.versionInfo.length === 4 ? `${json.versionInfo.slice(0, 3).join('.')}-${json.versionInfo[3]}` : json.versionInfo.join('.');
+        const versionValue =
+            json.versionInfo.length === 4
+                ? `${json.versionInfo.slice(0, 3).join('.')}-${json.versionInfo[3]}`
+                : json.versionInfo.join('.');
         const expectedVersion = {
             architecture: json.is64Bit ? Architecture.x64 : Architecture.x86,
             path: fullyQualifiedPythonPath,
@@ -117,9 +143,10 @@ suite('Daemon', () => {
         await assert.eventually.equal(pythonDaemon.isModuleInstalled(moduleName), expectedToBeInstalled);
     }
 
-    test('\'pip\' module is installed', async () => testModuleInstalled('pip', true));
-    test('\'unittest\' module is installed', async () => testModuleInstalled('unittest', true));
-    test('\'VSCode-Python-Rocks\' module is not Installed', async () => testModuleInstalled('VSCode-Python-Rocks', false));
+    test("'pip' module is installed", async () => testModuleInstalled('pip', true));
+    test("'unittest' module is installed", async () => testModuleInstalled('unittest', true));
+    test("'VSCode-Python-Rocks' module is not Installed", async () =>
+        testModuleInstalled('VSCode-Python-Rocks', false));
 
     test('Execute a file and capture stdout (with unicode)', async () => {
         const source = dedent`
@@ -237,9 +264,12 @@ suite('Daemon', () => {
         const output = pythonDaemon.execObservable([fileToExecute], {});
         const outputsReceived: string[] = [];
         await new Promise((resolve, reject) => {
-            output.out.subscribe(out => outputsReceived.push(out.out.trim()), reject, resolve);
+            output.out.subscribe((out) => outputsReceived.push(out.out.trim()), reject, resolve);
         });
-        assert.deepEqual(outputsReceived.filter(item => item.length > 0), ['0', '1', '2', '3', '4']);
+        assert.deepEqual(
+            outputsReceived.filter((item) => item.length > 0),
+            ['0', '1', '2', '3', '4']
+        );
     }).timeout(10_000);
 
     test('Execute a file and throw exception if stderr is not empty', async () => {
@@ -261,7 +291,7 @@ suite('Daemon', () => {
         const output = pythonDaemon.execObservable([fileToExecute], { throwOnStdErr: true });
         const outputsReceived: string[] = [];
         const promise = new Promise((resolve, reject) => {
-            output.out.subscribe(out => outputsReceived.push(out.out.trim()), reject, resolve);
+            output.out.subscribe((out) => outputsReceived.push(out.out.trim()), reject, resolve);
         });
         await expect(promise).to.eventually.be.rejectedWith('KABOOM');
     }).timeout(3_000);

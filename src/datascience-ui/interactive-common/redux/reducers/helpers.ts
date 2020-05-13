@@ -2,21 +2,20 @@
 // Licensed under the MIT License.
 'use strict';
 import { min } from 'lodash';
-// tslint:disable-next-line: no-require-imports
-import cloneDeep = require('lodash/cloneDeep');
+// tslint:disable-next-line: no-require-imports no-var-requires
+const cloneDeep = require('lodash/cloneDeep');
 
-import { ICell, IDataScienceExtraSettings } from '../../../../client/datascience/types';
+import { CellState, ICell, IDataScienceExtraSettings } from '../../../../client/datascience/types';
 import { arePathsSame } from '../../../react-common/arePathsSame';
 import { detectBaseTheme } from '../../../react-common/themeDetector';
 import { ICellViewModel, IMainState } from '../../mainState';
-import { CommonReducerArg } from './types';
-import { Variables } from './variables';
+import { CommonActionType, CommonReducerArg } from './types';
 
 const StackLimit = 10;
 
 export namespace Helpers {
-    export function computeKnownDark(settings: IDataScienceExtraSettings): boolean {
-        const ignore = settings.ignoreVscodeTheme ? true : false;
+    export function computeKnownDark(settings?: IDataScienceExtraSettings): boolean {
+        const ignore = settings?.ignoreVscodeTheme ? true : false;
         const baseTheme = ignore ? 'vscode-light' : detectBaseTheme();
         return baseTheme !== 'vscode-light';
     }
@@ -31,33 +30,50 @@ export namespace Helpers {
     }
 
     export function firstCodeCellAbove(state: IMainState, cellId: string | undefined) {
-        const codeCells = state.cellVMs.filter(c => c.cell.data.cell_type === 'code');
-        const index = codeCells.findIndex(c => c.cell.id === cellId);
+        const codeCells = state.cellVMs.filter((c) => c.cell.data.cell_type === 'code');
+        const index = codeCells.findIndex((c) => c.cell.id === cellId);
         if (index > 0) {
             return codeCells[index - 1].cell.id;
         }
         return undefined;
     }
 
-    export function updateOrAdd<T>(arg: CommonReducerArg<T, ICell>, generateVM: (cell: ICell, settings: IDataScienceExtraSettings) => ICellViewModel): IMainState {
+    // This function is because the unit test typescript compiler can't handle ICell.metadata
+    // tslint:disable-next-line: no-any
+    export function asCellViewModel(cvm: any): ICellViewModel {
+        return cvm as ICellViewModel;
+    }
+
+    // This function is because the unit test typescript compiler can't handle ICell.metadata
+    // tslint:disable-next-line: no-any
+    export function asCell(cell: any): ICell {
+        return cell as ICell;
+    }
+
+    export function updateOrAdd(
+        arg: CommonReducerArg<CommonActionType, ICell>,
+        generateVM: (cell: ICell, mainState: IMainState) => ICellViewModel
+    ): IMainState {
         // First compute new execution count.
-        const newExecutionCount = arg.payload.data.execution_count ?
-            Math.max(arg.prevState.currentExecutionCount, parseInt(arg.payload.data.execution_count.toString(), 10)) :
-            arg.prevState.currentExecutionCount;
-        if (newExecutionCount !== arg.prevState.currentExecutionCount && arg.prevState.variablesVisible) {
-            // We also need to update our variable explorer when the execution count changes
-            // Use the ref here to maintain var explorer independence
-            Variables.refreshVariables({ ...arg, payload: { newExecutionCount } });
-        }
+        const newExecutionCount = arg.payload.data.data.execution_count
+            ? Math.max(
+                  arg.prevState.currentExecutionCount,
+                  parseInt(arg.payload.data.data.execution_count.toString(), 10)
+              )
+            : arg.prevState.currentExecutionCount;
 
         const index = arg.prevState.cellVMs.findIndex((c: ICellViewModel) => {
-            return c.cell.id === arg.payload.id &&
-                c.cell.line === arg.payload.line &&
-                arePathsSame(c.cell.file, arg.payload.file);
+            return (
+                c.cell.id === arg.payload.data.id &&
+                c.cell.line === arg.payload.data.line &&
+                arePathsSame(c.cell.file, arg.payload.data.file)
+            );
         });
         if (index >= 0) {
             // This means the cell existed already so it was actual executed code.
             // Use its execution count to update our execution count.
+            const finished =
+                arg.payload.data.state === CellState.finished || arg.payload.data.state === CellState.error;
 
             // Have to make a copy of the cell VM array or
             // we won't actually update.
@@ -69,17 +85,20 @@ export namespace Helpers {
 
             // Prevent updates to the source, as its possible we have recieved a response for a cell execution
             // and the user has updated the cell text since then.
-            newVMs[index] = {
+            const newVM: ICellViewModel = {
                 ...newVMs[index],
+                hasBeenRun: true,
                 cell: {
                     ...newVMs[index].cell,
-                    state: arg.payload.state,
+                    state: arg.payload.data.state,
                     data: {
-                        ...arg.payload.data,
+                        ...arg.payload.data.data,
                         source: newVMs[index].cell.data.source
                     }
-                }
+                },
+                runningByLine: finished ? false : newVMs[index].runningByLine
             };
+            newVMs[index] = newVM;
 
             return {
                 ...arg.prevState,
@@ -88,10 +107,8 @@ export namespace Helpers {
             };
         } else {
             // This is an entirely new cell (it may have started out as finished)
-            const newVM = generateVM(arg.payload, arg.prevState.settings);
-            const newVMs = [
-                ...arg.prevState.cellVMs,
-                newVM];
+            const newVM = generateVM(arg.payload.data, arg.prevState);
+            const newVMs = [...arg.prevState.cellVMs, newVM];
             return {
                 ...arg.prevState,
                 cellVMs: newVMs,

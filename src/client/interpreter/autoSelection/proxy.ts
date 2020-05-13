@@ -13,10 +13,12 @@ import { IInterpreterAutoSeletionProxyService } from './types';
 export class InterpreterAutoSeletionProxyService implements IInterpreterAutoSeletionProxyService {
     private readonly didAutoSelectedInterpreterEmitter = new EventEmitter<void>();
     private instance?: IInterpreterAutoSeletionProxyService;
-    constructor(@inject(IDisposableRegistry) private readonly disposables: IAsyncDisposableRegistry) { }
+    constructor(@inject(IDisposableRegistry) private readonly disposables: IAsyncDisposableRegistry) {}
     public registerInstance(instance: IInterpreterAutoSeletionProxyService): void {
         this.instance = instance;
-        this.disposables.push(this.instance.onDidChangeAutoSelectedInterpreter(() => this.didAutoSelectedInterpreterEmitter.fire()));
+        this.disposables.push(
+            this.instance.onDidChangeAutoSelectedInterpreter(() => this.didAutoSelectedInterpreterEmitter.fire())
+        );
     }
     public get onDidChangeAutoSelectedInterpreter(): Event<void> {
         return this.didAutoSelectedInterpreterEmitter.event;
@@ -24,7 +26,7 @@ export class InterpreterAutoSeletionProxyService implements IInterpreterAutoSele
     public getAutoSelectedInterpreter(resource: Resource): PythonInterpreter | undefined {
         return this.instance ? this.instance.getAutoSelectedInterpreter(resource) : undefined;
     }
-    public async setWorkspaceInterpreter(resource: Uri, interpreter: PythonInterpreter | undefined): Promise<void>{
+    public async setWorkspaceInterpreter(resource: Uri, interpreter: PythonInterpreter | undefined): Promise<void> {
         return this.instance ? this.instance.setWorkspaceInterpreter(resource, interpreter) : undefined;
     }
 }

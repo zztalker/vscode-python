@@ -16,7 +16,7 @@ import {
 
 import { IDocumentManager } from '../../common/application/types';
 import { IFileSystem } from '../../common/platform/types';
-import { IConfigurationService, IDataScienceSettings } from '../../common/types';
+import { IConfigurationService, IDataScienceSettings, IDisposable, Resource } from '../../common/types';
 import * as localize from '../../common/utils/localize';
 import { StopWatch } from '../../common/utils/stopWatch';
 import { captureTelemetry, sendTelemetryEvent } from '../../telemetry';
@@ -34,16 +34,18 @@ export class CodeWatcher implements ICodeWatcher {
     private codeLenses: CodeLens[] = [];
     private cachedSettings: IDataScienceSettings | undefined;
     private codeLensUpdatedEvent: EventEmitter<void> = new EventEmitter<void>();
+    private updateRequiredDisposable: IDisposable | undefined;
+    private closeDocumentDisposable: IDisposable | undefined;
 
-    constructor(@inject(IInteractiveWindowProvider) private interactiveWindowProvider: IInteractiveWindowProvider,
+    constructor(
+        @inject(IInteractiveWindowProvider) private interactiveWindowProvider: IInteractiveWindowProvider,
         @inject(IFileSystem) private fileSystem: IFileSystem,
         @inject(IConfigurationService) private configService: IConfigurationService,
         @inject(IDocumentManager) private documentManager: IDocumentManager,
         @inject(ICodeExecutionHelper) private executionHelper: ICodeExecutionHelper,
         @inject(IDataScienceErrorHandler) protected dataScienceErrorHandler: IDataScienceErrorHandler,
         @inject(ICodeLensFactory) private codeLensFactory: ICodeLensFactory
-    ) {
-    }
+    ) {}
 
     public setDocument(document: TextDocument) {
         this.document = document;
@@ -53,13 +55,16 @@ export class CodeWatcher implements ICodeWatcher {
         this.version = document.version;
 
         // Get document cells here. Make a copy of our settings.
-        this.cachedSettings = JSON.parse(JSON.stringify(this.configService.getSettings().datascience));
+        this.cachedSettings = JSON.parse(JSON.stringify(this.configService.getSettings(document.uri).datascience));
 
         // Use the factory to generate our new code lenses.
         this.codeLenses = this.codeLensFactory.createCodeLenses(document);
 
         // Listen for changes
-        this.codeLensFactory.updateRequired(this.onCodeLensFactoryUpdated.bind(this));
+        this.updateRequiredDisposable = this.codeLensFactory.updateRequired(this.onCodeLensFactoryUpdated.bind(this));
+
+        // Make sure to stop listening for changes when this document closes.
+        this.closeDocumentDisposable = this.documentManager.onDidCloseTextDocument(this.onDocumentClosed.bind(this));
     }
 
     public get codeLensUpdated(): Event<void> {
@@ -94,15 +99,31 @@ export class CodeWatcher implements ICodeWatcher {
 
     @captureTelemetry(Telemetry.RunAllCells)
     public async runAllCells() {
-        const runCellCommands = this.codeLenses.filter(c => c.command && c.command.command === Commands.RunCell && c.command.arguments && c.command.arguments.length >= 5);
+        const runCellCommands = this.codeLenses.filter(
+            (c) =>
+                c.command &&
+                c.command.command === Commands.RunCell &&
+                c.command.arguments &&
+                c.command.arguments.length >= 5
+        );
         let leftCount = runCellCommands.length;
 
         // Run all of our code lenses, they should always be ordered in the file so we can just
         // run them one by one
         for (const lens of runCellCommands) {
             // Make sure that we have the correct command (RunCell) lenses
-            const range: Range = new Range(lens.command!.arguments![1], lens.command!.arguments![2], lens.command!.arguments![3], lens.command!.arguments![4]);
-            if (this.document && range) {
+            let range: Range = new Range(
+                lens.command!.arguments![1],
+                lens.command!.arguments![2],
+                lens.command!.arguments![3],
+                lens.command!.arguments![4]
+            );
+            if (this.document) {
+                // Special case, if this is the first, expand our range to always include the top.
+                if (leftCount === runCellCommands.length) {
+                    range = new Range(new Position(0, 0), range.end);
+                }
+
                 const code = this.document.getText(range);
                 leftCount -= 1;
 
@@ -135,20 +156,30 @@ export class CodeWatcher implements ICodeWatcher {
     // Run all cells up to the cell containing this start line and character
     @captureTelemetry(Telemetry.RunAllCellsAbove)
     public async runAllCellsAbove(stopLine: number, stopCharacter: number) {
-        const runCellCommands = this.codeLenses.filter(c => c.command && c.command.command === Commands.RunCell);
-        let leftCount = runCellCommands.findIndex(c => c.range.start.line >= stopLine && c.range.start.character >= stopCharacter);
+        const runCellCommands = this.codeLenses.filter((c) => c.command && c.command.command === Commands.RunCell);
+        let leftCount = runCellCommands.findIndex(
+            (c) => c.range.start.line >= stopLine && c.range.start.character >= stopCharacter
+        );
         if (leftCount < 0) {
             leftCount = runCellCommands.length;
         }
+        const startCount = leftCount;
 
         // Run our code lenses up to this point, lenses are created in order on document load
         // so we can rely on them being in linear order for this
         for (const lens of runCellCommands) {
             // Make sure we are dealing with run cell based code lenses in case more types are added later
             if (leftCount > 0 && this.document) {
+                let range: Range = new Range(lens.range.start, lens.range.end);
+
+                // If this is the first, make sure it extends to the top
+                if (leftCount === startCount) {
+                    range = new Range(new Position(0, 0), range.end);
+                }
+
                 // We have a cell and we are not past or at the stop point
                 leftCount -= 1;
-                const code = this.document.getText(lens.range);
+                const code = this.document.getText(range);
                 const success = await this.addCode(code, this.getFileName(), lens.range.start.line);
                 if (!success) {
                     await this.addErrorMessage(leftCount);
@@ -161,10 +192,12 @@ export class CodeWatcher implements ICodeWatcher {
         }
     }
 
-    @captureTelemetry(Telemetry.RunAllCellsAbove)
+    @captureTelemetry(Telemetry.RunCellAndAllBelow)
     public async runCellAndAllBelow(startLine: number, startCharacter: number) {
-        const runCellCommands = this.codeLenses.filter(c => c.command && c.command.command === Commands.RunCell);
-        const index = runCellCommands.findIndex(c => c.range.start.line >= startLine && c.range.start.character >= startCharacter);
+        const runCellCommands = this.codeLenses.filter((c) => c.command && c.command.command === Commands.RunCell);
+        const index = runCellCommands.findIndex(
+            (c) => c.range.start.line >= startLine && c.range.start.character >= startCharacter
+        );
         let leftCount = index > 0 ? runCellCommands.length - index : runCellCommands.length;
 
         // Run our code lenses from this point to the end, lenses are created in order on document load
@@ -186,8 +219,11 @@ export class CodeWatcher implements ICodeWatcher {
 
     @captureTelemetry(Telemetry.RunSelectionOrLine)
     public async runSelectionOrLine(activeEditor: TextEditor | undefined) {
-        if (this.document && activeEditor &&
-            this.fileSystem.arePathsSame(activeEditor.document.fileName, this.document.fileName)) {
+        if (
+            this.document &&
+            activeEditor &&
+            this.fileSystem.arePathsSame(activeEditor.document.fileName, this.document.fileName)
+        ) {
             // Get just the text of the selection or the current line if none
             const codeToExecute = await this.executionHelper.getSelectedTextToExecute(activeEditor);
             if (!codeToExecute) {
@@ -205,7 +241,9 @@ export class CodeWatcher implements ICodeWatcher {
     public async runToLine(targetLine: number) {
         if (this.document && targetLine > 0) {
             const previousLine = this.document.lineAt(targetLine - 1);
-            const code = this.document.getText(new Range(0, 0, previousLine.range.end.line, previousLine.range.end.character));
+            const code = this.document.getText(
+                new Range(0, 0, previousLine.range.end.line, previousLine.range.end.character)
+            );
 
             if (code && code.trim().length) {
                 await this.addCode(code, this.getFileName(), 0);
@@ -217,7 +255,9 @@ export class CodeWatcher implements ICodeWatcher {
     public async runFromLine(targetLine: number) {
         if (this.document && targetLine < this.document.lineCount) {
             const lastLine = this.document.lineAt(this.document.lineCount - 1);
-            const code = this.document.getText(new Range(targetLine, 0, lastLine.range.end.line, lastLine.range.end.character));
+            const code = this.document.getText(
+                new Range(targetLine, 0, lastLine.range.end.line, lastLine.range.end.character)
+            );
 
             if (code && code.trim().length) {
                 await this.addCode(code, this.getFileName(), targetLine);
@@ -232,7 +272,10 @@ export class CodeWatcher implements ICodeWatcher {
         }
 
         // Run the cell clicked. Advance if the cursor is inside this cell and we're allowed to
-        const advance = range.contains(this.documentManager.activeTextEditor.selection.start) && this.configService.getSettings().datascience.enableAutoMoveToNextCell;
+        const advance =
+            range.contains(this.documentManager.activeTextEditor.selection.start) &&
+            this.configService.getSettings(this.documentManager.activeTextEditor.document.uri).datascience
+                .enableAutoMoveToNextCell;
         return this.runMatchingCell(range, advance);
     }
 
@@ -268,7 +311,7 @@ export class CodeWatcher implements ICodeWatcher {
 
     public async addEmptyCellToBottom(): Promise<void> {
         const editor = this.documentManager.activeTextEditor;
-        const cellDelineator = this.defaultCellMarker;
+        const cellDelineator = this.getDefaultCellMarker(editor?.document.uri);
         if (editor) {
             editor.edit((editBuilder) => {
                 editBuilder.insert(new Position(editor.document.lineCount, 0), `\n\n${cellDelineator}\n`);
@@ -287,7 +330,7 @@ export class CodeWatcher implements ICodeWatcher {
         const editor = this.documentManager.activeTextEditor;
         const cellMatcher = new CellMatcher();
         let index = 0;
-        const cellDelineator = this.defaultCellMarker;
+        const cellDelineator = this.getDefaultCellMarker(editor.document.uri);
 
         if (editor) {
             editor.edit((editBuilder) => {
@@ -311,12 +354,15 @@ export class CodeWatcher implements ICodeWatcher {
 
         // Run the cell that matches the current cursor position, and then advance to the new cell
         const newPosition = new Position(index + 1, 0);
-        return this.runMatchingCell(editor.selection, false)
-            .then(() => this.advanceToRange(new Range(newPosition, newPosition)));
+        return this.runMatchingCell(editor.selection, false).then(() =>
+            this.advanceToRange(new Range(newPosition, newPosition))
+        );
     }
 
-    private get defaultCellMarker(): string {
-        return this.configService.getSettings().datascience.defaultCellMarker || Identifiers.DefaultCodeCellMarker;
+    private getDefaultCellMarker(resource: Resource): string {
+        return (
+            this.configService.getSettings(resource).datascience.defaultCellMarker || Identifiers.DefaultCodeCellMarker
+        );
     }
 
     private onCodeLensFactoryUpdated(): void {
@@ -327,7 +373,21 @@ export class CodeWatcher implements ICodeWatcher {
         this.codeLensUpdatedEvent.fire();
     }
 
-    private async addCode(code: string, file: string, line: number, editor?: TextEditor, debug?: boolean): Promise<boolean> {
+    private onDocumentClosed(doc: TextDocument): void {
+        if (this.document && this.fileSystem.arePathsSame(doc.fileName, this.document.fileName)) {
+            this.codeLensUpdatedEvent.dispose();
+            this.closeDocumentDisposable?.dispose(); // NOSONAR
+            this.updateRequiredDisposable?.dispose(); // NOSONAR
+        }
+    }
+
+    private async addCode(
+        code: string,
+        file: string,
+        line: number,
+        editor?: TextEditor,
+        debug?: boolean
+    ): Promise<boolean> {
         let result = false;
         try {
             const stopWatch = new StopWatch();
@@ -393,19 +453,32 @@ export class CodeWatcher implements ICodeWatcher {
             if (this.document) {
                 // Use that to get our code.
                 const code = this.document.getText(currentRunCellLens.range);
-                await this.addCode(code, this.getFileName(), currentRunCellLens.range.start.line, this.documentManager.activeTextEditor, debug);
+                await this.addCode(
+                    code,
+                    this.getFileName(),
+                    currentRunCellLens.range.start.line,
+                    this.documentManager.activeTextEditor,
+                    debug
+                );
             }
         }
     }
 
     private getCurrentCellLens(pos: Position): CodeLens | undefined {
-        return this.codeLenses.find(l => l.range.contains(pos) && l.command !== undefined && l.command.command === Commands.RunCell);
+        return this.codeLenses.find(
+            (l) => l.range.contains(pos) && l.command !== undefined && l.command.command === Commands.RunCell
+        );
     }
 
     private getNextCellLens(pos: Position): CodeLens | undefined {
-        const currentIndex = this.codeLenses.findIndex(l => l.range.contains(pos) && l.command !== undefined && l.command.command === Commands.RunCell);
+        const currentIndex = this.codeLenses.findIndex(
+            (l) => l.range.contains(pos) && l.command !== undefined && l.command.command === Commands.RunCell
+        );
         if (currentIndex >= 0) {
-            return this.codeLenses.find((l: CodeLens, i: number) => l.command !== undefined && l.command.command === Commands.RunCell && i > currentIndex);
+            return this.codeLenses.find(
+                (l: CodeLens, i: number) =>
+                    l.command !== undefined && l.command.command === Commands.RunCell && i > currentIndex
+            );
         }
         return undefined;
     }
@@ -425,7 +498,10 @@ export class CodeWatcher implements ICodeWatcher {
 
         if (editor) {
             editor.edit((editBuilder) => {
-                editBuilder.insert(new Position(currentRange.end.line + 1, 0), `\n\n${this.defaultCellMarker}\n`);
+                editBuilder.insert(
+                    new Position(currentRange.end.line + 1, 0),
+                    `\n\n${this.getDefaultCellMarker(editor.document.uri)}\n`
+                );
             });
         }
 

@@ -20,7 +20,7 @@ suite('Autocomplete PEP 484', () => {
     suiteSetup(async function () {
         await initialize();
         initializeDI();
-        isPython2 = await ioc.getPythonMajorVersion(rootWorkspaceUri!) === 2;
+        isPython2 = (await ioc.getPythonMajorVersion(rootWorkspaceUri!)) === 2;
         if (isPython2) {
             // tslint:disable-next-line:no-invalid-this
             this.skip();
@@ -45,10 +45,14 @@ suite('Autocomplete PEP 484', () => {
         await vscode.window.showTextDocument(textDocument);
         assert(vscode.window.activeTextEditor, 'No active editor');
         const position = new vscode.Position(2, 27);
-        const list = await vscode.commands.executeCommand<vscode.CompletionList>('vscode.executeCompletionItemProvider', textDocument.uri, position);
-        assert.notEqual(list!.items.filter(item => item.label === 'capitalize').length, 0, 'capitalize not found');
-        assert.notEqual(list!.items.filter(item => item.label === 'upper').length, 0, 'upper not found');
-        assert.notEqual(list!.items.filter(item => item.label === 'lower').length, 0, 'lower not found');
+        const list = await vscode.commands.executeCommand<vscode.CompletionList>(
+            'vscode.executeCompletionItemProvider',
+            textDocument.uri,
+            position
+        );
+        assert.notEqual(list!.items.filter((item) => item.label === 'capitalize').length, 0, 'capitalize not found');
+        assert.notEqual(list!.items.filter((item) => item.label === 'upper').length, 0, 'upper not found');
+        assert.notEqual(list!.items.filter((item) => item.label === 'lower').length, 0, 'lower not found');
     });
 
     test('return value', async () => {
@@ -56,8 +60,12 @@ suite('Autocomplete PEP 484', () => {
         await vscode.window.showTextDocument(textDocument);
         assert(vscode.window.activeTextEditor, 'No active editor');
         const position = new vscode.Position(8, 6);
-        const list = await vscode.commands.executeCommand<vscode.CompletionList>('vscode.executeCompletionItemProvider', textDocument.uri, position);
-        assert.notEqual(list!.items.filter(item => item.label === 'bit_length').length, 0, 'bit_length not found');
-        assert.notEqual(list!.items.filter(item => item.label === 'from_bytes').length, 0, 'from_bytes not found');
+        const list = await vscode.commands.executeCommand<vscode.CompletionList>(
+            'vscode.executeCompletionItemProvider',
+            textDocument.uri,
+            position
+        );
+        assert.notEqual(list!.items.filter((item) => item.label === 'bit_length').length, 0, 'bit_length not found');
+        assert.notEqual(list!.items.filter((item) => item.label === 'from_bytes').length, 0, 'from_bytes not found');
     });
 });

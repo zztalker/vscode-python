@@ -15,10 +15,8 @@ import { IProcessService } from '../client/common/process/types';
 import { IPythonSettings, Resource } from '../client/common/types';
 import { PythonInterpreter } from '../client/interpreter/contracts';
 import { IServiceContainer, IServiceManager } from '../client/ioc/types';
-import {
-    EXTENSION_ROOT_DIR_FOR_TESTS, IS_MULTI_ROOT_TEST, IS_PERF_TEST, IS_SMOKE_TEST
-} from './constants';
-import { noop } from './core';
+import { EXTENSION_ROOT_DIR_FOR_TESTS, IS_MULTI_ROOT_TEST, IS_PERF_TEST, IS_SMOKE_TEST } from './constants';
+import { noop, sleep } from './core';
 
 const StreamZip = require('node-stream-zip');
 
@@ -41,15 +39,31 @@ export enum OSType {
     Linux = 'Linux'
 }
 
-export type PythonSettingKeys = 'workspaceSymbols.enabled' | 'pythonPath' |
-    'linting.lintOnSave' |
-    'linting.enabled' | 'linting.pylintEnabled' |
-    'linting.flake8Enabled' | 'linting.pycodestyleEnabled' | 'linting.pylamaEnabled' |
-    'linting.prospectorEnabled' | 'linting.pydocstyleEnabled' | 'linting.mypyEnabled' | 'linting.banditEnabled' |
-    'testing.nosetestArgs' | 'testing.pytestArgs' | 'testing.unittestArgs' |
-    'formatting.provider' | 'sortImports.args' |
-    'testing.nosetestsEnabled' | 'testing.pytestEnabled' | 'testing.unittestEnabled' |
-    'envFile' | 'jediEnabled' | 'linting.ignorePatterns' | 'terminal.activateEnvironment';
+export type PythonSettingKeys =
+    | 'workspaceSymbols.enabled'
+    | 'pythonPath'
+    | 'linting.lintOnSave'
+    | 'linting.enabled'
+    | 'linting.pylintEnabled'
+    | 'linting.flake8Enabled'
+    | 'linting.pycodestyleEnabled'
+    | 'linting.pylamaEnabled'
+    | 'linting.prospectorEnabled'
+    | 'linting.pydocstyleEnabled'
+    | 'linting.mypyEnabled'
+    | 'linting.banditEnabled'
+    | 'testing.nosetestArgs'
+    | 'testing.pytestArgs'
+    | 'testing.unittestArgs'
+    | 'formatting.provider'
+    | 'sortImports.args'
+    | 'testing.nosetestsEnabled'
+    | 'testing.pytestEnabled'
+    | 'testing.unittestEnabled'
+    | 'envFile'
+    | 'jediEnabled'
+    | 'linting.ignorePatterns'
+    | 'terminal.activateEnvironment';
 
 async function disposePythonSettings() {
     if (!IS_SMOKE_TEST) {
@@ -58,13 +72,22 @@ async function disposePythonSettings() {
     }
 }
 
-export async function updateSetting(setting: PythonSettingKeys, value: {} | undefined, resource: Uri | undefined, configTarget: ConfigurationTarget) {
+export async function updateSetting(
+    setting: PythonSettingKeys,
+    value: {} | undefined,
+    resource: Uri | undefined,
+    configTarget: ConfigurationTarget
+) {
     const vscode = require('vscode') as typeof import('vscode');
     const settings = vscode.workspace.getConfiguration('python', resource || null);
     const currentValue = settings.inspect(setting);
-    if (currentValue !== undefined && ((configTarget === vscode.ConfigurationTarget.Global && currentValue.globalValue === value) ||
-        (configTarget === vscode.ConfigurationTarget.Workspace && currentValue.workspaceValue === value) ||
-        (configTarget === vscode.ConfigurationTarget.WorkspaceFolder && currentValue.workspaceFolderValue === value))) {
+    if (
+        currentValue !== undefined &&
+        ((configTarget === vscode.ConfigurationTarget.Global && currentValue.globalValue === value) ||
+            (configTarget === vscode.ConfigurationTarget.Workspace && currentValue.workspaceValue === value) ||
+            (configTarget === vscode.ConfigurationTarget.WorkspaceFolder &&
+                currentValue.workspaceFolderValue === value))
+    ) {
         await disposePythonSettings();
         return;
     }
@@ -95,7 +118,30 @@ export async function restorePythonPathInWorkspaceRoot() {
     return retryAsync(setPythonPathInWorkspace)(undefined, vscode.ConfigurationTarget.Workspace, PYTHON_PATH);
 }
 
+export async function setGlobalInterpreterPath(pythonPath: string) {
+    return retryAsync(setGlobalPathToInterpreter)(pythonPath);
+}
+
+export const resetGlobalInterpreterPathSetting = async () => retryAsync(restoreGlobalInterpreterPathSetting)();
+
+async function restoreGlobalInterpreterPathSetting(): Promise<void> {
+    const vscode = require('vscode') as typeof import('vscode');
+    const pythonConfig = vscode.workspace.getConfiguration('python', (null as any) as Uri);
+    await pythonConfig.update('defaultInterpreterPath', undefined, true);
+    await disposePythonSettings();
+}
+async function setGlobalPathToInterpreter(pythonPath?: string): Promise<void> {
+    const vscode = require('vscode') as typeof import('vscode');
+    const pythonConfig = vscode.workspace.getConfiguration('python', (null as any) as Uri);
+    await pythonConfig.update('defaultInterpreterPath', pythonPath, true);
+    await disposePythonSettings();
+}
 export const resetGlobalPythonPathSetting = async () => retryAsync(restoreGlobalPythonPathSetting)();
+
+export async function setAutoSaveDelayInWorkspaceRoot(delayinMS: number) {
+    const vscode = require('vscode') as typeof import('vscode');
+    return retryAsync(setAutoSaveDelay)(undefined, vscode.ConfigurationTarget.Workspace, delayinMS);
+}
 
 function getWorkspaceRoot() {
     if (IS_SMOKE_TEST || IS_PERF_TEST) {
@@ -124,7 +170,10 @@ export function getExtensionSettings(resource: Uri | undefined): IPythonSettings
         public getAutoSelectedInterpreter(_resource: Resource): PythonInterpreter | undefined {
             return;
         }
-        public async setWorkspaceInterpreter(_resource: Uri, _interpreter: PythonInterpreter | undefined): Promise<void> {
+        public async setWorkspaceInterpreter(
+            _resource: Uri,
+            _interpreter: PythonInterpreter | undefined
+        ): Promise<void> {
             return;
         }
     }
@@ -137,16 +186,15 @@ export function retryAsync(this: any, wrapped: Function, retryCount: number = 2)
             const reasons: any[] = [];
 
             const makeCall = () => {
-                wrapped.call(this as Function, ...args)
-                    .then(resolve, (reason: any) => {
-                        reasons.push(reason);
-                        if (reasons.length >= retryCount) {
-                            reject(reasons);
-                        } else {
-                            // If failed once, lets wait for some time before trying again.
-                            setTimeout(makeCall, 500);
-                        }
-                    });
+                wrapped.call(this as Function, ...args).then(resolve, (reason: any) => {
+                    reasons.push(reason);
+                    if (reasons.length >= retryCount) {
+                        reject(reasons);
+                    } else {
+                        // If failed once, lets wait for some time before trying again.
+                        setTimeout(makeCall, 500);
+                    }
+                });
             };
 
             makeCall();
@@ -154,7 +202,27 @@ export function retryAsync(this: any, wrapped: Function, retryCount: number = 2)
     };
 }
 
-async function setPythonPathInWorkspace(resource: string | Uri | undefined, config: ConfigurationTarget, pythonPath?: string) {
+async function setAutoSaveDelay(resource: string | Uri | undefined, config: ConfigurationTarget, delayinMS: number) {
+    const vscode = require('vscode') as typeof import('vscode');
+    if (config === vscode.ConfigurationTarget.WorkspaceFolder && !IS_MULTI_ROOT_TEST) {
+        return;
+    }
+    const resourceUri = typeof resource === 'string' ? vscode.Uri.file(resource) : resource;
+    const settings = vscode.workspace.getConfiguration('files', resourceUri || null);
+    const value = settings.inspect<number>('autoSaveDelay');
+    const prop: 'workspaceFolderValue' | 'workspaceValue' =
+        config === vscode.ConfigurationTarget.Workspace ? 'workspaceValue' : 'workspaceFolderValue';
+    if (value && value[prop] !== delayinMS) {
+        await settings.update('autoSaveDelay', delayinMS, config);
+        await settings.update('autoSave', 'afterDelay');
+    }
+}
+
+async function setPythonPathInWorkspace(
+    resource: string | Uri | undefined,
+    config: ConfigurationTarget,
+    pythonPath?: string
+) {
     const vscode = require('vscode') as typeof import('vscode');
     if (config === vscode.ConfigurationTarget.WorkspaceFolder && !IS_MULTI_ROOT_TEST) {
         return;
@@ -162,7 +230,8 @@ async function setPythonPathInWorkspace(resource: string | Uri | undefined, conf
     const resourceUri = typeof resource === 'string' ? vscode.Uri.file(resource) : resource;
     const settings = vscode.workspace.getConfiguration('python', resourceUri || null);
     const value = settings.inspect<string>('pythonPath');
-    const prop: 'workspaceFolderValue' | 'workspaceValue' = config === vscode.ConfigurationTarget.Workspace ? 'workspaceValue' : 'workspaceFolderValue';
+    const prop: 'workspaceFolderValue' | 'workspaceValue' =
+        config === vscode.ConfigurationTarget.Workspace ? 'workspaceValue' : 'workspaceFolderValue';
     if (value && value[prop] !== pythonPath) {
         await settings.update('pythonPath', pythonPath, config);
         await disposePythonSettings();
@@ -170,8 +239,11 @@ async function setPythonPathInWorkspace(resource: string | Uri | undefined, conf
 }
 async function restoreGlobalPythonPathSetting(): Promise<void> {
     const vscode = require('vscode') as typeof import('vscode');
-    const pythonConfig = vscode.workspace.getConfiguration('python', null as any as Uri);
-    await pythonConfig.update('pythonPath', undefined, true);
+    const pythonConfig = vscode.workspace.getConfiguration('python', (null as any) as Uri);
+    await Promise.all([
+        pythonConfig.update('pythonPath', undefined, true),
+        pythonConfig.update('defaultInterpreterPath', undefined, true)
+    ]);
     await disposePythonSettings();
 }
 
@@ -191,15 +263,17 @@ export async function deleteFile(file: string) {
 
 export async function deleteFiles(globPattern: string) {
     const items = await new Promise<string[]>((resolve, reject) => {
-        glob(globPattern, (ex, files) => ex ? reject(ex) : resolve(files));
+        glob(globPattern, (ex, files) => (ex ? reject(ex) : resolve(files)));
     });
 
-    return Promise.all(items.map(item => fs.remove(item).catch(noop)));
+    return Promise.all(items.map((item) => fs.remove(item).catch(noop)));
 }
 function getPythonPath(): string {
     if (process.env.CI_PYTHON_PATH && fs.existsSync(process.env.CI_PYTHON_PATH)) {
         return process.env.CI_PYTHON_PATH;
     }
+    // tslint:disable-next-line:no-suspicious-comment
+    // TODO(gh-10910): Change this to python3.
     return 'python';
 }
 
@@ -262,8 +336,9 @@ export async function getPythonSemVer(procService?: IProcessService): Promise<Se
     const pythonProcRunner = procService ? procService : new proc.ProcessService(new decoder.BufferDecoder());
     const pyVerArgs = ['-c', 'import sys;print("{0}.{1}.{2}".format(*sys.version_info[:3]))'];
 
-    return pythonProcRunner.exec(PYTHON_PATH, pyVerArgs)
-        .then(strVersion => new SemVer(strVersion.stdout.trim()))
+    return pythonProcRunner
+        .exec(PYTHON_PATH, pyVerArgs)
+        .then((strVersion) => new SemVer(strVersion.stdout.trim()))
         .catch((err) => {
             // if the call fails this should make it loudly apparent.
             console.error('Failed to get Python Version in getPythonSemVer', err);
@@ -291,7 +366,7 @@ export async function getPythonSemVer(procService?: IProcessService): Promise<Se
  */
 export function isVersionInList(version: SemVer, ...searchVersions: string[]): boolean {
     // see if the major/minor version matches any member of the skip-list.
-    const isPresent = searchVersions.findIndex(ver => {
+    const isPresent = searchVersions.findIndex((ver) => {
         const semverChecker = coerce(ver);
         if (semverChecker) {
             if (semverChecker.compare(version) === 0) {
@@ -350,7 +425,9 @@ export async function isPythonVersionInProcess(procService?: IProcessService, ..
     if (currentPyVersion) {
         return isVersionInList(currentPyVersion, ...versions);
     } else {
-        console.error(`Failed to determine the current Python version when comparing against list [${versions.join(', ')}].`);
+        console.error(
+            `Failed to determine the current Python version when comparing against list [${versions.join(', ')}].`
+        );
         return false;
     }
 }
@@ -381,7 +458,9 @@ export async function isPythonVersion(...versions: string[]): Promise<boolean> {
     if (currentPyVersion) {
         return isVersionInList(currentPyVersion, ...versions);
     } else {
-        console.error(`Failed to determine the current Python version when comparing against list [${versions.join(', ')}].`);
+        console.error(
+            `Failed to determine the current Python version when comparing against list [${versions.join(', ')}].`
+        );
         return false;
     }
 }
@@ -419,7 +498,11 @@ export async function unzip(zipFile: string, targetFolder: string): Promise<void
  * @param {string} errorMessage
  * @returns {Promise<void>}
  */
-export async function waitForCondition(condition: () => Promise<boolean>, timeoutMs: number, errorMessage: string): Promise<void> {
+export async function waitForCondition(
+    condition: () => Promise<boolean>,
+    timeoutMs: number,
+    errorMessage: string
+): Promise<void> {
     return new Promise<void>(async (resolve, reject) => {
         const timeout = setTimeout(() => {
             clearTimeout(timeout);
@@ -428,7 +511,7 @@ export async function waitForCondition(condition: () => Promise<boolean>, timeou
             reject(new Error(errorMessage));
         }, timeoutMs);
         const timer = setInterval(async () => {
-            if (!await condition().catch(() => false)) {
+            if (!(await condition().catch(() => false))) {
                 return;
             }
             clearTimeout(timeout);
@@ -438,10 +521,110 @@ export async function waitForCondition(condition: () => Promise<boolean>, timeou
     });
 }
 
+/**
+ * Execute a method until it executes without any exceptions.
+ */
+export async function retryIfFail<T>(fn: () => Promise<T>, timeoutMs: number = 60_000): Promise<T> {
+    let lastEx: Error | undefined;
+    const started = new Date().getTime();
+    while (timeoutMs > new Date().getTime() - started) {
+        try {
+            // tslint:disable-next-line: no-unnecessary-local-variable
+            const result = await fn();
+            // Capture result, if no exceptions return that.
+            return result;
+        } catch (ex) {
+            lastEx = ex;
+        }
+        await sleep(10);
+    }
+    if (lastEx) {
+        throw lastEx;
+    }
+    throw new Error('Timeout waiting for function to complete without any errors');
+}
+
 export async function openFile(file: string): Promise<TextDocument> {
     const vscode = require('vscode') as typeof import('vscode');
     const textDocument = await vscode.workspace.openTextDocument(file);
     await vscode.window.showTextDocument(textDocument);
     assert(vscode.window.activeTextEditor, 'No active editor');
     return textDocument;
+}
+
+/**
+ * Fakes for timers in nodejs when testing, using `lolex`.
+ * An alternative to `sinon.useFakeTimers` (which in turn uses `lolex`, but doesn't expose the `async` methods).
+ * Use this class when you have tests with `setTimeout` and which to avoid them for faster tests.
+ *
+ * For further information please refer:
+ * - https://www.npmjs.com/package/lolex
+ * - https://sinonjs.org/releases/v1.17.6/fake-timers/
+ *
+ * @class FakeClock
+ */
+export class FakeClock {
+    // tslint:disable-next-line:no-any
+    private clock?: any;
+    /**
+     * Creates an instance of FakeClock.
+     * @param {number} [advacenTimeMs=10_000] Default `timeout` value. Defaults to 10s. Assuming we do not have anything bigger.
+     * @memberof FakeClock
+     */
+    constructor(private readonly advacenTimeMs: number = 10_000) {}
+    public install() {
+        // tslint:disable-next-line:no-require-imports
+        const lolex = require('lolex');
+        this.clock = lolex.install();
+    }
+    public uninstall() {
+        this.clock?.uninstall();
+    }
+    /**
+     * Wait for timers to kick in, and then wait for all of them to complete.
+     *
+     * @returns {Promise<void>}
+     * @memberof FakeClock
+     */
+    public async wait(): Promise<void> {
+        await this.waitForTimersToStart();
+        await this.waitForTimersToFinish();
+    }
+
+    /**
+     * Wait for timers to start.
+     *
+     * @returns {Promise<void>}
+     * @memberof FakeClock
+     */
+    private async waitForTimersToStart(): Promise<void> {
+        if (!this.clock) {
+            throw new Error('Fake clock not installed');
+        }
+        while (this.clock.countTimers() === 0) {
+            // Relinquish control to event loop, so other timer code will run.
+            // We want to wait for `setTimeout` to kick in.
+            await new Promise((resolve) => process.nextTick(resolve));
+        }
+    }
+    /**
+     * Wait for timers to finish.
+     *
+     * @returns {Promise<void>}
+     * @memberof FakeClock
+     */
+    private async waitForTimersToFinish(): Promise<void> {
+        if (!this.clock) {
+            throw new Error('Fake clock not installed');
+        }
+        while (this.clock.countTimers()) {
+            // Advance clock by 10s (can be anything to ensure the next scheduled block of code executes).
+            // Assuming we do not have timers > 10s
+            // This will ensure any such such as `setTimeout(..., 10)` will get executed.
+            this.clock.tick(this.advacenTimeMs);
+
+            // Wait for the timer code to run to completion (incase they are promises).
+            await this.clock.runAllAsync();
+        }
+    }
 }

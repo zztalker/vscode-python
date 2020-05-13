@@ -11,7 +11,12 @@ import { Commands } from '../../common/constants';
 import '../../common/extensions';
 import { traceError } from '../../common/logger';
 import { IFileSystem } from '../../common/platform/types';
-import { BANNER_NAME_INTERACTIVE_SHIFTENTER, IDisposableRegistry, IPythonExtensionBanner, Resource } from '../../common/types';
+import {
+    BANNER_NAME_INTERACTIVE_SHIFTENTER,
+    IDisposableRegistry,
+    IPythonExtensionBanner,
+    Resource
+} from '../../common/types';
 import { noop } from '../../common/utils/misc';
 import { IServiceContainer } from '../../ioc/types';
 import { captureTelemetry, sendTelemetryEvent } from '../../telemetry';
@@ -21,37 +26,48 @@ import { ICodeExecutionHelper, ICodeExecutionManager, ICodeExecutionService } fr
 @injectable()
 export class CodeExecutionManager implements ICodeExecutionManager {
     private eventEmitter: EventEmitter<string> = new EventEmitter<string>();
-    constructor(@inject(ICommandManager) private commandManager: ICommandManager,
+    constructor(
+        @inject(ICommandManager) private commandManager: ICommandManager,
         @inject(IDocumentManager) private documentManager: IDocumentManager,
         @inject(IDisposableRegistry) private disposableRegistry: Disposable[],
         @inject(IFileSystem) private fileSystem: IFileSystem,
-        @inject(IPythonExtensionBanner) @named(BANNER_NAME_INTERACTIVE_SHIFTENTER) private readonly shiftEnterBanner: IPythonExtensionBanner,
-        @inject(IServiceContainer) private serviceContainer: IServiceContainer) {
-
-    }
+        @inject(IPythonExtensionBanner)
+        @named(BANNER_NAME_INTERACTIVE_SHIFTENTER)
+        private readonly shiftEnterBanner: IPythonExtensionBanner,
+        @inject(IServiceContainer) private serviceContainer: IServiceContainer
+    ) {}
 
     public get onExecutedCode(): Event<string> {
         return this.eventEmitter.event;
     }
 
     public registerCommands() {
-        [
-            Commands.Exec_In_Terminal,
-            Commands.Exec_In_Terminal_Icon
-        ].forEach(cmd => {
+        [Commands.Exec_In_Terminal, Commands.Exec_In_Terminal_Icon].forEach((cmd) => {
             this.disposableRegistry.push(
                 this.commandManager.registerCommand(
                     // tslint:disable-next-line:no-any
                     cmd as any,
                     async (file: Resource) => {
                         const trigger = cmd === Commands.Exec_In_Terminal ? 'command' : 'icon';
-                        await this.executeFileInTerminal(file, trigger).catch(ex => traceError('Failed to execute file in terminal', ex));
+                        await this.executeFileInTerminal(file, trigger).catch((ex) =>
+                            traceError('Failed to execute file in terminal', ex)
+                        );
                     }
                 )
             );
         });
-        this.disposableRegistry.push(this.commandManager.registerCommand(Commands.Exec_Selection_In_Terminal, this.executeSelectionInTerminal.bind(this)));
-        this.disposableRegistry.push(this.commandManager.registerCommand(Commands.Exec_Selection_In_Django_Shell, this.executeSelectionInDjangoShell.bind(this)));
+        this.disposableRegistry.push(
+            this.commandManager.registerCommand(
+                Commands.Exec_Selection_In_Terminal,
+                this.executeSelectionInTerminal.bind(this)
+            )
+        );
+        this.disposableRegistry.push(
+            this.commandManager.registerCommand(
+                Commands.Exec_Selection_In_Django_Shell,
+                this.executeSelectionInDjangoShell.bind(this)
+            )
+        );
     }
     private async executeFileInTerminal(file: Resource, trigger: 'command' | 'icon') {
         sendTelemetryEvent(EventName.EXECUTION_CODE, undefined, { scope: 'file', trigger });

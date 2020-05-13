@@ -7,7 +7,7 @@ import { isTestExecution } from './constants';
 import { ModuleNotInstalledError } from './errors/moduleNotInstalledError';
 
 export function isNotInstalledError(error: Error): boolean {
-    const isError = typeof (error) === 'object' && error !== null;
+    const isError = typeof error === 'object' && error !== null;
     // tslint:disable-next-line:no-any
     const errorObj = <any>error;
     if (!isError) {

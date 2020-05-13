@@ -11,17 +11,28 @@ import { Tokenizer } from '../language/tokenizer';
 import { ITextRangeCollection, IToken, TokenType } from '../language/types';
 
 const keywordsWithSpaceBeforeBrace = [
-    'and', 'as', 'assert', 'await',
+    'and',
+    'as',
+    'assert',
+    'await',
     'del',
-    'except', 'elif',
-    'for', 'from',
+    'except',
+    'elif',
+    'for',
+    'from',
     'global',
-    'if', 'import', 'in', 'is',
+    'if',
+    'import',
+    'in',
+    'is',
     'lambda',
-    'nonlocal', 'not',
+    'nonlocal',
+    'not',
     'or',
-    'raise', 'return',
-    'while', 'with',
+    'raise',
+    'return',
+    'while',
+    'with',
     'yield'
 ];
 
@@ -69,7 +80,12 @@ export class LineFormatter {
                     break;
 
                 case TokenType.Identifier:
-                    if (prev && !this.isOpenBraceType(prev.type) && prev.type !== TokenType.Colon && prev.type !== TokenType.Operator) {
+                    if (
+                        prev &&
+                        !this.isOpenBraceType(prev.type) &&
+                        prev.type !== TokenType.Colon &&
+                        prev.type !== TokenType.Operator
+                    ) {
                         this.builder.softAppendSpace();
                     }
                     const id = this.text.substring(t.start, t.end);
@@ -83,7 +99,7 @@ export class LineFormatter {
                 case TokenType.Colon:
                     // x: 1 if not in slice, x[1:y] if inside the slice.
                     this.builder.append(':');
-                    if (!this.braceCounter.isOpened(TokenType.OpenBracket) && (next && next.type !== TokenType.Colon)) {
+                    if (!this.braceCounter.isOpened(TokenType.OpenBracket) && next && next.type !== TokenType.Colon) {
                         // Not inside opened [[ ... ] sequence.
                         this.builder.softAppendSpace();
                     }
@@ -157,7 +173,10 @@ export class LineFormatter {
                     break;
             }
         } else if (t.length === 2) {
-            if (this.text.charCodeAt(t.start) === Char.Asterisk && this.text.charCodeAt(t.start + 1) === Char.Asterisk) {
+            if (
+                this.text.charCodeAt(t.start) === Char.Asterisk &&
+                this.text.charCodeAt(t.start + 1) === Char.Asterisk
+            ) {
                 if (this.handleStarOperator(t, prev!)) {
                     return;
                 }
@@ -183,7 +202,10 @@ export class LineFormatter {
     }
 
     private handleStarOperator(current: IToken, prev: IToken): boolean {
-        if (this.text.charCodeAt(current.start) === Char.Asterisk && this.text.charCodeAt(current.start + 1) === Char.Asterisk) {
+        if (
+            this.text.charCodeAt(current.start) === Char.Asterisk &&
+            this.text.charCodeAt(current.start + 1) === Char.Asterisk
+        ) {
             if (!prev || (prev.type !== TokenType.Identifier && prev.type !== TokenType.Number)) {
                 this.builder.append('**');
                 return true;
@@ -232,7 +254,12 @@ export class LineFormatter {
         }
 
         const prev = index > 0 ? this.tokens.getItemAt(index - 1) : undefined;
-        if (prev && prev.length === 1 && this.text.charCodeAt(prev.start) === Char.Equal && this.isEqualsInsideArguments(index - 1)) {
+        if (
+            prev &&
+            prev.length === 1 &&
+            this.text.charCodeAt(prev.start) === Char.Equal &&
+            this.isEqualsInsideArguments(index - 1)
+        ) {
             // Don't add space around = inside function arguments.
             this.builder.append(this.text.substring(t.start, t.end));
             return;
@@ -244,7 +271,13 @@ export class LineFormatter {
             return;
         }
 
-        if (t.type === TokenType.Number && prev && prev.type === TokenType.Operator && prev.length === 1 && this.text.charCodeAt(prev.start) === Char.Tilde) {
+        if (
+            t.type === TokenType.Number &&
+            prev &&
+            prev.type === TokenType.Operator &&
+            prev.length === 1 &&
+            this.text.charCodeAt(prev.start) === Char.Tilde
+        ) {
             // Special case for ~ before numbers
             this.builder.append(this.text.substring(t.start, t.end));
             return;
@@ -314,7 +347,11 @@ export class LineFormatter {
         return keywordsWithSpaceBeforeBrace.indexOf(s) >= 0;
     }
     private isKeyword(t: IToken, keyword: string): boolean {
-        return t.type === TokenType.Identifier && t.length === keyword.length && this.text.substr(t.start, t.length) === keyword;
+        return (
+            t.type === TokenType.Identifier &&
+            t.length === keyword.length &&
+            this.text.substr(t.start, t.length) === keyword
+        );
     }
 
     // tslint:disable-next-line:cyclomatic-complexity
@@ -334,10 +371,13 @@ export class LineFormatter {
             }
             // 'def IDENT('
             const first = lineTokens.getItemAt(0);
-            if (lineTokens.count >= 3 &&
-                first.length === 3 && line.text.substr(first.start, first.length) === 'def' &&
+            if (
+                lineTokens.count >= 3 &&
+                first.length === 3 &&
+                line.text.substr(first.start, first.length) === 'def' &&
                 lineTokens.getItemAt(1).type === TokenType.Identifier &&
-                lineTokens.getItemAt(2).type === TokenType.OpenBrace) {
+                lineTokens.getItemAt(2).type === TokenType.OpenBrace
+            ) {
                 start = line.range.start;
                 break;
             }
@@ -373,7 +413,10 @@ export class LineFormatter {
             const t = tokens.getItemAt(i);
             if (t.type === TokenType.Identifier) {
                 const next = tokens.getItemAt(i + 1);
-                if (next.type === TokenType.OpenBrace && !this.isKeywordWithSpaceBeforeBrace(text.substr(t.start, t.length))) {
+                if (
+                    next.type === TokenType.OpenBrace &&
+                    !this.isKeywordWithSpaceBeforeBrace(text.substr(t.start, t.length))
+                ) {
                     // We are at IDENT(, try and locate the closing brace
                     let closeBraceIndex = this.findClosingBrace(tokens, i + 1);
                     // Closing brace is not required in case construct is not yet terminated

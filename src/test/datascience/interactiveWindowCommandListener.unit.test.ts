@@ -13,18 +13,15 @@ import { ApplicationShell } from '../../client/common/application/applicationShe
 import { IApplicationShell } from '../../client/common/application/types';
 import { PythonSettings } from '../../client/common/configSettings';
 import { ConfigurationService } from '../../client/common/configuration/service';
-import { Logger } from '../../client/common/logger';
 import { FileSystem } from '../../client/common/platform/fileSystem';
 import { IFileSystem } from '../../client/common/platform/types';
-import { IConfigurationService, IDisposable, ILogger } from '../../client/common/types';
+import { IConfigurationService, IDisposable } from '../../client/common/types';
 import * as localize from '../../client/common/utils/localize';
 import { generateCells } from '../../client/datascience/cellFactory';
 import { Commands } from '../../client/datascience/constants';
 import { DataScienceErrorHandler } from '../../client/datascience/errorHandler/errorHandler';
 import { NativeEditorProvider } from '../../client/datascience/interactive-ipynb/nativeEditorProvider';
-import {
-    InteractiveWindowCommandListener
-} from '../../client/datascience/interactive-window/interactiveWindowCommandListener';
+import { InteractiveWindowCommandListener } from '../../client/datascience/interactive-window/interactiveWindowCommandListener';
 import { InteractiveWindowProvider } from '../../client/datascience/interactive-window/interactiveWindowProvider';
 import { JupyterExecutionFactory } from '../../client/datascience/jupyter/jupyterExecutionFactory';
 import { JupyterExporter } from '../../client/datascience/jupyter/jupyterExporter';
@@ -60,7 +57,6 @@ suite('Interactive window command listener', async () => {
     const interpreterService = mock(InterpreterService);
     const configService = mock(ConfigurationService);
     const knownSearchPaths = mock(KnownSearchPathsForInterpreters);
-    const logger = mock(Logger);
     const fileSystem = mock(FileSystem);
     const serviceContainer = mock(ServiceContainer);
     const dummyEvent = new EventEmitter<void>();
@@ -110,13 +106,14 @@ suite('Interactive window command listener', async () => {
 
         // Setup defaults
         when(interpreterService.onDidChangeInterpreter).thenReturn(dummyEvent.event);
-        when(interpreterService.getInterpreterDetails(argThat(o => !o.includes || !o.includes('python')))).thenReject('Unknown interpreter');
+        when(interpreterService.getInterpreterDetails(argThat((o) => !o.includes || !o.includes('python')))).thenReject(
+            ('Unknown interpreter' as any) as Error
+        );
 
         // Service container needs logger, file system, and config service
         when(serviceContainer.get<IConfigurationService>(IConfigurationService)).thenReturn(instance(configService));
         when(serviceContainer.get<IFileSystem>(IFileSystem)).thenReturn(instance(fileSystem));
-        when(serviceContainer.get<ILogger>(ILogger)).thenReturn(instance(logger));
-        when(configService.getSettings()).thenReturn(pythonSettings);
+        when(configService.getSettings(anything())).thenReturn(pythonSettings);
 
         // Setup default settings
         pythonSettings.datascience = {
@@ -125,8 +122,9 @@ suite('Interactive window command listener', async () => {
             jupyterLaunchRetries: 3,
             enabled: true,
             jupyterServerURI: '',
-            changeDirOnImportExport: true,
-            notebookFileRoot: 'WORKSPACE',
+            changeDirOnImportExport: false,
+            // tslint:disable-next-line: no-invalid-template-strings
+            notebookFileRoot: '${fileDirname}',
             useDefaultConfigForJupyter: true,
             jupyterInterruptTimeout: 10000,
             searchForJupyter: true,
@@ -134,6 +132,7 @@ suite('Interactive window command listener', async () => {
             collapseCellInputCodeByDefault: true,
             allowInput: true,
             maxOutputSize: 400,
+            enableScrollingForCellOutputs: true,
             errorBackgroundColor: '#FFFFFF',
             sendSelectionToInteractiveWindow: false,
             variableExplorerExclude: 'module;function;builtin_function_or_method',
@@ -141,7 +140,10 @@ suite('Interactive window command listener', async () => {
             markdownRegularExpression: '^(#\\s*%%\\s*\\[markdown\\]|#\\s*\\<markdowncell\\>)',
             enablePlotViewer: true,
             runStartupCommands: '',
-            debugJustMyCode: true
+            debugJustMyCode: true,
+            variableQueries: [],
+            jupyterCommandLineArguments: [],
+            widgetScriptSources: []
         };
 
         when(knownSearchPaths.getSearchPaths()).thenReturn(['/foo/bar']);
@@ -155,7 +157,15 @@ suite('Interactive window command listener', async () => {
         };
         when(fileSystem.createTemporaryFile(anything())).thenResolve(tempFile);
         when(fileSystem.deleteDirectory(anything())).thenResolve();
-        when(fileSystem.writeFile(anything(), argThat(o => { lastFileContents = o; return true; }))).thenResolve();
+        when(
+            fileSystem.writeFile(
+                anything(),
+                argThat((o) => {
+                    lastFileContents = o;
+                    return true;
+                })
+            )
+        ).thenResolve();
         when(fileSystem.arePathsSame(anything(), anything())).thenReturn(true);
 
         when(interactiveWindowProvider.getActive()).thenReturn(interactiveWindow.object);
@@ -177,14 +187,12 @@ suite('Interactive window command listener', async () => {
             pygments_lexer: `ipython${3}`,
             version: 3
         };
-        when(notebookExporter.translateToNotebook(anything())).thenResolve(
-            {
-                cells: [],
-                nbformat: 4,
-                nbformat_minor: 2,
-                metadata: metadata
-            }
-        );
+        when(notebookExporter.translateToNotebook(anything())).thenResolve({
+            cells: [],
+            nbformat: 4,
+            nbformat_minor: 2,
+            metadata: metadata
+        });
 
         when(jupyterExecution.isNotebookSupported()).thenResolve(true);
 
@@ -201,12 +209,12 @@ suite('Interactive window command listener', async () => {
             documentManager,
             instance(applicationShell),
             instance(fileSystem),
-            instance(logger),
             instance(configService),
             statusProvider,
             instance(notebookImporter),
             instance(dataScienceErrorHandler),
-            instance(notebookEditorProvider));
+            instance(notebookEditorProvider)
+        );
         result.register(commandManager);
 
         return result;
@@ -214,7 +222,9 @@ suite('Interactive window command listener', async () => {
 
     test('Import', async () => {
         createCommandListener();
-        when(applicationShell.showOpenDialog(argThat(o => o.openLabel && o.openLabel.includes('Import')))).thenReturn(Promise.resolve([Uri.file('foo')]));
+        when(applicationShell.showOpenDialog(argThat((o) => o.openLabel && o.openLabel.includes('Import')))).thenReturn(
+            Promise.resolve([Uri.file('foo')])
+        );
         await commandManager.executeCommand(Commands.ImportNotebook, undefined, undefined);
         assert.ok(documentManager.activeTextEditor, 'Imported file was not opened');
     });
@@ -227,15 +237,25 @@ suite('Interactive window command listener', async () => {
         createCommandListener();
         const doc = await documentManager.openTextDocument('bar.ipynb');
         await documentManager.showTextDocument(doc);
-        when(applicationShell.showSaveDialog(argThat(o => o.saveLabel && o.saveLabel.includes('Export')))).thenReturn(Promise.resolve(Uri.file('foo')));
+        when(applicationShell.showSaveDialog(argThat((o) => o.saveLabel && o.saveLabel.includes('Export')))).thenReturn(
+            Promise.resolve(Uri.file('foo'))
+        );
         when(applicationShell.showInformationMessage(anything(), anything())).thenReturn(Promise.resolve('moo'));
-        when(applicationShell.showInformationMessage(anything(), anything(), anything())).thenReturn(Promise.resolve('moo'));
+        when(applicationShell.showInformationMessage(anything(), anything(), anything())).thenReturn(
+            Promise.resolve('moo')
+        );
         when(jupyterExecution.isSpawnSupported()).thenResolve(true);
 
         await commandManager.executeCommand(Commands.ExportFileAsNotebook, Uri.file('bar.ipynb'), undefined);
 
         assert.ok(lastFileContents, 'Export file was not written to');
-        verify(applicationShell.showInformationMessage(anything(), localize.DataScience.exportOpenQuestion1(), localize.DataScience.exportOpenQuestion())).once();
+        verify(
+            applicationShell.showInformationMessage(
+                anything(),
+                localize.DataScience.exportOpenQuestion1(),
+                localize.DataScience.exportOpenQuestion()
+            )
+        ).once();
     });
     test('Export File and output', async () => {
         createCommandListener();
@@ -243,24 +263,48 @@ suite('Interactive window command listener', async () => {
         await documentManager.showTextDocument(doc);
         when(jupyterExecution.connectToNotebookServer(anything(), anything())).thenResolve(server.object);
         const notebook = createTypeMoq<INotebook>('jupyter notebook');
-        server.setup(s => s.createNotebook(TypeMoq.It.isAny())).returns(() => Promise.resolve(notebook.object));
-        notebook.setup(n => n.execute(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAnyNumber(), TypeMoq.It.isAny(), TypeMoq.It.isAny())).returns(() => {
-            return Promise.resolve(generateCells(undefined, 'a=1', 'bar.py', 0, false, uuid()));
-        });
+        server
+            .setup((s) => s.createNotebook(TypeMoq.It.isAny(), TypeMoq.It.isAny()))
+            .returns(() => Promise.resolve(notebook.object));
+        notebook
+            .setup((n) =>
+                n.execute(
+                    TypeMoq.It.isAny(),
+                    TypeMoq.It.isAny(),
+                    TypeMoq.It.isAnyNumber(),
+                    TypeMoq.It.isAny(),
+                    TypeMoq.It.isAny()
+                )
+            )
+            .returns(() => {
+                return Promise.resolve(generateCells(undefined, 'a=1', 'bar.py', 0, false, uuid()));
+            });
 
-        when(applicationShell.showSaveDialog(argThat(o => o.saveLabel && o.saveLabel.includes('Export')))).thenReturn(Promise.resolve(Uri.file('foo')));
+        when(applicationShell.showSaveDialog(argThat((o) => o.saveLabel && o.saveLabel.includes('Export')))).thenReturn(
+            Promise.resolve(Uri.file('foo'))
+        );
         when(applicationShell.showInformationMessage(anything(), anything())).thenReturn(Promise.resolve('moo'));
-        when(applicationShell.showInformationMessage(anything(), anything(), anything())).thenReturn(Promise.resolve('moo'));
+        when(applicationShell.showInformationMessage(anything(), anything(), anything())).thenReturn(
+            Promise.resolve('moo')
+        );
         when(jupyterExecution.isSpawnSupported()).thenResolve(true);
 
         await commandManager.executeCommand(Commands.ExportFileAndOutputAsNotebook, Uri.file('bar.ipynb'));
 
         assert.ok(lastFileContents, 'Export file was not written to');
-        verify(applicationShell.showInformationMessage(anything(), localize.DataScience.exportOpenQuestion1(), localize.DataScience.exportOpenQuestion())).once();
+        verify(
+            applicationShell.showInformationMessage(
+                anything(),
+                localize.DataScience.exportOpenQuestion1(),
+                localize.DataScience.exportOpenQuestion()
+            )
+        ).once();
     });
     test('Export skipped on no file', async () => {
         createCommandListener();
-        when(applicationShell.showSaveDialog(argThat(o => o.saveLabel && o.saveLabel.includes('Export')))).thenReturn(Promise.resolve(Uri.file('foo')));
+        when(applicationShell.showSaveDialog(argThat((o) => o.saveLabel && o.saveLabel.includes('Export')))).thenReturn(
+            Promise.resolve(Uri.file('foo'))
+        );
         await commandManager.executeCommand(Commands.ExportFileAndOutputAsNotebook, Uri.file('bar.ipynb'));
         assert.notExists(lastFileContents, 'Export file was written to');
     });
@@ -268,7 +312,9 @@ suite('Interactive window command listener', async () => {
         createCommandListener();
         const doc = await documentManager.openTextDocument('bar.ipynb');
         await documentManager.showTextDocument(doc);
-        when(applicationShell.showSaveDialog(argThat(o => o.saveLabel && o.saveLabel.includes('Export')))).thenReturn(Promise.resolve(Uri.file('foo')));
+        when(applicationShell.showSaveDialog(argThat((o) => o.saveLabel && o.saveLabel.includes('Export')))).thenReturn(
+            Promise.resolve(Uri.file('foo'))
+        );
         await commandManager.executeCommand(Commands.ExportFileAsNotebook, undefined, undefined);
         assert.ok(lastFileContents, 'Export file was not written to');
     });

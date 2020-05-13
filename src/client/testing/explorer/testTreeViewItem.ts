@@ -15,7 +15,9 @@ import { TestResult, TestStatus, TestSuite } from '../common/types';
 import { TestDataItem, TestDataItemType } from '../types';
 
 function getDefaultCollapsibleState(data: TestDataItem): TreeItemCollapsibleState {
-    return getTestDataItemType(data) === TestDataItemType.function ? TreeItemCollapsibleState.None : TreeItemCollapsibleState.Collapsed;
+    return getTestDataItemType(data) === TestDataItemType.function
+        ? TreeItemCollapsibleState.None
+        : TreeItemCollapsibleState.Collapsed;
 }
 
 /**
@@ -74,7 +76,12 @@ export class TestTreeItem extends TreeItem {
             return '';
         }
         const result = this.data as TestResult;
-        if (!result.status || result.status === TestStatus.Idle || result.status === TestStatus.Unknown || result.status === TestStatus.Skipped) {
+        if (
+            !result.status ||
+            result.status === TestStatus.Idle ||
+            result.status === TestStatus.Unknown ||
+            result.status === TestStatus.Skipped
+        ) {
             return '';
         }
         if (this.testType !== TestDataItemType.function) {
@@ -114,19 +121,35 @@ export class TestTreeItem extends TreeItem {
     private setCommand() {
         switch (this.testType) {
             case TestDataItemType.file: {
-                this.command = { command: Commands.navigateToTestFile, title: 'Open', arguments: [this.resource, this.data] };
+                this.command = {
+                    command: Commands.navigateToTestFile,
+                    title: 'Open',
+                    arguments: [this.resource, this.data]
+                };
                 break;
             }
             case TestDataItemType.function: {
-                this.command = { command: Commands.navigateToTestFunction, title: 'Open', arguments: [this.resource, this.data, false] };
+                this.command = {
+                    command: Commands.navigateToTestFunction,
+                    title: 'Open',
+                    arguments: [this.resource, this.data, false]
+                };
                 break;
             }
             case TestDataItemType.suite: {
                 if (isSubtestsParent(this.data as TestSuite)) {
-                    this.command = { command: Commands.navigateToTestFunction, title: 'Open', arguments: [this.resource, this.data, false] };
+                    this.command = {
+                        command: Commands.navigateToTestFunction,
+                        title: 'Open',
+                        arguments: [this.resource, this.data, false]
+                    };
                     break;
                 }
-                this.command = { command: Commands.navigateToTestSuite, title: 'Open', arguments: [this.resource, this.data, false] };
+                this.command = {
+                    command: Commands.navigateToTestSuite,
+                    title: 'Open',
+                    arguments: [this.resource, this.data, false]
+                };
                 break;
             }
             default: {

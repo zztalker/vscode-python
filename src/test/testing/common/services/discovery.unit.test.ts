@@ -9,7 +9,12 @@ import { deepEqual, instance, mock, when } from 'ts-mockito';
 import * as typemoq from 'typemoq';
 import { CancellationTokenSource, OutputChannel, Uri, ViewColumn } from 'vscode';
 import { PythonExecutionFactory } from '../../../../client/common/process/pythonExecutionFactory';
-import { ExecutionFactoryCreateWithEnvironmentOptions, IPythonExecutionFactory, IPythonExecutionService, SpawnOptions } from '../../../../client/common/process/types';
+import {
+    ExecutionFactoryCreateWithEnvironmentOptions,
+    IPythonExecutionFactory,
+    IPythonExecutionService,
+    SpawnOptions
+} from '../../../../client/common/process/types';
 import { EXTENSION_ROOT_DIR } from '../../../../client/constants';
 import { TestDiscoveredTestParser } from '../../../../client/testing/common/services/discoveredTestParser';
 import { TestsDiscoveryService } from '../../../../client/testing/common/services/discovery';
@@ -32,14 +37,16 @@ suite('Unit Tests - Common Discovery', () => {
     });
     test('Use parser to parse results', async () => {
         const options: TestDiscoveryOptions = {
-            args: [], cwd: __dirname, workspaceFolder: Uri.file(__dirname),
-            ignoreCache: false, token: new CancellationTokenSource().token,
+            args: [],
+            cwd: __dirname,
+            workspaceFolder: Uri.file(__dirname),
+            ignoreCache: false,
+            token: new CancellationTokenSource().token,
             outChannel: new MockOutputChannel('Test')
         };
         const discoveredTests: DiscoveredTests[] = [{ hello: 1 } as any];
-        const parsedResult = { done: true } as any as Tests;
-        const json = JSON.stringify(discoveredTests);
-        discovery.exec = () => Promise.resolve({ stdout: json });
+        const parsedResult = ({ done: true } as any) as Tests;
+        discovery.exec = () => Promise.resolve(discoveredTests);
         when(parser.parse(options.workspaceFolder, deepEqual(discoveredTests))).thenResolve(parsedResult as any);
 
         const tests = await discovery.discoverTests(options);
@@ -48,8 +55,11 @@ suite('Unit Tests - Common Discovery', () => {
     });
     test('Invoke Python Code to discover tests', async () => {
         const options: TestDiscoveryOptions = {
-            args: ['1', '2', '3'], cwd: __dirname, workspaceFolder: Uri.file(__dirname),
-            ignoreCache: false, token: new CancellationTokenSource().token,
+            args: ['1', '2', '3'],
+            cwd: __dirname,
+            workspaceFolder: Uri.file(__dirname),
+            ignoreCache: false,
+            token: new CancellationTokenSource().token,
             outChannel: new MockOutputChannel('Test')
         };
         const discoveredTests = '[1]';
@@ -67,13 +77,15 @@ suite('Unit Tests - Common Discovery', () => {
         };
 
         when(executionFactory.createActivatedEnvironment(deepEqual(creationOptions))).thenResolve(execService.object);
-        const executionResult = { stdout: discoveredTests };
-        execService.setup(e => e.exec(typemoq.It.isValue([pythonFile, ...options.args]), typemoq.It.isValue(spawnOptions))).returns(() => Promise.resolve(executionResult));
+        const executionResult = { stdout: JSON.stringify(discoveredTests) };
+        execService
+            .setup((e) => e.exec(typemoq.It.isValue([pythonFile, ...options.args]), typemoq.It.isValue(spawnOptions)))
+            .returns(() => Promise.resolve(executionResult));
 
         const result = await discovery.exec(options);
 
         execService.verifyAll();
-        assert.deepEqual(result, executionResult);
+        assert.deepEqual(result, discoveredTests);
     });
 });
 

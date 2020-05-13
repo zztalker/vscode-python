@@ -6,45 +6,63 @@
 import { inject, injectable } from 'inversify';
 import { IExtensionSingleActivationService } from '../activation/types';
 import '../common/extensions';
-import { IPythonExecutionFactory } from '../common/process/types';
+import { IPythonDaemonExecutionService, IPythonExecutionFactory } from '../common/process/types';
 import { IDisposableRegistry } from '../common/types';
 import { debounceAsync, swallowExceptions } from '../common/utils/decorators';
-import { IInterpreterService } from '../interpreter/contracts';
-import { PythonDaemonModule } from './constants';
-import { INotebookEditor, INotebookEditorProvider } from './types';
+import { sendTelemetryEvent } from '../telemetry';
+import { JupyterDaemonModule, Telemetry } from './constants';
+import { ActiveEditorContextService } from './context/activeEditorContext';
+import { JupyterInterpreterService } from './jupyter/interpreter/jupyterInterpreterService';
+import { KernelDaemonPreWarmer } from './kernel-launcher/kernelDaemonPreWarmer';
+import { INotebookAndInteractiveWindowUsageTracker, INotebookEditor, INotebookEditorProvider } from './types';
 
 @injectable()
 export class Activation implements IExtensionSingleActivationService {
     private notebookOpened = false;
     constructor(
-        @inject(INotebookEditorProvider) private readonly notebookProvider: INotebookEditorProvider,
-        @inject(IInterpreterService) private readonly interpreterService: IInterpreterService,
+        @inject(INotebookEditorProvider) private readonly notebookEditorProvider: INotebookEditorProvider,
+        @inject(JupyterInterpreterService) private readonly jupyterInterpreterService: JupyterInterpreterService,
         @inject(IPythonExecutionFactory) private readonly factory: IPythonExecutionFactory,
-        @inject(IDisposableRegistry) private readonly disposables: IDisposableRegistry
+        @inject(IDisposableRegistry) private readonly disposables: IDisposableRegistry,
+        @inject(ActiveEditorContextService) private readonly contextService: ActiveEditorContextService,
+        @inject(KernelDaemonPreWarmer) private readonly daemonPoolPrewarmer: KernelDaemonPreWarmer,
+        @inject(INotebookAndInteractiveWindowUsageTracker)
+        private readonly tracker: INotebookAndInteractiveWindowUsageTracker
     ) {}
     public async activate(): Promise<void> {
-        this.disposables.push(this.notebookProvider.onDidOpenNotebookEditor(this.onDidOpenNotebookEditor, this));
-        this.disposables.push(this.interpreterService.onDidChangeInterpreter(this.onDidChangeInterpreter, this));
+        this.disposables.push(this.notebookEditorProvider.onDidOpenNotebookEditor(this.onDidOpenNotebookEditor, this));
+        this.disposables.push(this.jupyterInterpreterService.onDidChangeInterpreter(this.onDidChangeInterpreter, this));
+        this.contextService.activate().ignoreErrors();
+        this.daemonPoolPrewarmer.activate(undefined).ignoreErrors();
+        this.tracker.startTracking();
     }
 
     private onDidOpenNotebookEditor(_: INotebookEditor) {
         this.notebookOpened = true;
         this.PreWarmDaemonPool().ignoreErrors();
+        sendTelemetryEvent(Telemetry.OpenNotebookAll);
+        // Warm up our selected interpreter for the extension
+        this.jupyterInterpreterService.setInitialInterpreter().ignoreErrors();
     }
 
     private onDidChangeInterpreter() {
         if (this.notebookOpened) {
+            // Warm up our selected interpreter for the extension
+            this.jupyterInterpreterService.setInitialInterpreter().ignoreErrors();
             this.PreWarmDaemonPool().ignoreErrors();
         }
     }
 
     @debounceAsync(500)
-    @swallowExceptions('Failed to create daemon when notebook opened')
+    @swallowExceptions('Failed to pre-warm daemon pool')
     private async PreWarmDaemonPool() {
-        const activeInterpreter = await this.interpreterService.getActiveInterpreter(undefined);
-        if (!activeInterpreter) {
+        const interpreter = await this.jupyterInterpreterService.getSelectedInterpreter();
+        if (!interpreter) {
             return;
         }
-        await this.factory.createDaemon({ daemonModule: PythonDaemonModule, pythonPath: activeInterpreter.path });
+        await this.factory.createDaemon<IPythonDaemonExecutionService>({
+            daemonModule: JupyterDaemonModule,
+            pythonPath: interpreter.path
+        });
     }
 }

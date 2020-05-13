@@ -12,7 +12,7 @@ import { ICurrentProcess, IPathUtils } from '../../common/types';
 import { getNamesAndValues } from '../../common/utils/enum';
 import { noop } from '../../common/utils/misc';
 import { IServiceContainer } from '../../ioc/types';
-import { InterpreterType, IPipEnvService } from '../contracts';
+import { IInterpreterLocatorService, InterpreterType, IPipEnvService, PIPENV_SERVICE } from '../contracts';
 import { IVirtualEnvironmentManager } from './types';
 
 const PYENVFILES = ['pyvenv.cfg', path.join('..', 'pyvenv.cfg')];
@@ -27,15 +27,21 @@ export class VirtualEnvironmentManager implements IVirtualEnvironmentManager {
     constructor(@inject(IServiceContainer) private readonly serviceContainer: IServiceContainer) {
         this.processServiceFactory = serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory);
         this.fs = serviceContainer.get<IFileSystem>(IFileSystem);
-        this.pipEnvService = serviceContainer.get<IPipEnvService>(IPipEnvService);
+        this.pipEnvService = serviceContainer.get<IInterpreterLocatorService>(
+            IInterpreterLocatorService,
+            PIPENV_SERVICE
+        ) as IPipEnvService;
         this.workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
     }
     public async getEnvironmentName(pythonPath: string, resource?: Uri): Promise<string> {
-        const defaultWorkspaceUri = this.workspaceService.hasWorkspaceFolders ? this.workspaceService.workspaceFolders![0].uri : undefined;
+        const defaultWorkspaceUri = this.workspaceService.hasWorkspaceFolders
+            ? this.workspaceService.workspaceFolders![0].uri
+            : undefined;
         const workspaceFolder = resource ? this.workspaceService.getWorkspaceFolder(resource) : undefined;
         const workspaceUri = workspaceFolder ? workspaceFolder.uri : defaultWorkspaceUri;
         const grandParentDirName = path.basename(path.dirname(path.dirname(pythonPath)));
-        if (workspaceUri && await this.pipEnvService.isRelatedPipEnvironment(workspaceUri.fsPath, pythonPath)) {
+
+        if (workspaceUri && (await this.pipEnvService.isRelatedPipEnvironment(workspaceUri.fsPath, pythonPath))) {
             // In pipenv, return the folder name of the workspace.
             return path.basename(workspaceUri.fsPath);
         }
@@ -64,7 +70,7 @@ export class VirtualEnvironmentManager implements IVirtualEnvironmentManager {
     }
     public async isVenvEnvironment(pythonPath: string) {
         const dir = path.dirname(pythonPath);
-        const pyEnvCfgFiles = PYENVFILES.map(file => path.join(dir, file));
+        const pyEnvCfgFiles = PYENVFILES.map((file) => path.join(dir, file));
         for (const file of pyEnvCfgFiles) {
             if (await this.fs.fileExists(file)) {
                 return true;
@@ -77,10 +83,12 @@ export class VirtualEnvironmentManager implements IVirtualEnvironmentManager {
         return pyEnvRoot && pythonPath.startsWith(pyEnvRoot);
     }
     public async isPipEnvironment(pythonPath: string, resource?: Uri) {
-        const defaultWorkspaceUri = this.workspaceService.hasWorkspaceFolders ? this.workspaceService.workspaceFolders![0].uri : undefined;
+        const defaultWorkspaceUri = this.workspaceService.hasWorkspaceFolders
+            ? this.workspaceService.workspaceFolders![0].uri
+            : undefined;
         const workspaceFolder = resource ? this.workspaceService.getWorkspaceFolder(resource) : undefined;
         const workspaceUri = workspaceFolder ? workspaceFolder.uri : defaultWorkspaceUri;
-        if (workspaceUri && await this.pipEnvService.isRelatedPipEnvironment(workspaceUri.fsPath, pythonPath)) {
+        if (workspaceUri && (await this.pipEnvService.isRelatedPipEnvironment(workspaceUri.fsPath, pythonPath))) {
             return true;
         }
         return false;
@@ -93,26 +101,26 @@ export class VirtualEnvironmentManager implements IVirtualEnvironmentManager {
         const currentProccess = this.serviceContainer.get<ICurrentProcess>(ICurrentProcess);
         const pyenvRoot = currentProccess.env.PYENV_ROOT;
         if (pyenvRoot) {
-            return this.pyEnvRoot = pyenvRoot;
+            return (this.pyEnvRoot = pyenvRoot);
         }
 
         try {
             const processService = await this.processServiceFactory.create(resource);
             const output = await processService.exec('pyenv', ['root']);
             if (output.stdout.trim().length > 0) {
-                return this.pyEnvRoot = output.stdout.trim();
+                return (this.pyEnvRoot = output.stdout.trim());
             }
         } catch {
             noop();
         }
         const pathUtils = this.serviceContainer.get<IPathUtils>(IPathUtils);
-        return this.pyEnvRoot = path.join(pathUtils.home, '.pyenv');
+        return (this.pyEnvRoot = path.join(pathUtils.home, '.pyenv'));
     }
     public async isVirtualEnvironment(pythonPath: string) {
         const provider = this.getTerminalActivationProviderForVirtualEnvs();
         const shells = getNamesAndValues<TerminalShellType>(TerminalShellType)
-            .filter(shell => provider.isShellSupported(shell.value))
-            .map(shell => shell.value);
+            .filter((shell) => provider.isShellSupported(shell.value))
+            .map((shell) => shell.value);
 
         for (const shell of shells) {
             const cmds = await provider.getActivationCommandsForInterpreter!(pythonPath, shell);
@@ -126,6 +134,9 @@ export class VirtualEnvironmentManager implements IVirtualEnvironmentManager {
     private getTerminalActivationProviderForVirtualEnvs(): ITerminalActivationCommandProvider {
         const isWindows = this.serviceContainer.get<IPlatformService>(IPlatformService).isWindows;
         const serviceName = isWindows ? 'commandPromptAndPowerShell' : 'bashCShellFish';
-        return this.serviceContainer.get<ITerminalActivationCommandProvider>(ITerminalActivationCommandProvider, serviceName);
+        return this.serviceContainer.get<ITerminalActivationCommandProvider>(
+            ITerminalActivationCommandProvider,
+            serviceName
+        );
     }
 }

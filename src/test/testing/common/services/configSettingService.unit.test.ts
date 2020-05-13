@@ -15,21 +15,26 @@ import { getNamesAndValues } from '../../../../client/common/utils/enum';
 import { IServiceContainer } from '../../../../client/ioc/types';
 import { UNIT_TEST_PRODUCTS } from '../../../../client/testing/common/constants';
 import {
-    BufferedTestConfigSettingsService, TestConfigSettingsService
+    BufferedTestConfigSettingsService,
+    TestConfigSettingsService
 } from '../../../../client/testing/common/services/configSettingService';
 import { UnitTestProduct } from '../../../../client/testing/common/types';
 import { ITestConfigSettingsService } from '../../../../client/testing/types';
 
 use(chaiPromise);
 
-const updateMethods: (keyof Omit<ITestConfigSettingsService, 'getTestEnablingSetting'>)[] = ['updateTestArgs', 'disable', 'enable'];
+const updateMethods: (keyof Omit<ITestConfigSettingsService, 'getTestEnablingSetting'>)[] = [
+    'updateTestArgs',
+    'disable',
+    'enable'
+];
 
 suite('Unit Tests - ConfigSettingsService', () => {
-    UNIT_TEST_PRODUCTS.forEach(product => {
+    UNIT_TEST_PRODUCTS.forEach((product) => {
         const prods = getNamesAndValues(Product);
-        const productName = prods.filter(item => item.value === product)[0];
+        const productName = prods.filter((item) => item.value === product)[0];
         const workspaceUri = Uri.file(__filename);
-        updateMethods.forEach(updateMethod => {
+        updateMethods.forEach((updateMethod) => {
             suite(`Test '${updateMethod}' method with ${productName.name}`, () => {
                 let testConfigSettingsService: ITestConfigSettingsService;
                 let workspaceService: typeMoq.IMock<IWorkspaceService>;
@@ -37,7 +42,9 @@ suite('Unit Tests - ConfigSettingsService', () => {
                     const serviceContainer = typeMoq.Mock.ofType<IServiceContainer>();
                     workspaceService = typeMoq.Mock.ofType<IWorkspaceService>();
 
-                    serviceContainer.setup(c => c.get(typeMoq.It.isValue(IWorkspaceService))).returns(() => workspaceService.object);
+                    serviceContainer
+                        .setup((c) => c.get(typeMoq.It.isValue(IWorkspaceService)))
+                        .returns(() => workspaceService.object);
                     testConfigSettingsService = new TestConfigSettingsService(serviceContainer.object);
                 });
                 function getTestArgSetting(prod: UnitTestProduct) {
@@ -81,18 +88,21 @@ suite('Unit Tests - ConfigSettingsService', () => {
                     }
                 }
                 test('Update Test Arguments with workspace Uri without workspaces', async () => {
-                    workspaceService.setup(w => w.hasWorkspaceFolders)
+                    workspaceService
+                        .setup((w) => w.hasWorkspaceFolders)
                         .returns(() => false)
                         .verifiable(typeMoq.Times.atLeastOnce());
 
                     const pythonConfig = typeMoq.Mock.ofType<WorkspaceConfiguration>();
-                    workspaceService.setup(w => w.getConfiguration(typeMoq.It.isValue('python')))
+                    workspaceService
+                        .setup((w) => w.getConfiguration(typeMoq.It.isValue('python')))
                         .returns(() => pythonConfig.object)
                         .verifiable(typeMoq.Times.once());
 
                     const { configValue, configName } = getExpectedValueAndSettings();
 
-                    pythonConfig.setup(p => p.update(typeMoq.It.isValue(configName), typeMoq.It.isValue(configValue)))
+                    pythonConfig
+                        .setup((p) => p.update(typeMoq.It.isValue(configName), typeMoq.It.isValue(configValue)))
                         .returns(() => Promise.resolve())
                         .verifiable(typeMoq.Times.once());
 
@@ -105,25 +115,32 @@ suite('Unit Tests - ConfigSettingsService', () => {
                     pythonConfig.verifyAll();
                 });
                 test('Update Test Arguments with workspace Uri with one workspace', async () => {
-                    workspaceService.setup(w => w.hasWorkspaceFolders)
+                    workspaceService
+                        .setup((w) => w.hasWorkspaceFolders)
                         .returns(() => true)
                         .verifiable(typeMoq.Times.atLeastOnce());
 
                     const workspaceFolder = typeMoq.Mock.ofType<WorkspaceFolder>();
-                    workspaceFolder.setup(w => w.uri)
+                    workspaceFolder
+                        .setup((w) => w.uri)
                         .returns(() => workspaceUri)
                         .verifiable(typeMoq.Times.atLeastOnce());
-                    workspaceService.setup(w => w.workspaceFolders)
+                    workspaceService
+                        .setup((w) => w.workspaceFolders)
                         .returns(() => [workspaceFolder.object])
                         .verifiable(typeMoq.Times.atLeastOnce());
 
                     const pythonConfig = typeMoq.Mock.ofType<WorkspaceConfiguration>();
-                    workspaceService.setup(w => w.getConfiguration(typeMoq.It.isValue('python'), typeMoq.It.isValue(workspaceUri)))
+                    workspaceService
+                        .setup((w) =>
+                            w.getConfiguration(typeMoq.It.isValue('python'), typeMoq.It.isValue(workspaceUri))
+                        )
                         .returns(() => pythonConfig.object)
                         .verifiable(typeMoq.Times.once());
 
                     const { configValue, configName } = getExpectedValueAndSettings();
-                    pythonConfig.setup(p => p.update(typeMoq.It.isValue(configName), typeMoq.It.isValue(configValue)))
+                    pythonConfig
+                        .setup((p) => p.update(typeMoq.It.isValue(configName), typeMoq.It.isValue(configValue)))
                         .returns(() => Promise.resolve())
                         .verifiable(typeMoq.Times.once());
 
@@ -137,28 +154,36 @@ suite('Unit Tests - ConfigSettingsService', () => {
                     pythonConfig.verifyAll();
                 });
                 test('Update Test Arguments with workspace Uri with more than one workspace and uri belongs to a workspace', async () => {
-                    workspaceService.setup(w => w.hasWorkspaceFolders)
+                    workspaceService
+                        .setup((w) => w.hasWorkspaceFolders)
                         .returns(() => true)
                         .verifiable(typeMoq.Times.atLeastOnce());
 
                     const workspaceFolder = typeMoq.Mock.ofType<WorkspaceFolder>();
-                    workspaceFolder.setup(w => w.uri)
+                    workspaceFolder
+                        .setup((w) => w.uri)
                         .returns(() => workspaceUri)
                         .verifiable(typeMoq.Times.atLeastOnce());
-                    workspaceService.setup(w => w.workspaceFolders)
+                    workspaceService
+                        .setup((w) => w.workspaceFolders)
                         .returns(() => [workspaceFolder.object, workspaceFolder.object])
                         .verifiable(typeMoq.Times.atLeastOnce());
-                    workspaceService.setup(w => w.getWorkspaceFolder(typeMoq.It.isValue(workspaceUri)))
+                    workspaceService
+                        .setup((w) => w.getWorkspaceFolder(typeMoq.It.isValue(workspaceUri)))
                         .returns(() => workspaceFolder.object)
                         .verifiable(typeMoq.Times.once());
 
                     const pythonConfig = typeMoq.Mock.ofType<WorkspaceConfiguration>();
-                    workspaceService.setup(w => w.getConfiguration(typeMoq.It.isValue('python'), typeMoq.It.isValue(workspaceUri)))
+                    workspaceService
+                        .setup((w) =>
+                            w.getConfiguration(typeMoq.It.isValue('python'), typeMoq.It.isValue(workspaceUri))
+                        )
                         .returns(() => pythonConfig.object)
                         .verifiable(typeMoq.Times.once());
 
                     const { configValue, configName } = getExpectedValueAndSettings();
-                    pythonConfig.setup(p => p.update(typeMoq.It.isValue(configName), typeMoq.It.isValue(configValue)))
+                    pythonConfig
+                        .setup((p) => p.update(typeMoq.It.isValue(configName), typeMoq.It.isValue(configValue)))
                         .returns(() => Promise.resolve())
                         .verifiable(typeMoq.Times.once());
 
@@ -172,18 +197,22 @@ suite('Unit Tests - ConfigSettingsService', () => {
                     pythonConfig.verifyAll();
                 });
                 test('Expect an exception when updating Test Arguments with workspace Uri with more than one workspace and uri does not belong to a workspace', async () => {
-                    workspaceService.setup(w => w.hasWorkspaceFolders)
+                    workspaceService
+                        .setup((w) => w.hasWorkspaceFolders)
                         .returns(() => true)
                         .verifiable(typeMoq.Times.atLeastOnce());
 
                     const workspaceFolder = typeMoq.Mock.ofType<WorkspaceFolder>();
-                    workspaceFolder.setup(w => w.uri)
+                    workspaceFolder
+                        .setup((w) => w.uri)
                         .returns(() => workspaceUri)
                         .verifiable(typeMoq.Times.atLeastOnce());
-                    workspaceService.setup(w => w.workspaceFolders)
+                    workspaceService
+                        .setup((w) => w.workspaceFolders)
                         .returns(() => [workspaceFolder.object, workspaceFolder.object])
                         .verifiable(typeMoq.Times.atLeastOnce());
-                    workspaceService.setup(w => w.getWorkspaceFolder(typeMoq.It.isValue(workspaceUri)))
+                    workspaceService
+                        .setup((w) => w.getWorkspaceFolder(typeMoq.It.isValue(workspaceUri)))
                         .returns(() => undefined)
                         .verifiable(typeMoq.Times.once());
 
@@ -203,16 +232,22 @@ suite('Unit Tests - BufferedTestConfigSettingsService', () => {
         const testDir = '/my/project';
         const newArgs: string[] = ['-x', '--spam=42'];
         const cfg = typeMoq.Mock.ofType<ITestConfigSettingsService>(undefined, typeMoq.MockBehavior.Strict);
-        cfg.setup(c => c.updateTestArgs(typeMoq.It.isValue(testDir), typeMoq.It.isValue(Product.pytest), typeMoq.It.isValue(newArgs)))
+        cfg.setup((c) =>
+            c.updateTestArgs(
+                typeMoq.It.isValue(testDir),
+                typeMoq.It.isValue(Product.pytest),
+                typeMoq.It.isValue(newArgs)
+            )
+        )
             .returns(() => Promise.resolve())
             .verifiable(typeMoq.Times.once());
-        cfg.setup(c => c.disable(typeMoq.It.isValue(testDir), typeMoq.It.isValue(Product.unittest)))
+        cfg.setup((c) => c.disable(typeMoq.It.isValue(testDir), typeMoq.It.isValue(Product.unittest)))
             .returns(() => Promise.resolve())
             .verifiable(typeMoq.Times.once());
-        cfg.setup(c => c.disable(typeMoq.It.isValue(testDir), typeMoq.It.isValue(Product.nosetest)))
+        cfg.setup((c) => c.disable(typeMoq.It.isValue(testDir), typeMoq.It.isValue(Product.nosetest)))
             .returns(() => Promise.resolve())
             .verifiable(typeMoq.Times.once());
-        cfg.setup(c => c.enable(typeMoq.It.isValue(testDir), typeMoq.It.isValue(Product.pytest)))
+        cfg.setup((c) => c.enable(typeMoq.It.isValue(testDir), typeMoq.It.isValue(Product.pytest)))
             .returns(() => Promise.resolve())
             .verifiable(typeMoq.Times.once());
 
@@ -231,7 +266,7 @@ suite('Unit Tests - BufferedTestConfigSettingsService', () => {
 
     test('applied changes are cleared', async () => {
         const cfg = typeMoq.Mock.ofType<ITestConfigSettingsService>(undefined, typeMoq.MockBehavior.Strict);
-        cfg.setup(c => c.enable(typeMoq.It.isAny(), typeMoq.It.isAny()))
+        cfg.setup((c) => c.enable(typeMoq.It.isAny(), typeMoq.It.isAny()))
             .returns(() => Promise.resolve())
             .verifiable(typeMoq.Times.once());
 

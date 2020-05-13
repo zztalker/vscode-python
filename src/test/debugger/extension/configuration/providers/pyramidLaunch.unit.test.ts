@@ -42,9 +42,13 @@ suite('Debugging - Configuration Provider Pyramid', () => {
         workspaceService = mock(WorkspaceService);
         pathUtils = mock(PathUtils);
         input = mock<MultiStepInput<DebugConfigurationState>>(MultiStepInput);
-        provider = new TestPyramidLaunchDebugConfigurationProvider(instance(fs), instance(workspaceService), instance(pathUtils));
+        provider = new TestPyramidLaunchDebugConfigurationProvider(
+            instance(fs),
+            instance(workspaceService),
+            instance(pathUtils)
+        );
     });
-    test('getDevelopmentIniPath should return undefined if file doesn\'t exist', async () => {
+    test("getDevelopmentIniPath should return undefined if file doesn't exist", async () => {
         const folder = { uri: Uri.parse(path.join('one', 'two')), name: '1', index: 0 };
         const managePyPath = path.join(folder.uri.fsPath, 'development.ini');
         when(fs.fileExists(managePyPath)).thenResolve(false);
@@ -95,7 +99,7 @@ suite('Debugging - Configuration Provider Pyramid', () => {
 
         expect(error).to.be.length.greaterThan(1);
     });
-    test('Validation of path should return errors if resolved path doesn\'t exist', async () => {
+    test("Validation of path should return errors if resolved path doesn't exist", async () => {
         const folder = { uri: Uri.parse(path.join('one', 'two')), name: '1', index: 0 };
         provider.resolveVariables = () => 'xyz';
 
@@ -135,9 +139,7 @@ suite('Debugging - Configuration Provider Pyramid', () => {
             type: DebuggerTypeName,
             request: 'launch',
             module: 'pyramid.scripts.pserve',
-            args: [
-                'xyz.ini'
-            ],
+            args: ['xyz.ini'],
             pyramid: true,
             jinja: true
         };
@@ -158,9 +160,7 @@ suite('Debugging - Configuration Provider Pyramid', () => {
             type: DebuggerTypeName,
             request: 'launch',
             module: 'pyramid.scripts.pserve',
-            args: [
-                'hello'
-            ],
+            args: ['hello'],
             pyramid: true,
             jinja: true
         };
@@ -184,9 +184,7 @@ suite('Debugging - Configuration Provider Pyramid', () => {
             type: DebuggerTypeName,
             request: 'launch',
             module: 'pyramid.scripts.pserve',
-            args: [
-                defaultIni
-            ],
+            args: [defaultIni],
             pyramid: true,
             jinja: true
         };

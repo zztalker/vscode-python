@@ -59,9 +59,11 @@ class DelayedReadMemoryStream extends Readable {
         return 1024 * 10;
     }
     private readCounter = 0;
-    constructor(private readonly totalKb: number,
+    constructor(
+        private readonly totalKb: number,
         private readonly delayMs: number,
-        private readonly kbPerIteration: number) {
+        private readonly kbPerIteration: number
+    ) {
         super();
     }
     public _read() {
@@ -69,8 +71,8 @@ class DelayedReadMemoryStream extends Readable {
         setTimeout(() => this.sendMesage(), this.delayMs);
     }
     public sendMesage() {
-        const i = this.readCounter += 1;
-        if (i > (this.totalKb / this.kbPerIteration)) {
+        const i = (this.readCounter += 1);
+        if (i > this.totalKb / this.kbPerIteration) {
             this.push(null);
         } else {
             this.push(Buffer.from('a'.repeat(this.kbPerIteration), 'ascii'));
@@ -95,7 +97,7 @@ suite('File Downloader', () => {
             httpClient = mock(HttpClient);
             appShell = mock(ApplicationShell);
             when(httpClient.downloadFile(anything())).thenCall(request);
-            fs = new FileSystem(new PlatformService());
+            fs = new FileSystem();
         });
         teardown(() => {
             rewiremock.disable();
@@ -109,7 +111,7 @@ suite('File Downloader', () => {
             const progressReportStub = sinon.stub();
             const progressReporter: Progress<ProgressReporterData> = { report: progressReportStub };
             const tmpFilePath = await fs.createTemporaryFile('.json');
-            when(appShell.withProgress(anything(), anything())).thenCall((_, cb) => cb(progressReporter));
+            when(appShell.withProgressCustomIcon(anything(), anything())).thenCall((_, cb) => cb(progressReporter));
 
             fileDownloader = new FileDownloader(instance(httpClient), fs, instance(appShell));
             await fileDownloader.downloadFileWithStatusBarProgress(uri, 'hello', tmpFilePath.filePath);
@@ -120,18 +122,18 @@ suite('File Downloader', () => {
         });
         test('Error is throw for http Status !== 200', async () => {
             // When downloading a uri, throw status 500 error.
-            nock('https://python.extension')
-                .get('/package.json')
-                .reply(500);
+            nock('https://python.extension').get('/package.json').reply(500);
             const progressReportStub = sinon.stub();
             const progressReporter: Progress<ProgressReporterData> = { report: progressReportStub };
-            when(appShell.withProgress(anything(), anything())).thenCall((_, cb) => cb(progressReporter));
+            when(appShell.withProgressCustomIcon(anything(), anything())).thenCall((_, cb) => cb(progressReporter));
             const tmpFilePath = await fs.createTemporaryFile('.json');
 
             fileDownloader = new FileDownloader(instance(httpClient), fs, instance(appShell));
             const promise = fileDownloader.downloadFileWithStatusBarProgress(uri, 'hello', tmpFilePath.filePath);
 
-            await expect(promise).to.eventually.be.rejectedWith('Failed with status 500, null, Uri https://python.extension/package.json');
+            await expect(promise).to.eventually.be.rejectedWith(
+                'Failed with status 500, null, Uri https://python.extension/package.json'
+            );
         });
         test('Error is throw if unable to write to the file stream', async () => {
             // When downloading a uri, point it to package.json file.
@@ -140,10 +142,12 @@ suite('File Downloader', () => {
                 .reply(200, () => fsExtra.createReadStream(packageJsonFile));
             const progressReportStub = sinon.stub();
             const progressReporter: Progress<ProgressReporterData> = { report: progressReportStub };
-            when(appShell.withProgress(anything(), anything())).thenCall((_, cb) => cb(progressReporter));
+            when(appShell.withProgressCustomIcon(anything(), anything())).thenCall((_, cb) => cb(progressReporter));
 
             // Use bogus files that cannot be created (on windows, invalid drives, on mac & linux use invalid home directories).
-            const invalidFileName = new PlatformService().isWindows ? 'abcd:/bogusFile/one.txt' : '/bogus file path/.txt';
+            const invalidFileName = new PlatformService().isWindows
+                ? 'abcd:/bogusFile/one.txt'
+                : '/bogus file path/.txt';
             fileDownloader = new FileDownloader(instance(httpClient), fs, instance(appShell));
             const promise = fileDownloader.downloadFileWithStatusBarProgress(uri, 'hello', invalidFileName);
 
@@ -157,7 +161,7 @@ suite('File Downloader', () => {
                 .reply(200, () => fsExtra.createReadStream(packageJsonFile));
             const progressReportStub = sinon.stub();
             const progressReporter: Progress<ProgressReporterData> = { report: progressReportStub };
-            when(appShell.withProgress(anything(), anything())).thenCall((_, cb) => cb(progressReporter));
+            when(appShell.withProgressCustomIcon(anything(), anything())).thenCall((_, cb) => cb(progressReporter));
             // Create a file stream that will throw an error when written to (use ErroringMemoryStream).
             const tmpFilePath = 'bogus file';
             const fileSystem = mock(FileSystem);
@@ -177,10 +181,14 @@ suite('File Downloader', () => {
             // When the download is slow, we can test progress.
             nock('https://python.extension')
                 .get('/package.json')
-                .reply(200, () => [200, new DelayedReadMemoryStream(1024 * totalKb, 5, 1024 * 10), { 'content-length': 1024 * totalKb }]);
+                .reply(200, () => [
+                    200,
+                    new DelayedReadMemoryStream(1024 * totalKb, 5, 1024 * 10),
+                    { 'content-length': 1024 * totalKb }
+                ]);
             const progressReportStub = sinon.stub();
             const progressReporter: Progress<ProgressReporterData> = { report: progressReportStub };
-            when(appShell.withProgress(anything(), anything())).thenCall((_, cb) => cb(progressReporter));
+            when(appShell.withProgressCustomIcon(anything(), anything())).thenCall((_, cb) => cb(progressReporter));
             const tmpFilePath = await fs.createTemporaryFile('.json');
             // Mock request-progress to throttle 1ms, so we can get progress messages.
             // I.e. report progress every 1ms. (however since download is delayed to 10ms,
@@ -203,8 +211,12 @@ suite('File Downloader', () => {
             expect(progressReportStub.args[4][0].message).to.equal(getProgressMessage(50, 100));
 
             function getProgressMessage(downloadedKb: number, percentage: number) {
-                return Http.downloadingFileProgress().format('Downloading-something',
-                    downloadedKb.toFixed(), totalKb.toFixed(), percentage.toString());
+                return Http.downloadingFileProgress().format(
+                    'Downloading-something',
+                    downloadedKb.toFixed(),
+                    totalKb.toFixed(),
+                    percentage.toString()
+                );
             }
         });
     });
@@ -236,7 +248,11 @@ suite('File Downloader', () => {
             when(fs.createTemporaryFile('.pdf')).thenResolve(tmpFile);
             fileDownloader = new FileDownloader(instance(httpClient), instance(fs), instance(appShell));
 
-            await fileDownloader.downloadFile('file to download', { progressMessagePrefix: '', extension: '.pdf', outputChannel: outputChannel });
+            await fileDownloader.downloadFile('file to download', {
+                progressMessagePrefix: '',
+                extension: '.pdf',
+                outputChannel: outputChannel
+            });
 
             verify(outputChannel.appendLine(Http.downloadingFile().format('file to download')));
         });

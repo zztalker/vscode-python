@@ -27,22 +27,37 @@ suite('Unit Tests Test Explorer Tree View', () => {
         treeViewProvider = mock(TestTreeViewProvider);
         appShell = mock(ApplicationShell);
         treeView = typemoq.Mock.ofType<TreeView<TestDataItem>>();
-        treeViewService = new TreeViewService(instance(treeViewProvider), [],
-            instance(appShell), instance(commandManager));
+        treeViewService = new TreeViewService(
+            instance(treeViewProvider),
+            [],
+            instance(appShell),
+            instance(commandManager)
+        );
     });
 
     test('Activation will create the treeview', async () => {
         await treeViewService.activate();
-        verify(appShell.createTreeView('python_tests', deepEqual({ showCollapseAll: true, treeDataProvider: instance(treeViewProvider) }))).once();
+        verify(
+            appShell.createTreeView(
+                'python_tests',
+                deepEqual({ showCollapseAll: true, treeDataProvider: instance(treeViewProvider) })
+            )
+        ).once();
     });
     test('Activation will add command handlers', async () => {
         await treeViewService.activate();
-        verify(commandManager.registerCommand(Commands.Test_Reveal_Test_Item, treeViewService.onRevealTestItem, treeViewService)).once();
+        verify(
+            commandManager.registerCommand(
+                Commands.Test_Reveal_Test_Item,
+                treeViewService.onRevealTestItem,
+                treeViewService
+            )
+        ).once();
     });
     test('Invoking the command handler will reveal the node in the tree', async () => {
         const data = {} as any;
         treeView
-            .setup(t => t.reveal(typemoq.It.isAny()))
+            .setup((t) => t.reveal(typemoq.It.isAny()))
             .returns(() => Promise.resolve())
             .verifiable(typemoq.Times.once());
         when(appShell.createTreeView('python_tests', anything())).thenReturn(treeView.object);

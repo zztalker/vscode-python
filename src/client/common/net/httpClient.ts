@@ -5,7 +5,7 @@
 
 import { inject, injectable } from 'inversify';
 import { parse, ParseError } from 'jsonc-parser';
-import * as requestTypes from 'request';
+import type * as requestTypes from 'request';
 import { IHttpClient } from '../../common/types';
 import { IServiceContainer } from '../../ioc/types';
 import { IWorkspaceService } from '../application/types';
@@ -21,12 +21,12 @@ export class HttpClient implements IHttpClient {
 
     public async downloadFile(uri: string): Promise<requestTypes.Request> {
         // tslint:disable-next-line:no-any
-        const request = await import('request') as any as typeof requestTypes;
+        const request = ((await import('request')) as any) as typeof requestTypes;
         return request(uri, this.requestOptions);
     }
 
     public async getJSON<T>(uri: string, strict: boolean = true): Promise<T> {
-        const body = await this.getBody(uri);
+        const body = await this.getContents(uri);
         return this.parseBodyToJSON(body, strict);
     }
 
@@ -44,7 +44,21 @@ export class HttpClient implements IHttpClient {
         }
     }
 
-    public async getBody(uri: string): Promise<string> {
+    public async exists(uri: string): Promise<boolean> {
+        // tslint:disable-next-line:no-require-imports
+        const request = require('request') as typeof requestTypes;
+        return new Promise<boolean>((resolve) => {
+            try {
+                request
+                    .get(uri, this.requestOptions)
+                    .on('response', (response) => resolve(response.statusCode === 200))
+                    .on('error', () => resolve(false));
+            } catch {
+                resolve(false);
+            }
+        });
+    }
+    private async getContents(uri: string): Promise<string> {
         // tslint:disable-next-line:no-require-imports
         const request = require('request') as typeof requestTypes;
         return new Promise<string>((resolve, reject) => {
@@ -53,7 +67,9 @@ export class HttpClient implements IHttpClient {
                     return reject(ex);
                 }
                 if (response.statusCode !== 200) {
-                    return reject(new Error(`Failed with status ${response.statusCode}, ${response.statusMessage}, Uri ${uri}`));
+                    return reject(
+                        new Error(`Failed with status ${response.statusCode}, ${response.statusMessage}, Uri ${uri}`)
+                    );
                 }
                 resolve(body);
             });

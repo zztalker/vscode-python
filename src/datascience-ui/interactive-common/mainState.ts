@@ -2,17 +2,20 @@
 // Licensed under the MIT License.
 'use strict';
 import { nbformat } from '@jupyterlab/coreutils';
-// tslint:disable-next-line: no-require-imports
-import cloneDeep = require('lodash/cloneDeep');
+// tslint:disable-next-line: no-require-imports no-var-requires
+const cloneDeep = require('lodash/cloneDeep');
 import * as monacoEditor from 'monaco-editor/esm/vs/editor/editor.api';
 import * as path from 'path';
 
+import { DebugProtocol } from 'vscode-debugprotocol';
 import { IDataScienceSettings } from '../../client/common/types';
 import { CellMatcher } from '../../client/datascience/cellMatcher';
-import { concatMultilineStringInput, splitMultilineString } from '../../client/datascience/common';
 import { Identifiers } from '../../client/datascience/constants';
-import { CellState, ICell, IDataScienceExtraSettings, IJupyterVariable, IMessageCell } from '../../client/datascience/types';
-import { loadDefaultSettings } from '../react-common/settingsReactSide';
+import { IEditorPosition } from '../../client/datascience/interactive-common/interactiveWindowTypes';
+import { CellState, ICell, IDataScienceExtraSettings, IMessageCell } from '../../client/datascience/types';
+import { concatMultilineStringInput, splitMultilineString } from '../common';
+import { createCodeCell } from '../common/cellFactory';
+import { getDefaultSettings } from '../react-common/settingsReactSide';
 
 export enum CursorPos {
     Top,
@@ -34,8 +37,13 @@ export interface ICellViewModel {
     selected: boolean;
     focused: boolean;
     scrollCount: number;
-    cursorPos: CursorPos;
+    cursorPos: CursorPos | IEditorPosition;
     hasBeenRun: boolean;
+    runDuringDebug?: boolean;
+    codeVersion?: number;
+    uiSideError?: string;
+    runningByLine: boolean;
+    currentStack?: DebugProtocol.StackFrame[];
 }
 
 export type IMainState = {
@@ -53,30 +61,76 @@ export type IMainState = {
     baseTheme: string;
     monacoTheme?: string;
     knownDark: boolean;
-    editorOptions: monacoEditor.editor.IEditorOptions;
+    editorOptions?: monacoEditor.editor.IEditorOptions;
     currentExecutionCount: number;
-    variablesVisible: boolean;
-    variables: IJupyterVariable[];
-    pendingVariableCount: number;
     debugging: boolean;
-    dirty?: boolean;
-    selectedCellId?: string;
-    focusedCellId?: string;
+    dirty: boolean;
     isAtBottom: boolean;
     newCellId?: string;
     loadTotal?: number;
     skipDefault?: boolean;
     testMode?: boolean;
     codeTheme: string;
-    settings: IDataScienceExtraSettings;
-    activateCount: number;
+    settings?: IDataScienceExtraSettings;
+    focusPending: number;
     monacoReady: boolean;
     loaded: boolean;
+    kernel: IServerState;
 };
+
+export type SelectionAndFocusedInfo = {
+    selectedCellId?: string;
+    selectedCellIndex?: number;
+    focusedCellId?: string;
+    focusedCellIndex?: number;
+};
+
+/**
+ * Returns the cell id and index of selected and focused cells.
+ */
+export function getSelectedAndFocusedInfo(state: { cellVMs: ICellViewModel[] }): SelectionAndFocusedInfo {
+    const info: {
+        selectedCellId?: string;
+        selectedCellIndex?: number;
+        focusedCellId?: string;
+        focusedCellIndex?: number;
+    } = {};
+    for (let index = 0; index < state.cellVMs.length; index += 1) {
+        const cell = state.cellVMs[index];
+        if (cell.selected) {
+            info.selectedCellId = cell.cell.id;
+            info.selectedCellIndex = index;
+        }
+        if (cell.focused) {
+            info.focusedCellId = cell.cell.id;
+            info.focusedCellIndex = index;
+        }
+        if (info.selectedCellId && info.focusedCellId) {
+            break;
+        }
+    }
+
+    return info;
+}
 
 export interface IFont {
     size: number;
     family: string;
+}
+
+export interface IServerState {
+    jupyterServerStatus: ServerStatus;
+    localizedUri: string;
+    displayName: string;
+}
+
+export enum ServerStatus {
+    NotStarted = 'Not Started',
+    Busy = 'Busy',
+    Idle = 'Idle',
+    Dead = 'Dead',
+    Starting = 'Starting',
+    Restarting = 'Restarting'
 }
 
 // tslint:disable-next-line: no-multiline-string
@@ -94,8 +148,7 @@ const darkStyle = `
 
 // This function generates test state when running under a browser instead of inside of
 export function generateTestState(filePath: string = '', editable: boolean = false): IMainState {
-    const defaultSettings = loadDefaultSettings();
-    defaultSettings.enableGather = true;
+    const defaultSettings = getDefaultSettings();
 
     return {
         cellVMs: generateTestVMs(filePath, editable),
@@ -110,45 +163,32 @@ export function generateTestState(filePath: string = '', editable: boolean = fal
         currentExecutionCount: 0,
         knownDark: false,
         baseTheme: 'vscode-light',
-        variablesVisible: false,
-        variables: [
-            {
-                name: 'foo',
-                value: 'bar',
-                type: 'DataFrame',
-                size: 100,
-                supportsDataExplorer: true,
-                shape: '(100, 100)',
-                truncated: true,
-                count: 100
-            }
-        ],
-        pendingVariableCount: 0,
         debugging: false,
-        isAtBottom: true,
+        isAtBottom: false,
         font: {
             size: 14,
-            family: 'Consolas, \'Courier New\', monospace'
+            family: "Consolas, 'Courier New', monospace"
         },
+        dirty: false,
         codeTheme: 'Foo',
         settings: defaultSettings,
-        activateCount: 0,
+        focusPending: 0,
         monacoReady: true,
         loaded: false,
-        testMode: true
+        testMode: true,
+        kernel: {
+            localizedUri: 'No Kernel',
+            displayName: 'Python',
+            jupyterServerStatus: ServerStatus.NotStarted
+        }
     };
 }
 
 export function createEmptyCell(id: string | undefined, executionCount: number | null): ICell {
+    const emptyCodeCell = createCodeCell();
+    emptyCodeCell.execution_count = executionCount ?? null;
     return {
-        data:
-        {
-            cell_type: 'code', // We should eventually allow this to change to entering of markdown?
-            execution_count: executionCount,
-            metadata: {},
-            outputs: [],
-            source: ''
-        },
+        data: emptyCodeCell,
         id: id ? id : Identifiers.EditCellId,
         file: Identifiers.EmptyFileName,
         line: 0,
@@ -168,11 +208,13 @@ export function createEditableCellVM(executionCount: number): ICellViewModel {
         focused: false,
         cursorPos: CursorPos.Current,
         hasBeenRun: false,
-        scrollCount: 0
+        scrollCount: 0,
+        runningByLine: false
     };
 }
 
-export function extractInputText(inputCell: ICell, settings: IDataScienceSettings | undefined): string {
+export function extractInputText(inputCellVM: ICellViewModel, settings: IDataScienceSettings | undefined): string {
+    const inputCell = inputCellVM.cell;
     let source: string[] = [];
     if (inputCell.data.source) {
         source = splitMultilineString(cloneDeep(inputCell.data.source));
@@ -187,40 +229,67 @@ export function extractInputText(inputCell: ICell, settings: IDataScienceSetting
         }
         // Eliminate the lines to hide if we're debugging
         if (inputCell.extraLines) {
-            inputCell.extraLines.forEach(i => source.splice(i, 1));
+            inputCell.extraLines.forEach((i) => source.splice(i, 1));
             inputCell.extraLines = undefined;
+        }
+    }
+
+    // Eliminate breakpoint on the front if we're debugging and breakpoints are expected to be prefixed
+    if (source.length > 0 && inputCellVM.runDuringDebug && (!settings || settings.stopOnFirstLineWhileDebugging)) {
+        if (source[0].trim() === 'breakpoint()') {
+            source.splice(0, 1);
         }
     }
 
     return concatMultilineStringInput(source);
 }
 
-export function createCellVM(inputCell: ICell, settings: IDataScienceSettings | undefined, editable: boolean): ICellViewModel {
-    let inputLinesCount = 0;
-    const inputText = inputCell.data.cell_type === 'code' ? extractInputText(inputCell, settings) : '';
-    if (inputText) {
-        inputLinesCount = inputText.split('\n').length;
-    }
-
-    return {
+export function createCellVM(
+    inputCell: ICell,
+    settings: IDataScienceSettings | undefined,
+    editable: boolean,
+    runDuringDebug: boolean
+): ICellViewModel {
+    const vm = {
         cell: inputCell,
         editable,
         inputBlockOpen: true,
         inputBlockShow: true,
-        inputBlockText: inputText,
-        inputBlockCollapseNeeded: (inputLinesCount > 1),
+        inputBlockText: '',
+        inputBlockCollapseNeeded: false,
         selected: false,
         focused: false,
         cursorPos: CursorPos.Current,
         hasBeenRun: false,
-        scrollCount: 0
+        scrollCount: 0,
+        runDuringDebug,
+        runningByLine: false
     };
+
+    // Update the input text
+    let inputLinesCount = 0;
+    // If the cell is markdown, initialize inputBlockText with the mardown value.
+    // `inputBlockText` will be used to maintain diffs of editor changes. So whether its markdown or code, we need to generate it.
+    const inputText =
+        inputCell.data.cell_type === 'code'
+            ? extractInputText(vm, settings)
+            : inputCell.data.cell_type === 'markdown'
+            ? concatMultilineStringInput(vm.cell.data.source)
+            : '';
+    if (inputText) {
+        inputLinesCount = inputText.split('\n').length;
+    }
+
+    vm.inputBlockText = inputText;
+    vm.inputBlockCollapseNeeded = inputLinesCount > 1;
+
+    return vm;
 }
 
 function generateTestVMs(filePath: string, editable: boolean): ICellViewModel[] {
     const cells = generateTestCells(filePath, 10);
     return cells.map((cell: ICell) => {
-        const vm = createCellVM(cell, undefined, editable);
+        const vm = createCellVM(cell, undefined, editable, false);
         vm.useQuickEdit = false;
         vm.hasBeenRun = true;
         return vm;
@@ -233,21 +302,22 @@ export function generateTestCells(filePath: string, repetitions: number): ICell[
     for (let i = 0; i < repetitions; i += 1) {
         cellData = [...cellData, ...generateCellData()];
     }
-    return cellData.map((data: nbformat.ICodeCell | nbformat.IMarkdownCell | nbformat.IRawCell | IMessageCell, key: number) => {
-        return {
-            id: key.toString(),
-            file: path.join(filePath, 'foo.py').toLowerCase(),
-            line: 1,
-            state: key === cellData.length - 1 ? CellState.executing : CellState.finished,
-            type: key === 3 ? 'preview' : 'execute',
-            data: data
-        };
-    });
+    return cellData.map(
+        (data: nbformat.ICodeCell | nbformat.IMarkdownCell | nbformat.IRawCell | IMessageCell, key: number) => {
+            return {
+                id: key.toString(),
+                file: path.join(filePath, 'foo.py').toLowerCase(),
+                line: 1,
+                state: key === cellData.length - 1 ? CellState.executing : CellState.finished,
+                type: key === 3 ? 'preview' : 'execute',
+                data: data
+            };
+        }
+    );
 }
 
 //tslint:disable:max-func-body-length
 function generateCellData(): (nbformat.ICodeCell | nbformat.IMarkdownCell | nbformat.IRawCell | IMessageCell)[] {
-
     // Hopefully new entries here can just be copied out of a jupyter notebook (ipynb)
     return [
         {
@@ -262,7 +332,8 @@ function generateCellData(): (nbformat.ICodeCell | nbformat.IMarkdownCell | nbfo
                 {
                     data: {
                         // tslint:disable-next-line: no-multiline-string
-                        'text/html': [`
+                        'text/html': [
+                            `
                             <div style="
                             overflow: auto;
                         ">
@@ -461,7 +532,7 @@ function generateCellData(): (nbformat.ICodeCell | nbformat.IMarkdownCell | nbfo
                 }
             ],
             source: [
-                'myvar = \"\"\" # Lorem Ipsum\n',
+                'myvar = """ # Lorem Ipsum\n',
                 '\n',
                 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.\n',
                 'Nullam eget varius ligula, eget fermentum mauris.\n',
@@ -469,18 +540,13 @@ function generateCellData(): (nbformat.ICodeCell | nbformat.IMarkdownCell | nbfo
                 'Nunc quis orci ante. Vivamus vel blandit velit.\n","Sed mattis dui diam, et blandit augue mattis vestibulum.\n',
                 'Suspendisse ornare interdum velit. Suspendisse potenti.\n',
                 'Morbi molestie lacinia sapien nec porttitor. Nam at vestibulum nisi.\n',
-                '\"\"\"'
+                '"""'
             ]
         },
         {
             cell_type: 'markdown',
             metadata: {},
-            source: [
-                '## Cell 3\n',
-                'Here\'s some markdown\n',
-                '- A List\n',
-                '- Of Items'
-            ]
+            source: ['## Cell 3\n', "Here's some markdown\n", '- A List\n', '- Of Items']
         },
         {
             cell_type: 'code',
@@ -499,9 +565,7 @@ function generateCellData(): (nbformat.ICodeCell | nbformat.IMarkdownCell | nbfo
                     ]
                 }
             ],
-            source: [
-                'df'
-            ]
+            source: ['df']
         },
         {
             cell_type: 'code',
@@ -520,9 +584,7 @@ function generateCellData(): (nbformat.ICodeCell | nbformat.IMarkdownCell | nbfo
                     ]
                 }
             ],
-            source: [
-                'df'
-            ]
+            source: ['df']
         }
     ];
 }

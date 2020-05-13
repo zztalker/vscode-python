@@ -27,9 +27,6 @@ pythonFiles/lib/**
 debug_coverage*/**
 languageServer/**
 languageServer.*/**
-!uitests/features/languageServer/**
-!uitests/src/languageServer/**
-!uitests/code/**/languageServer/**
 bin/**
 obj/**
 .pytest_cache
@@ -37,5 +34,12 @@ tmp/**
 .python-version
 .vs/
 test-results.xml
-uitests/out/**
+xunit-test-results.xml
+build/ci/performance/performance-results.json
 !build/
+debug*.log
+ptvsd*.log
+pydevd*.log
+nodeLanguageServer/**
+nodeLanguageServer.*/**
+

@@ -47,7 +47,7 @@ export class ProcessService extends EventEmitter implements IProcessService {
     }
     public dispose() {
         this.removeAllListeners();
-        this.processesToKill.forEach(p => {
+        this.processesToKill.forEach((p) => {
             try {
                 p.dispose();
             } catch {
@@ -61,8 +61,9 @@ export class ProcessService extends EventEmitter implements IProcessService {
         const encoding = spawnOptions.encoding ? spawnOptions.encoding : 'utf8';
         const proc = spawn(file, args, spawnOptions);
         let procExited = false;
-        const disposable : IDisposable = {
-            dispose: () => {
+        const disposable: IDisposable = {
+            // tslint:disable-next-line: no-function-expression
+            dispose: function () {
                 if (proc && !proc.killed && !procExited) {
                     ProcessService.kill(proc.pid);
                 }
@@ -73,7 +74,7 @@ export class ProcessService extends EventEmitter implements IProcessService {
         };
         this.processesToKill.add(disposable);
 
-        const output = new Observable<Output<string>>(subscriber => {
+        const output = new Observable<Output<string>>((subscriber) => {
             const disposables: IDisposable[] = [];
 
             const on = (ee: NodeJS.EventEmitter, name: string, fn: Function) => {
@@ -82,12 +83,14 @@ export class ProcessService extends EventEmitter implements IProcessService {
             };
 
             if (options.token) {
-                disposables.push(options.token.onCancellationRequested(() => {
-                    if (!procExited && !proc.killed) {
-                        proc.kill();
-                        procExited = true;
-                    }
-                }));
+                disposables.push(
+                    options.token.onCancellationRequested(() => {
+                        if (!procExited && !proc.killed) {
+                            proc.kill();
+                            procExited = true;
+                        }
+                    })
+                );
             }
 
             const sendOutput = (source: 'stdout' | 'stderr', data: Buffer) => {
@@ -105,17 +108,17 @@ export class ProcessService extends EventEmitter implements IProcessService {
             proc.once('close', () => {
                 procExited = true;
                 subscriber.complete();
-                disposables.forEach(d => d.dispose());
+                disposables.forEach((d) => d.dispose());
             });
             proc.once('exit', () => {
                 procExited = true;
                 subscriber.complete();
-                disposables.forEach(d => d.dispose());
+                disposables.forEach((d) => d.dispose());
             });
-            proc.once('error', ex => {
+            proc.once('error', (ex) => {
                 procExited = true;
                 subscriber.error(ex);
-                disposables.forEach(d => d.dispose());
+                disposables.forEach((d) => d.dispose());
             });
         });
 
@@ -132,7 +135,7 @@ export class ProcessService extends EventEmitter implements IProcessService {
         const encoding = spawnOptions.encoding ? spawnOptions.encoding : 'utf8';
         const proc = spawn(file, args, spawnOptions);
         const deferred = createDeferred<ExecutionResult<string>>();
-        const disposable : IDisposable = {
+        const disposable: IDisposable = {
             dispose: () => {
                 if (!proc.killed && !deferred.completed) {
                     proc.kill();
@@ -167,18 +170,19 @@ export class ProcessService extends EventEmitter implements IProcessService {
             if (deferred.completed) {
                 return;
             }
-            const stderr: string | undefined = stderrBuffers.length === 0 ? undefined : this.decoder.decode(stderrBuffers, encoding);
+            const stderr: string | undefined =
+                stderrBuffers.length === 0 ? undefined : this.decoder.decode(stderrBuffers, encoding);
             if (stderr && stderr.length > 0 && options.throwOnStdErr) {
                 deferred.reject(new StdErrError(stderr));
             } else {
                 const stdout = this.decoder.decode(stdoutBuffers, encoding);
                 deferred.resolve({ stdout, stderr });
             }
-            disposables.forEach(d => d.dispose());
+            disposables.forEach((d) => d.dispose());
         });
-        proc.once('error', ex => {
+        proc.once('error', (ex) => {
             deferred.reject(ex);
-            disposables.forEach(d => d.dispose());
+            disposables.forEach((d) => d.dispose());
         });
 
         this.emit('exec', file, args, options);
@@ -200,7 +204,7 @@ export class ProcessService extends EventEmitter implements IProcessService {
                     resolve({ stderr: stderr && stderr.length > 0 ? stderr : undefined, stdout: stdout });
                 }
             });
-            const disposable : IDisposable = {
+            const disposable: IDisposable = {
                 dispose: () => {
                     if (!proc.killed) {
                         proc.kill();
@@ -211,11 +215,14 @@ export class ProcessService extends EventEmitter implements IProcessService {
         });
     }
 
-    private getDefaultOptions<T extends (ShellOptions | SpawnOptions)>(options: T): T {
+    private getDefaultOptions<T extends ShellOptions | SpawnOptions>(options: T): T {
         const defaultOptions = { ...options };
         const execOptions = defaultOptions as SpawnOptions;
         if (execOptions) {
-            const encoding = execOptions.encoding = typeof execOptions.encoding === 'string' && execOptions.encoding.length > 0 ? execOptions.encoding : DEFAULT_ENCODING;
+            const encoding = (execOptions.encoding =
+                typeof execOptions.encoding === 'string' && execOptions.encoding.length > 0
+                    ? execOptions.encoding
+                    : DEFAULT_ENCODING);
             delete execOptions.encoding;
             execOptions.encoding = encoding;
         }
@@ -226,6 +233,10 @@ export class ProcessService extends EventEmitter implements IProcessService {
             defaultOptions.env = { ...defaultOptions.env };
         }
 
+        if (execOptions && execOptions.extraVariables) {
+            defaultOptions.env = { ...defaultOptions.env, ...execOptions.extraVariables };
+        }
+
         // Always ensure we have unbuffered output.
         defaultOptions.env.PYTHONUNBUFFERED = '1';
         if (!defaultOptions.env.PYTHONIOENCODING) {
@@ -234,5 +245,4 @@ export class ProcessService extends EventEmitter implements IProcessService {
 
         return defaultOptions;
     }
-
 }

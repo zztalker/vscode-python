@@ -21,7 +21,7 @@ suite('Process - Process Service', function () {
     this.timeout(5000);
     const procsToKill: IProcData[] = [];
     teardown(() => {
-        procsToKill.forEach(p => {
+        procsToKill.forEach((p) => {
             if (!p.exited.resolved) {
                 p.proc.kill();
             }
@@ -49,5 +49,4 @@ suite('Process - Process Service', function () {
 
         expect(ProcessService.isAlive(proc.proc.pid)).to.equal(true, 'process is not alive');
     });
-
 });

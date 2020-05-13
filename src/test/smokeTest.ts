@@ -32,24 +32,44 @@ class TestRunner {
     }
     private async enableLanguageServer(enable: boolean) {
         const settings = `{ "python.jediEnabled": ${!enable} }`;
-        await fs.ensureDir(path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testMultiRootWkspc', 'smokeTests', '.vscode'));
-        await fs.writeFile(path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testMultiRootWkspc', 'smokeTests', '.vscode', 'settings.json'), settings);
+        await fs.ensureDir(
+            path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testMultiRootWkspc', 'smokeTests', '.vscode')
+        );
+        await fs.writeFile(
+            path.join(
+                EXTENSION_ROOT_DIR_FOR_TESTS,
+                'src',
+                'testMultiRootWkspc',
+                'smokeTests',
+                '.vscode',
+                'settings.json'
+            ),
+            settings
+        );
     }
     private async launchTest(customEnvVars: Record<string, {}>) {
-        console.log('Launc tests in test runner');
+        console.log('Launch tests in test runner');
         await new Promise((resolve, reject) => {
             const env: Record<string, string> = {
                 TEST_FILES_SUFFIX: 'smoke.test',
                 IS_SMOKE_TEST: 'true',
-                CODE_TESTS_WORKSPACE: path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testMultiRootWkspc', 'smokeTests'),
+                CODE_TESTS_WORKSPACE: path.join(
+                    EXTENSION_ROOT_DIR_FOR_TESTS,
+                    'src',
+                    'testMultiRootWkspc',
+                    'smokeTests'
+                ),
                 ...process.env,
                 ...customEnvVars
             };
-            const proc = spawn('node', [path.join(__dirname, 'standardTest.js')], { cwd: EXTENSION_ROOT_DIR_FOR_TESTS, env });
+            const proc = spawn('node', [path.join(__dirname, 'standardTest.js')], {
+                cwd: EXTENSION_ROOT_DIR_FOR_TESTS,
+                env
+            });
             proc.stdout.pipe(process.stdout);
             proc.stderr.pipe(process.stderr);
             proc.on('error', reject);
-            proc.on('exit', code => {
+            proc.on('exit', (code) => {
                 console.log(`Tests Exited with code ${code}`);
                 if (code === 0) {
                     resolve();
@@ -61,12 +81,14 @@ class TestRunner {
     }
 
     private async extractLatestExtension(targetDir: string): Promise<void> {
-        const extensionFile = await new Promise<string>((resolve, reject) => glob('*.vsix', (ex, files) => (ex ? reject(ex) : resolve(files[0]))));
+        const extensionFile = await new Promise<string>((resolve, reject) =>
+            glob('*.vsix', (ex, files) => (ex ? reject(ex) : resolve(files[0])))
+        );
         await unzip(extensionFile, targetDir);
     }
 }
 
-new TestRunner().start().catch(ex => {
+new TestRunner().start().catch((ex) => {
     console.error('Error in running Smoke Tests', ex);
     // Exit with non zero exit code, so CI fails.
     process.exit(1);

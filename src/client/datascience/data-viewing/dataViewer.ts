@@ -3,25 +3,27 @@
 'use strict';
 import '../../common/extensions';
 
-import { inject, injectable } from 'inversify';
+import { inject, injectable, named } from 'inversify';
 import * as path from 'path';
 import { ViewColumn } from 'vscode';
 
 import { IApplicationShell, IWebPanelProvider, IWorkspaceService } from '../../common/application/types';
-import { EXTENSION_ROOT_DIR } from '../../common/constants';
+import { EXTENSION_ROOT_DIR, UseCustomEditorApi } from '../../common/constants';
+import { WebHostNotebook } from '../../common/experimentGroups';
 import { traceError } from '../../common/logger';
-import { IConfigurationService, IDisposable } from '../../common/types';
+import { IConfigurationService, IDisposable, IExperimentsManager, Resource } from '../../common/types';
 import * as localize from '../../common/utils/localize';
 import { noop } from '../../common/utils/misc';
 import { StopWatch } from '../../common/utils/stopWatch';
 import { sendTelemetryEvent } from '../../telemetry';
-import { HelpLinks, Telemetry } from '../constants';
+import { HelpLinks, Identifiers, Telemetry } from '../constants';
 import { JupyterDataRateLimitError } from '../jupyter/jupyterDataRateLimitError';
 import { ICodeCssGenerator, IDataViewer, IJupyterVariable, IJupyterVariables, INotebook, IThemeFinder } from '../types';
 import { WebViewHost } from '../webViewHost';
 import { DataViewerMessageListener } from './dataViewerMessageListener';
 import { DataViewerMessages, IDataViewerMapping, IGetRowsRequest } from './types';
 
+const dataExplorereDir = path.join(EXTENSION_ROOT_DIR, 'out', 'datascience-ui', 'viewers');
 @injectable()
 export class DataViewer extends WebViewHost<IDataViewerMapping> implements IDataViewer, IDisposable {
     private notebook: INotebook | undefined;
@@ -35,8 +37,10 @@ export class DataViewer extends WebViewHost<IDataViewerMapping> implements IData
         @inject(ICodeCssGenerator) cssGenerator: ICodeCssGenerator,
         @inject(IThemeFinder) themeFinder: IThemeFinder,
         @inject(IWorkspaceService) workspaceService: IWorkspaceService,
-        @inject(IJupyterVariables) private variableManager: IJupyterVariables,
-        @inject(IApplicationShell) private applicationShell: IApplicationShell
+        @inject(IJupyterVariables) @named(Identifiers.ALL_VARIABLES) private variableManager: IJupyterVariables,
+        @inject(IApplicationShell) private applicationShell: IApplicationShell,
+        @inject(IExperimentsManager) experimentsManager: IExperimentsManager,
+        @inject(UseCustomEditorApi) useCustomEditorApi: boolean
     ) {
         super(
             configuration,
@@ -45,9 +49,17 @@ export class DataViewer extends WebViewHost<IDataViewerMapping> implements IData
             themeFinder,
             workspaceService,
             (c, v, d) => new DataViewerMessageListener(c, v, d),
-            path.join(EXTENSION_ROOT_DIR, 'out', 'datascience-ui', 'data-explorer', 'index_bundle.js'),
+            dataExplorereDir,
+            [path.join(dataExplorereDir, 'commons.initial.bundle.js'), path.join(dataExplorereDir, 'dataExplorer.js')],
             localize.DataScience.dataExplorerTitle(),
-            ViewColumn.One);
+            ViewColumn.One,
+            experimentsManager.inExperiment(WebHostNotebook.experiment),
+            useCustomEditorApi,
+            false
+        );
+
+        // Load the web panel using our current directory as we don't expect to load any other files
+        super.loadWebPanel(process.cwd()).catch(traceError);
     }
 
     public async showVariable(variable: IJupyterVariable, notebook: INotebook): Promise<void> {
@@ -75,6 +87,10 @@ export class DataViewer extends WebViewHost<IDataViewerMapping> implements IData
         }
     }
 
+    protected getOwningResource(): Promise<Resource> {
+        return Promise.resolve(undefined);
+    }
+
     //tslint:disable-next-line:no-any
     protected onMessage(message: string, payload: any) {
         switch (message) {
@@ -99,7 +115,10 @@ export class DataViewer extends WebViewHost<IDataViewerMapping> implements IData
 
         // Log telemetry about number of rows
         try {
-            sendTelemetryEvent(Telemetry.ShowDataViewer, 0, { rows: output.rowCount ? output.rowCount : 0, columns: output.columns ? output.columns.length : 0 });
+            sendTelemetryEvent(Telemetry.ShowDataViewer, 0, {
+                rows: output.rowCount ? output.rowCount : 0,
+                columns: output.columns ? output.columns.length : 0
+            });
 
             // Count number of rows to fetch so can send telemetry on how long it took.
             this.pendingRowsCount = output.rowCount ? output.rowCount : 0;
@@ -113,7 +132,12 @@ export class DataViewer extends WebViewHost<IDataViewerMapping> implements IData
     private async getAllRows() {
         return this.wrapRequest(async () => {
             if (this.variable && this.variable.rowCount && this.notebook) {
-                const allRows = await this.variableManager.getDataFrameRows(this.variable, this.notebook, 0, this.variable.rowCount);
+                const allRows = await this.variableManager.getDataFrameRows(
+                    this.variable,
+                    this.notebook,
+                    0,
+                    this.variable.rowCount
+                );
                 this.pendingRowsCount = 0;
                 return this.postMessage(DataViewerMessages.GetAllRowsResponse, allRows);
             }
@@ -123,8 +147,17 @@ export class DataViewer extends WebViewHost<IDataViewerMapping> implements IData
     private getRowChunk(request: IGetRowsRequest) {
         return this.wrapRequest(async () => {
             if (this.variable && this.variable.rowCount && this.notebook) {
-                const rows = await this.variableManager.getDataFrameRows(this.variable, this.notebook, request.start, Math.min(request.end, this.variable.rowCount));
-                return this.postMessage(DataViewerMessages.GetRowsResponse, { rows, start: request.start, end: request.end });
+                const rows = await this.variableManager.getDataFrameRows(
+                    this.variable,
+                    this.notebook,
+                    request.start,
+                    Math.min(request.end, this.variable.rowCount)
+                );
+                return this.postMessage(DataViewerMessages.GetRowsResponse, {
+                    rows,
+                    start: request.start,
+                    end: request.end
+                });
             }
         });
     }
@@ -136,7 +169,7 @@ export class DataViewer extends WebViewHost<IDataViewerMapping> implements IData
             if (e instanceof JupyterDataRateLimitError) {
                 traceError(e);
                 const actionTitle = localize.DataScience.pythonInteractiveHelpLink();
-                this.applicationShell.showErrorMessage(e.toString(), actionTitle).then(v => {
+                this.applicationShell.showErrorMessage(e.toString(), actionTitle).then((v) => {
                     // User clicked on the link, open it.
                     if (v === actionTitle) {
                         this.applicationShell.openUrl(HelpLinks.JupyterDataRateHelpLink);

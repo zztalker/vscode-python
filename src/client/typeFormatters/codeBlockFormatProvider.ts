@@ -1,16 +1,23 @@
-import {
-    FormattingOptions, Position, Range, TextDocument, TextEdit, TextLine
-} from 'vscode';
+import { FormattingOptions, Position, Range, TextDocument, TextEdit, TextLine } from 'vscode';
 import { BlockRegEx } from './contracts';
 
 export class CodeBlockFormatProvider {
-    constructor(private blockRegExp: BlockRegEx, private previousBlockRegExps: BlockRegEx[], private boundaryRegExps: BlockRegEx[]) {
-    }
+    constructor(
+        private blockRegExp: BlockRegEx,
+        private previousBlockRegExps: BlockRegEx[],
+        private boundaryRegExps: BlockRegEx[]
+    ) {}
     public canProvideEdits(line: string): boolean {
         return this.blockRegExp.test(line);
     }
 
-    public provideEdits(document: TextDocument, position: Position, _ch: string, options: FormattingOptions, line: TextLine): TextEdit[] {
+    public provideEdits(
+        document: TextDocument,
+        position: Position,
+        _ch: string,
+        options: FormattingOptions,
+        line: TextLine
+    ): TextEdit[] {
         // We can have else for the following blocks:
         // if:
         // elif x:
@@ -24,11 +31,11 @@ export class CodeBlockFormatProvider {
 
             // Oops, we've reached a boundary (like the function or class definition)
             // Get out of here
-            if (this.boundaryRegExps.some(value => value.test(prevLineText))) {
+            if (this.boundaryRegExps.some((value) => value.test(prevLineText))) {
                 return [];
             }
 
-            const blockRegEx = this.previousBlockRegExps.find(value => value.test(prevLineText));
+            const blockRegEx = this.previousBlockRegExps.find((value) => value.test(prevLineText));
             if (!blockRegEx) {
                 continue;
             }
@@ -47,9 +54,7 @@ export class CodeBlockFormatProvider {
             }
 
             if (options.insertSpaces) {
-                return [
-                    TextEdit.delete(new Range(startPosition, endPosition))
-                ];
+                return [TextEdit.delete(new Range(startPosition, endPosition))];
             } else {
                 // Delete everything before the block and insert the same characters we have in the previous block
                 const prefixOfPreviousBlock = prevLineText.substring(0, startOfBlockInLine);

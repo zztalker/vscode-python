@@ -9,7 +9,7 @@ import { fail } from 'assert';
 import { expect } from 'chai';
 import { spawnSync } from 'child_process';
 import * as typeMoq from 'typemoq';
-import { ILogger, Product } from '../../client/common/types';
+import { Product } from '../../client/common/types';
 import { getNamesAndValues } from '../../client/common/utils/enum';
 import { IServiceContainer } from '../../client/ioc/types';
 import { ArgumentsHelper } from '../../client/testing/common/argumentsHelper';
@@ -21,9 +21,9 @@ import { ArgumentsService as UnitTestArgumentsService } from '../../client/testi
 import { PYTHON_PATH } from '../common';
 
 suite('ArgsService: Common', () => {
-    UNIT_TEST_PRODUCTS.forEach(product => {
+    UNIT_TEST_PRODUCTS.forEach((product) => {
         const productNames = getNamesAndValues(Product);
-        const productName = productNames.find(item => item.value === product)!.name;
+        const productName = productNames.find((item) => item.value === product)!.name;
         suite(productName, () => {
             let argumentsService: IArgumentsService;
             let moduleName = '';
@@ -35,16 +35,11 @@ suite('ArgsService: Common', () => {
                 // tslint:disable-next-line:no-invalid-this
                 this.timeout(5000);
                 const serviceContainer = typeMoq.Mock.ofType<IServiceContainer>();
-                const logger = typeMoq.Mock.ofType<ILogger>();
+
+                const argsHelper = new ArgumentsHelper();
 
                 serviceContainer
-                    .setup(s => s.get(typeMoq.It.isValue(ILogger), typeMoq.It.isAny()))
-                    .returns(() => logger.object);
-
-                const argsHelper = new ArgumentsHelper(serviceContainer.object);
-
-                serviceContainer
-                    .setup(s => s.get(typeMoq.It.isValue(IArgumentsHelper), typeMoq.It.isAny()))
+                    .setup((s) => s.get(typeMoq.It.isValue(IArgumentsHelper), typeMoq.It.isAny()))
                     .returns(() => argsHelper);
 
                 switch (product) {
@@ -74,7 +69,7 @@ suite('ArgsService: Common', () => {
 
             test('Check for new/unrecognized options with values', () => {
                 const options = argumentsService.getKnownOptions();
-                const optionsNotFound = expectedWithArgs.filter(item => options.withArgs.indexOf(item) === -1);
+                const optionsNotFound = expectedWithArgs.filter((item) => options.withArgs.indexOf(item) === -1);
 
                 if (optionsNotFound.length > 0) {
                     fail('', optionsNotFound.join(', '), 'Options not found');
@@ -82,7 +77,7 @@ suite('ArgsService: Common', () => {
             });
             test('Check for new/unrecognized options without values', () => {
                 const options = argumentsService.getKnownOptions();
-                const optionsNotFound = expectedWithoutArgs.filter(item => options.withoutArgs.indexOf(item) === -1);
+                const optionsNotFound = expectedWithoutArgs.filter((item) => options.withoutArgs.indexOf(item) === -1);
 
                 if (optionsNotFound.length > 0) {
                     fail('', optionsNotFound.join(', '), 'Options not found');
@@ -90,14 +85,28 @@ suite('ArgsService: Common', () => {
             });
             test('Test getting value for an option with a single value', () => {
                 for (const option of expectedWithArgs) {
-                    const args = ['--some-option-with-a-value', '1234', '--another-value-with-inline=1234', option, 'abcd'];
+                    const args = [
+                        '--some-option-with-a-value',
+                        '1234',
+                        '--another-value-with-inline=1234',
+                        option,
+                        'abcd'
+                    ];
                     const value = argumentsService.getOptionValue(args, option);
                     expect(value).to.equal('abcd');
                 }
             });
             test('Test getting value for an option with a multiple value', () => {
                 for (const option of expectedWithArgs) {
-                    const args = ['--some-option-with-a-value', '1234', '--another-value-with-inline=1234', option, 'abcd', option, 'xyz'];
+                    const args = [
+                        '--some-option-with-a-value',
+                        '1234',
+                        '--another-value-with-inline=1234',
+                        option,
+                        'abcd',
+                        option,
+                        'xyz'
+                    ];
                     const value = argumentsService.getOptionValue(args, option);
                     expect(value).to.deep.equal(['abcd', 'xyz']);
                 }
@@ -141,15 +150,17 @@ function getOptions(product: Product, moduleName: string, withValues: boolean) {
     if (withValues) {
         return getOptionsWithArguments(output)
             .concat(...knownOptionsWithArgs)
-            .filter(item => knownOptionsWithoutArgs.indexOf(item) === -1)
+            .filter((item) => knownOptionsWithoutArgs.indexOf(item) === -1)
             .sort();
     } else {
-        return getOptionsWithoutArguments(output)
-            .concat(...knownOptionsWithoutArgs)
-            .filter(item => knownOptionsWithArgs.indexOf(item) === -1)
-            // In pytest, any option beginning with --log- is known to have args.
-            .filter(item => product === Product.pytest ? !item.startsWith('--log-') : true)
-            .sort();
+        return (
+            getOptionsWithoutArguments(output)
+                .concat(...knownOptionsWithoutArgs)
+                .filter((item) => knownOptionsWithArgs.indexOf(item) === -1)
+                // In pytest, any option beginning with --log- is known to have args.
+                .filter((item) => (product === Product.pytest ? !item.startsWith('--log-') : true))
+                .sort()
+        );
     }
 }
 
@@ -174,5 +185,5 @@ function getMatches(pattern: any, str: string) {
     }
     return matches
         .sort()
-        .reduce<string[]>((items, item) => items.indexOf(item) === -1 ? items.concat([item]) : items, []);
+        .reduce<string[]>((items, item) => (items.indexOf(item) === -1 ? items.concat([item]) : items), []);
 }

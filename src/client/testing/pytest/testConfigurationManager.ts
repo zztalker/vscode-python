@@ -7,11 +7,7 @@ import { TestConfigurationManager } from '../common/managers/testConfigurationMa
 import { ITestConfigSettingsService } from '../types';
 
 export class ConfigurationManager extends TestConfigurationManager {
-    constructor(
-        workspace: Uri,
-        serviceContainer: IServiceContainer,
-        cfg?: ITestConfigSettingsService
-    ) {
+    constructor(workspace: Uri, serviceContainer: IServiceContainer, cfg?: ITestConfigSettingsService) {
         super(workspace, Product.pytest, serviceContainer, cfg);
     }
     public async requiresUserToConfigure(wkspace: Uri): Promise<boolean> {
@@ -51,9 +47,10 @@ export class ConfigurationManager extends TestConfigurationManager {
     }
     private async getConfigFiles(rootDir: string): Promise<string[]> {
         const fs = this.serviceContainer.get<IFileSystem>(IFileSystem);
-        const promises = ['pytest.ini', 'tox.ini', 'setup.cfg']
-            .map(async cfg => await fs.fileExists(path.join(rootDir, cfg)) ? cfg : '');
+        const promises = ['pytest.ini', 'tox.ini', 'setup.cfg'].map(async (cfg) =>
+            (await fs.fileExists(path.join(rootDir, cfg))) ? cfg : ''
+        );
         const values = await Promise.all(promises);
-        return values.filter(exists => exists.length > 0);
+        return values.filter((exists) => exists.length > 0);
     }
 }

@@ -6,10 +6,10 @@
 import * as path from 'path';
 import { anything, instance, mock, verify, when } from 'ts-mockito';
 import { Uri } from 'vscode';
-import { LanguageServerExtensionActivator } from '../../../client/activation/languageServer/activator';
-import { LanguageServerDownloader } from '../../../client/activation/languageServer/downloader';
-import { LanguageServerFolderService } from '../../../client/activation/languageServer/languageServerFolderService';
-import { LanguageServerManager } from '../../../client/activation/languageServer/manager';
+import { LanguageServerDownloader } from '../../../client/activation/common/downloader';
+import { DotNetLanguageServerActivator } from '../../../client/activation/languageServer/activator';
+import { DotNetLanguageServerFolderService } from '../../../client/activation/languageServer/languageServerFolderService';
+import { DotNetLanguageServerManager } from '../../../client/activation/languageServer/manager';
 import {
     ILanguageServerDownloader,
     ILanguageServerFolderService,
@@ -29,7 +29,7 @@ import { sleep } from '../../core';
 // tslint:disable:max-func-body-length
 
 suite('Language Server - Activator', () => {
-    let activator: LanguageServerExtensionActivator;
+    let activator: DotNetLanguageServerActivator;
     let workspaceService: IWorkspaceService;
     let manager: ILanguageServerManager;
     let fs: IFileSystem;
@@ -38,15 +38,15 @@ suite('Language Server - Activator', () => {
     let configuration: IConfigurationService;
     let settings: IPythonSettings;
     setup(() => {
-        manager = mock(LanguageServerManager);
+        manager = mock(DotNetLanguageServerManager);
         workspaceService = mock(WorkspaceService);
         fs = mock(FileSystem);
         lsDownloader = mock(LanguageServerDownloader);
-        lsFolderService = mock(LanguageServerFolderService);
+        lsFolderService = mock(DotNetLanguageServerFolderService);
         configuration = mock(ConfigurationService);
         settings = mock(PythonSettings);
         when(configuration.getSettings(anything())).thenReturn(instance(settings));
-        activator = new LanguageServerExtensionActivator(
+        activator = new DotNetLanguageServerActivator(
             instance(manager),
             instance(workspaceService),
             instance(fs),
@@ -57,12 +57,12 @@ suite('Language Server - Activator', () => {
     });
     test('Manager must be started without any workspace', async () => {
         when(workspaceService.hasWorkspaceFolders).thenReturn(false);
-        when(manager.start(undefined)).thenResolve();
+        when(manager.start(undefined, undefined)).thenResolve();
         when(settings.downloadLanguageServer).thenReturn(false);
 
-        await activator.activate(undefined);
+        await activator.start(undefined);
 
-        verify(manager.start(undefined)).once();
+        verify(manager.start(undefined, undefined)).once();
         verify(workspaceService.hasWorkspaceFolders).once();
     });
     test('Manager must be disposed', async () => {
@@ -70,14 +70,20 @@ suite('Language Server - Activator', () => {
 
         verify(manager.dispose()).once();
     });
+    test('Server should be disconnected but be started', async () => {
+        await activator.start(undefined);
+
+        verify(manager.start(undefined, undefined)).once();
+        verify(manager.connect()).never();
+    });
     test('Do not download LS if not required', async () => {
         when(workspaceService.hasWorkspaceFolders).thenReturn(false);
-        when(manager.start(undefined)).thenResolve();
+        when(manager.start(undefined, undefined)).thenResolve();
         when(settings.downloadLanguageServer).thenReturn(false);
 
-        await activator.activate(undefined);
+        await activator.start(undefined);
 
-        verify(manager.start(undefined)).once();
+        verify(manager.start(undefined, undefined)).once();
         verify(workspaceService.hasWorkspaceFolders).once();
         verify(lsFolderService.getLanguageServerFolderName(anything())).never();
         verify(lsDownloader.downloadLanguageServer(anything(), anything())).never();
@@ -88,15 +94,14 @@ suite('Language Server - Activator', () => {
         const mscorlib = path.join(languageServerFolderPath, 'mscorlib.dll');
 
         when(workspaceService.hasWorkspaceFolders).thenReturn(false);
-        when(manager.start(undefined)).thenResolve();
+        when(manager.start(undefined, undefined)).thenResolve();
         when(settings.downloadLanguageServer).thenReturn(true);
-        when(lsFolderService.getLanguageServerFolderName(anything()))
-            .thenResolve(languageServerFolder);
+        when(lsFolderService.getLanguageServerFolderName(anything())).thenResolve(languageServerFolder);
         when(fs.fileExists(mscorlib)).thenResolve(true);
 
-        await activator.activate(undefined);
+        await activator.start(undefined);
 
-        verify(manager.start(undefined)).once();
+        verify(manager.start(undefined, undefined)).once();
         verify(workspaceService.hasWorkspaceFolders).once();
         verify(lsFolderService.getLanguageServerFolderName(anything())).once();
         verify(lsDownloader.downloadLanguageServer(anything(), anything())).never();
@@ -108,25 +113,23 @@ suite('Language Server - Activator', () => {
         const mscorlib = path.join(languageServerFolderPath, 'mscorlib.dll');
 
         when(workspaceService.hasWorkspaceFolders).thenReturn(false);
-        when(manager.start(undefined)).thenResolve();
+        when(manager.start(undefined, undefined)).thenResolve();
         when(settings.downloadLanguageServer).thenReturn(true);
-        when(lsFolderService.getLanguageServerFolderName(anything()))
-            .thenResolve(languageServerFolder);
+        when(lsFolderService.getLanguageServerFolderName(anything())).thenResolve(languageServerFolder);
         when(fs.fileExists(mscorlib)).thenResolve(false);
-        when(lsDownloader.downloadLanguageServer(languageServerFolderPath, undefined))
-            .thenReturn(deferred.promise);
+        when(lsDownloader.downloadLanguageServer(languageServerFolderPath, undefined)).thenReturn(deferred.promise);
 
-        const promise = activator.activate(undefined);
+        const promise = activator.start(undefined);
         await sleep(1);
         verify(workspaceService.hasWorkspaceFolders).once();
         verify(lsFolderService.getLanguageServerFolderName(anything())).once();
         verify(lsDownloader.downloadLanguageServer(anything(), undefined)).once();
 
-        verify(manager.start(undefined)).never();
+        verify(manager.start(undefined, undefined)).never();
 
         deferred.resolve();
         await sleep(1);
-        verify(manager.start(undefined)).once();
+        verify(manager.start(undefined, undefined)).once();
 
         await promise;
     });
@@ -134,12 +137,12 @@ suite('Language Server - Activator', () => {
         const uri = Uri.file(__filename);
         when(workspaceService.hasWorkspaceFolders).thenReturn(true);
         when(workspaceService.workspaceFolders).thenReturn([{ index: 0, name: '', uri }]);
-        when(manager.start(uri)).thenResolve();
+        when(manager.start(uri, undefined)).thenResolve();
         when(settings.downloadLanguageServer).thenReturn(false);
 
-        await activator.activate(undefined);
+        await activator.start(undefined);
 
-        verify(manager.start(uri)).once();
+        verify(manager.start(uri, undefined)).once();
         verify(workspaceService.hasWorkspaceFolders).once();
         verify(workspaceService.workspaceFolders).once();
     });
@@ -153,7 +156,10 @@ suite('Language Server - Activator', () => {
         const languageServerFolder = 'Some folder name';
         const languageServerFolderPath = path.join(EXTENSION_ROOT_DIR, languageServerFolder);
         const mscorlib = path.join(languageServerFolderPath, 'mscorlib.dll');
-        const targetJsonFile = path.join(languageServerFolderPath, 'Microsoft.Python.LanguageServer.runtimeconfig.json');
+        const targetJsonFile = path.join(
+            languageServerFolderPath,
+            'Microsoft.Python.LanguageServer.runtimeconfig.json'
+        );
 
         when(settings.downloadLanguageServer).thenReturn(true);
         when(lsFolderService.getLanguageServerFolderName(undefined)).thenResolve(languageServerFolder);
@@ -171,7 +177,10 @@ suite('Language Server - Activator', () => {
         const languageServerFolder = 'Some folder name';
         const languageServerFolderPath = path.join(EXTENSION_ROOT_DIR, languageServerFolder);
         const mscorlib = path.join(languageServerFolderPath, 'mscorlib.dll');
-        const targetJsonFile = path.join(languageServerFolderPath, 'Microsoft.Python.LanguageServer.runtimeconfig.json');
+        const targetJsonFile = path.join(
+            languageServerFolderPath,
+            'Microsoft.Python.LanguageServer.runtimeconfig.json'
+        );
         const jsonContents = { runtimeOptions: { configProperties: { 'System.Globalization.Invariant': false } } };
 
         when(settings.downloadLanguageServer).thenReturn(true);

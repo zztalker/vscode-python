@@ -1,32 +1,30 @@
 # Contributing to the Python extension for Visual Studio Code
 
-
-
-
 ---
 
-| `release` branch | `master` branch | Nightly CI | coverage (`master` branch) |
-|-|-|-|-|
+| `release` branch                                                                                                                                                                            | `master` branch                                                                                                                                                                           | Nightly CI                                                                                                                                                                                             | coverage (`master` branch)                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | [![Build Status](https://dev.azure.com/ms/vscode-python/_apis/build/status/CI?branchName=release)](https://dev.azure.com/ms/vscode-python/_build/latest?definitionId=88&branchName=release) | [![Build Status](https://dev.azure.com/ms/vscode-python/_apis/build/status/CI?branchName=master)](https://dev.azure.com/ms/vscode-python/_build/latest?definitionId=88&branchName=master) | [![Build Status](https://dev.azure.com/ms/vscode-python/_apis/build/status/Nightly%20Build?branchName=master)](https://dev.azure.com/ms/vscode-python/_build/latest?definitionId=85&branchName=master) | [![codecov](https://codecov.io/gh/microsoft/vscode-python/branch/master/graph/badge.svg)](https://codecov.io/gh/microsoft/vscode-python) |
 
 [[Development build](https://pvsc.blob.core.windows.net/extension-builds/ms-python-insiders.vsix)]
 
 ---
 
-[For contributing to the [Microsoft Python Language Server](https://github.com/Microsoft/python-language-server) see its own repo; for [ptvsd](https://github.com/microsoft/ptvsd) see its own repo]
+[For contributing to the [Microsoft Python Language Server](https://github.com/Microsoft/python-language-server) see its own repo; for [debugpy](https://github.com/microsoft/debugpy) see its own repo]
 
 ## Contributing a pull request
 
 ### Prerequisites
 
-1. [Node.js](https://nodejs.org/) 10.x
-1. [Python](https://www.python.org/) 2.7 or later (required only for testing the extension and running unit tests)
+1. [Node.js](https://nodejs.org/) 12.x
+1. [Python](https://www.python.org/) 2.7 or later
 1. Windows, macOS, or Linux
 1. [Visual Studio Code](https://code.visualstudio.com/)
 1. The following VS Code extensions:
-    * [TSLint](https://marketplace.visualstudio.com/items?itemName=ms-vscode.vscode-typescript-tslint-plugin)
-    * [EditorConfig for VS Code](https://marketplace.visualstudio.com/items?itemName=EditorConfig.EditorConfig)
-1. Have an issue which has been accepted with a "needs PR" label (feel free to indicate you would be happy to provide a PR for the issue)
+    - [TSLint](https://marketplace.visualstudio.com/items?itemName=ms-vscode.vscode-typescript-tslint-plugin)
+    - [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
+    - [EditorConfig for VS Code](https://marketplace.visualstudio.com/items?itemName=EditorConfig.EditorConfig)
+1. Have an issue which has a "needs PR" label (feel free to indicate you would like to provide a PR for the issue so others don't work on it as well)
 
 ### Setup
 
@@ -35,17 +33,30 @@ git clone https://github.com/microsoft/vscode-python
 cd vscode-python
 npm ci
 python3 -m venv .venv
-# Activate the virtual environment as appropriate for your shell.
+# Activate the virtual environment as appropriate for your shell, For example, on bash it's ...
+source .venv/bin/activate
+# The Python code in the extension is formatted using Black.
+python3 -m pip install black
+# Install Python dependencies using `python3`.
+# If you want to use a different interpreter then specify it in the
+# CI_PYTHON_PATH environment variable.
 npx gulp installPythonLibs
-# If your terminal doesn't recogonise the keyword `python3`, update `launch.json` to set a value for the environment variable `CI_PYTHON_PATH` pointing to the fully qualified path of the above interpreter.
 ```
-You may see warnings that ```The engine "vscode" appears to be invalid.```, you can ignore these.
+
+If you see warnings that `The engine "vscode" appears to be invalid.`, you can ignore these.
 
 ### Incremental Build
 
 Run the `Compile` and `Hygiene` build Tasks from the [Run Build Task...](https://code.visualstudio.com/docs/editor/tasks) command picker (short cut `CTRL+SHIFT+B` or `⇧⌘B`). This will leave build and hygiene tasks running in the background and which will re-run as files are edited and saved. You can see the output from either task in the Terminal panel (use the selector to choose which output to look at).
 
-You can also compile from the command-line. For a full compile you can use `npx gulp prePublishNonBundle`. For incremental builds you can use the following commands depending on your needs:
+You can also compile from the command-line. For a full compile you can use:
+
+```shell
+npx gulp prePublishNonBundle
+```
+
+For incremental builds you can use the following commands depending on your needs:
+
 ```shell
 npm run compile
 npm run compile-webviews-watch # For data science (React Code)
@@ -56,18 +67,23 @@ This is especially true if you have added or removed files.
 
 ### Errors and Warnings
 
-TypeScript errors and warnings will be displayed in the `Problems` window of Visual Studio Code:
+TypeScript errors and warnings will be displayed in the `Problems` window of Visual Studio Code.
 
-### Validate your changes
+### Run dev build and validate your changes
 
-To test the changes you launch a development version of VS Code on the workspace vscode, which you are currently editing.
-Use the `Extension` launch option.
+To test changes, open the `vscode-python` folder in VSCode, and select the workspace titled `vscode`.
+Then, open the debug panel by clicking the `Run and Debug` icon on the sidebar, select the `Extension`
+option from the top menu, and click start. A new window will launch with the title
+`[Extension Development Host]`.
 
-### Debugging Unit Tests
+### Running Unit Tests
 
+Note: Unit tests are those in files with extension `.unit.test.ts`.
+
+1. Make sure you have compiled all code (done automatically when using incremental building)
 1. Ensure you have disabled breaking into 'Uncaught Exceptions' when running the Unit Tests
 1. For the linters and formatters tests to pass successfully, you will need to have those corresponding Python libraries installed locally
-1. Run the Tests via the `Unit Tests`  launch option.
+1. Run the Tests via the `Unit Tests` launch option.
 
 You can also run them from the command-line (after compiling):
 
@@ -76,7 +92,7 @@ npm run test:unittests  # runs all unit tests
 npm run test:unittests -- --grep='<NAME-OF-SUITE>'
 ```
 
-*To run only a specific test suite for unit tests:*
+_To run only a specific test suite for unit tests:_
 Alter the `launch.json` file in the `"Debug Unit Tests"` section by setting the `grep` field:
 
 ```js
@@ -85,18 +101,32 @@ Alter the `launch.json` file in the `"Debug Unit Tests"` section by setting the 
         "--grep", "<suite name>"
     ],
 ```
+
 ...this will only run the suite with the tests you care about during a test run (be sure to set the debugger to run the `Debug Unit Tests` launcher).
 
-### Debugging System Tests
+### Running Functional Tests
 
+Functional tests are those in files with extension `.functional.test.ts`.
+These tests are similar to system tests in scope, but are run like unit tests.
+
+You can run functional tests in a similar way to that for unit tests:
+
+-   via the "Functional Tests" launch option, or
+-   on the command line via `npm run test:functional`
+
+### Running System Tests
+
+Note: System tests are those in files with extension `.test*.ts` but which are neither `.functional.test.ts` nor `.unit.test.ts`.
+
+1. Make sure you have compiled all code (done automatically when using incremental building)
 1. Ensure you have disabled breaking into 'Uncaught Exceptions' when running the Unit Tests
 1. For the linters and formatters tests to pass successfully, you will need to have those corresponding Python libraries installed locally by using the `./requirements.txt` and `build/test-requirements.txt` files
 1. Run the tests via `npm run` or the Debugger launch options (you can "Start Without Debugging").
 1. **Note** you will be running tests under the default Python interpreter for the system.
 
-*Change the version of python the tests are executed with by setting the `CI_PYTHON_PATH`.*
+_Change the version of python the tests are executed with by setting the `CI_PYTHON_PATH`._
 
-Tests will be executed using the system default interpreter (whatever that is for your local machine), unless you explicitly set the `CI_PYTHON_PATH` environment variable. To test against different versions of Python you *must* use this.
+Tests will be executed using the system default interpreter (whatever that is for your local machine), unless you explicitly set the `CI_PYTHON_PATH` environment variable. To test against different versions of Python you _must_ use this.
 
 In the launch.json file, you can add the following to the appropriate configuration you want to run to easily change the interpreter used during testing:
 
@@ -112,11 +142,12 @@ You can also run the tests from the command-line (after compiling):
 npm run testSingleWorkspace  # will launch the VSC UI
 npm run testMultiWorkspace  # will launch the VSC UI
 ```
+
 ...note this will use the Python interpreter that your current shell is making use of, no need to set `CI_PYTHON_PATH` here.
 
-*To limit system tests to a specific suite*
+_To limit system tests to a specific suite_
 
-If you are running system tests (we call them *system* tests, others call them *integration* or otherwise) and you wish to run a specific test suite, edit the `src/test/index.ts` file here:
+If you are running system tests (we call them _system_ tests, others call them _integration_ or otherwise) and you wish to run a specific test suite, edit the `src/test/index.ts` file here:
 
 https://github.com/Microsoft/vscode-python/blob/b328ba12331ed34a267e32e77e3e4b1eff235c13/src/test/index.ts#L21
 
@@ -125,19 +156,20 @@ https://github.com/Microsoft/vscode-python/blob/b328ba12331ed34a267e32e77e3e4b1e
 ```ts
 const grep = '[The suite name of your *test.ts file]'; // IS_CI_SERVER &&...
 ```
+
 ...and then use the `Launch Tests` debugger launcher. This will run only the suite you name in the grep.
 
 And be sure to escape any grep-sensitive characters in your suite name (and to remove the change from src/test/index.ts before you submit).
 
 ### Testing Python Scripts
 
-The extension has a number of scripts in ./pythonFiles.  Tests for these
-scripts are found in ./pythonFiles/tests.  To run those tests:
+The extension has a number of scripts in ./pythonFiles. Tests for these
+scripts are found in ./pythonFiles/tests. To run those tests:
 
-* `python2.7 pythonFiles/tests/run_all.py`
-* `python3 -m pythonFiles.tests`
+-   `python2.7 pythonFiles/tests/run_all.py`
+-   `python3 -m pythonFiles.tests`
 
-By default, functional tests are included.  To exclude them:
+By default, functional tests are included. To exclude them:
 
 `python3 -m pythonFiles.tests --no-functional`
 
@@ -152,14 +184,14 @@ Clone the repo into any directory, open that directory in VSCode, and use the `E
 ### Debugging the Python Extension Debugger
 
 The easiest way to debug the Python Debugger (in our opinion) is to clone this git repo directory into [your](https://code.visualstudio.com/docs/extensions/install-extension#_your-extensions-folder) extensions directory.
-From there use the ```Extension + Debugger``` launch option.
+From there use the `Extension + Debugger` launch option.
 
 ### Coding Standards
 
 Information on our coding standards can be found [here](https://github.com/Microsoft/vscode-python/blob/master/CODING_STANDARDS.md).
-We have CI tests to ensure the code committed will adhere to the above coding standards. *You can run this locally by executing the command `npx gulp precommit` or use the `precommit` Task.
+We have CI tests to ensure the code committed will adhere to the above coding standards. \*You can run this locally by executing the command `npx gulp precommit` or use the `precommit` Task.
 
-Messages displayed to the user must ve localized using/created constants from/in the [localize.ts](https://github.com/Microsoft/vscode-python/blob/master/src/client/common/utils/localize.ts) file.
+Messages displayed to the user must be localized using/created constants from/in the [localize.ts](https://github.com/Microsoft/vscode-python/blob/master/src/client/common/utils/localize.ts) file.
 
 ## Development process
 
@@ -243,12 +275,11 @@ in the [pull request template](https://github.com/Microsoft/vscode-python/blob/m
 Starting in 2018, the extension switched to
 [calendar versioning](http://calver.org/) since the extension
 auto-updates and thus there is no need to track its version
-number for backwards-compatibility. As such, the major version
-is the current year, the minor version is the month when feature
-freeze was reached, and the build number is a number that increments for every build.
-For example the release made when we reach feature freeze in July 2018
-would be `2018.7.<some number>`, and if there is a second release in that month
-it would be `2018.7.<some larger number>`.
+number for backwards-compatibility. In 2020, the extension switched to
+having the the major version be the year of release, the minor version the
+release count for that year, and the build number is a number that increments
+for every build.
+For example the first release made in 2020 is `2020.1.<build number>`.
 
 ## Releasing
 
@@ -256,30 +287,41 @@ Overall steps for releasing are covered in the
 [release plan](https://github.com/Microsoft/vscode-python/labels/release%20plan)
 ([template](https://github.com/Microsoft/vscode-python/blob/master/.github/release_plan.md)).
 
-
 ### Building a release
 
 To create a release _build_, follow the steps outlined in the [release plan](https://github.com/Microsoft/vscode-python/labels/release%20plan) (which has a [template](https://github.com/Microsoft/vscode-python/blob/master/.github/release_plan.md)).
 
+## Local Build
+
+Steps to build the extension on your machine once you've cloned the repo:
+
+```bash
+> npm install -g vsce
+# Perform the next steps in the vscode-python folder.
+> npm ci
+> python3 -m pip --disable-pip-version-check install -t ./pythonFiles/lib/python --no-cache-dir --implementation py --no-deps --upgrade -r requirements.txt
+> python3 -m pip --disable-pip-version-check install -t ./pythonFiles/lib/python/old_ptvsd --no-cache-dir --implementation py --no-deps --upgrade 'ptvsd==4.3.2'
+# For python 3.6 and lower use this command to install the debugger
+> python3 -m pip --disable-pip-version-check install -t ./pythonFiles/lib/python --no-cache-dir --implementation py --no-deps --upgrade --pre debugpy
+# For python 3.7 and greater use this command to install the debugger
+> python3 -m pip --disable-pip-version-check install -r build/debugger-install-requirements.txt
+> python3 ./pythonFiles/install_debugpy.py
+> npm run clean
+> npm run package # This step takes around 10 minutes.
+```
+
+Resulting in a `ms-python-insiders.vsix` file in your `vscode-python` folder.
+
+⚠️ If you made changes to `package.json`, run `npm install` (instead of `npm ci`) to update `package-lock.json` and install dependencies all at once.
+
 ## Development Build
 
-We publish the latest development
-build of the extension onto a cloud storage provider.
-If you are interested in helping us test our development builds or would like
-to stay ahead of the curve, then please feel free to download and install the
-extension from the following
+If you would like to use the latest version of the extension as committed to `master` that has passed our test suite, then you may set the `"python.insidersChannel"` setting to `"daily"` or `"weekly"` based on how often you would like the extension to check for updates.
+
+You may also download and install the extension manually from the following
 [location](https://pvsc.blob.core.windows.net/extension-builds/ms-python-insiders.vsix).
 Once you have downloaded the
 [ms-python-insiders.vsix](https://pvsc.blob.core.windows.net/extension-builds/ms-python-insiders.vsix)
 file, please follow the instructions on
 [this page](https://code.visualstudio.com/docs/editor/extension-gallery#_install-from-a-vsix)
-to install the extension.
-
-The development build of the extension:
-
-* Will be replaced with new releases published onto the
-  [VS Code Marketplace](https://marketplace.visualstudio.com/VSCode).
-* Does not get updated with new development builds of the extension (if you want to
-  test a newer development build, uninstall the old version of the
-  extension and then install the new version)
-* Is built every time a PR is committed into the [`master` branch](https://github.com/Microsoft/vscode-python).
+to install the extension. Do note that the manual install will not automatically update to newer builds unless you set the `"python.insidersChannel"` setting (it will get replaced with released versions from the Marketplace once they are newer than the version install manually).

@@ -10,6 +10,7 @@ import {
     CONDA_ENV_FILE_SERVICE,
     CONDA_ENV_SERVICE,
     CURRENT_PATH_SERVICE,
+    GetInterpreterLocatorOptions,
     GLOBAL_VIRTUAL_ENV_SERVICE,
     IInterpreterLocatorHelper,
     IInterpreterLocatorService,
@@ -29,15 +30,22 @@ const flatten = require('lodash/flatten') as typeof import('lodash/flatten');
  */
 @injectable()
 export class PythonInterpreterLocatorService implements IInterpreterLocatorService {
+    public didTriggerInterpreterSuggestions: boolean;
+
     private readonly disposables: Disposable[] = [];
     private readonly platform: IPlatformService;
     private readonly interpreterLocatorHelper: IInterpreterLocatorHelper;
     private readonly _hasInterpreters: Deferred<boolean>;
-    constructor(@inject(IServiceContainer) private serviceContainer: IServiceContainer, @inject(InterpreterFilter) private readonly interpreterFilter: IInterpreterFilter) {
+
+    constructor(
+        @inject(IServiceContainer) private serviceContainer: IServiceContainer,
+        @inject(InterpreterFilter) private readonly interpreterFilter: IInterpreterFilter
+    ) {
         this._hasInterpreters = createDeferred<boolean>();
         serviceContainer.get<Disposable[]>(IDisposableRegistry).push(this);
         this.platform = serviceContainer.get<IPlatformService>(IPlatformService);
         this.interpreterLocatorHelper = serviceContainer.get<IInterpreterLocatorHelper>(IInterpreterLocatorHelper);
+        this.didTriggerInterpreterSuggestions = false;
     }
     /**
      * This class should never emit events when we're locating.
@@ -51,7 +59,7 @@ export class PythonInterpreterLocatorService implements IInterpreterLocatorServi
         return new EventEmitter<Promise<PythonInterpreter[]>>().event;
     }
     public get hasInterpreters(): Promise<boolean> {
-        return this._hasInterpreters.promise;
+        return this._hasInterpreters.completed ? this._hasInterpreters.promise : Promise.resolve(false);
     }
 
     /**
@@ -60,7 +68,7 @@ export class PythonInterpreterLocatorService implements IInterpreterLocatorServi
      * Called by VS Code to indicate it is done with the resource.
      */
     public dispose() {
-        this.disposables.forEach(disposable => disposable.dispose());
+        this.disposables.forEach((disposable) => disposable.dispose());
     }
 
     /**
@@ -70,12 +78,12 @@ export class PythonInterpreterLocatorService implements IInterpreterLocatorServi
      * interpreters.
      */
     @traceDecorators.verbose('Get Interpreters')
-    public async getInterpreters(resource?: Uri): Promise<PythonInterpreter[]> {
-        const locators = this.getLocators();
-        const promises = locators.map(async provider => provider.getInterpreters(resource));
-        locators.forEach(locator => {
+    public async getInterpreters(resource?: Uri, options?: GetInterpreterLocatorOptions): Promise<PythonInterpreter[]> {
+        const locators = this.getLocators(options);
+        const promises = locators.map(async (provider) => provider.getInterpreters(resource));
+        locators.forEach((locator) => {
             locator.hasInterpreters
-                .then(found => {
+                .then((found) => {
                     if (found) {
                         this._hasInterpreters.resolve(true);
                     }
@@ -85,9 +93,9 @@ export class PythonInterpreterLocatorService implements IInterpreterLocatorServi
         const listOfInterpreters = await Promise.all(promises);
 
         const items = flatten(listOfInterpreters)
-            .filter(item => !!item)
-            .map(item => item!)
-            .filter(item => !this.interpreterFilter.isHiddenInterpreter(item));
+            .filter((item) => !!item)
+            .map((item) => item!)
+            .filter((item) => !this.interpreterFilter.isHiddenInterpreter(item));
         this._hasInterpreters.resolve(items.length > 0);
         return this.interpreterLocatorHelper.mergeInterpreters(items);
     }
@@ -97,7 +105,7 @@ export class PythonInterpreterLocatorService implements IInterpreterLocatorServi
      *
      * The locators are pulled from the registry.
      */
-    private getLocators(): IInterpreterLocatorService[] {
+    private getLocators(options?: GetInterpreterLocatorOptions): IInterpreterLocatorService[] {
         // The order of the services is important.
         // The order is important because the data sources at the bottom of the list do not contain all,
         //  the information about the interpreters (e.g. type, environment name, etc).
@@ -112,8 +120,17 @@ export class PythonInterpreterLocatorService implements IInterpreterLocatorServi
             [KNOWN_PATH_SERVICE, undefined],
             [CURRENT_PATH_SERVICE, undefined]
         ];
-        return keys
-            .filter(item => item[1] === undefined || item[1] === this.platform.osType)
-            .map(item => this.serviceContainer.get<IInterpreterLocatorService>(IInterpreterLocatorService, item[0]));
+
+        const locators = keys
+            .filter((item) => item[1] === undefined || item[1] === this.platform.osType)
+            .map((item) => this.serviceContainer.get<IInterpreterLocatorService>(IInterpreterLocatorService, item[0]));
+
+        // Set it to true the first time the user selects an interpreter
+        if (!this.didTriggerInterpreterSuggestions && options?.onSuggestion === true) {
+            this.didTriggerInterpreterSuggestions = true;
+            locators.forEach((locator) => (locator.didTriggerInterpreterSuggestions = true));
+        }
+
+        return locators;
     }
 }

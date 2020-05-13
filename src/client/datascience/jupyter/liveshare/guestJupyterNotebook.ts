@@ -1,20 +1,34 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
+import type { Kernel, KernelMessage } from '@jupyterlab/services';
+import type { JSONObject } from '@phosphor/coreutils';
 import { Observable } from 'rxjs/Observable';
-import { Uri } from 'vscode';
+import { Event, EventEmitter, Uri } from 'vscode';
 import { CancellationToken } from 'vscode-jsonrpc';
 import * as vsls from 'vsls/vscode';
-
+import { ServerStatus } from '../../../../datascience-ui/interactive-common/mainState';
 import { ILiveShareApi } from '../../../common/application/types';
 import { CancellationError } from '../../../common/cancellation';
 import { traceInfo } from '../../../common/logger';
-import { IConfigurationService, IDisposableRegistry } from '../../../common/types';
+import { IConfigurationService, IDisposableRegistry, Resource } from '../../../common/types';
 import { createDeferred } from '../../../common/utils/async';
 import * as localize from '../../../common/utils/localize';
 import { noop } from '../../../common/utils/misc';
+import { PythonInterpreter } from '../../../interpreter/contracts';
 import { LiveShare, LiveShareCommands } from '../../constants';
-import { ICell, INotebook, INotebookCompletion, INotebookExecutionLogger, INotebookServer, InterruptResult } from '../../types';
+import {
+    ICell,
+    IJupyterKernelSpec,
+    INotebook,
+    INotebookCompletion,
+    INotebookExecutionInfo,
+    INotebookExecutionLogger,
+    INotebookProviderConnection,
+    InterruptResult,
+    KernelSocketInformation
+} from '../../types';
+import { LiveKernelModel } from '../kernels/types';
 import { LiveShareParticipantDefault, LiveShareParticipantGuest } from './liveShareParticipantMixin';
 import { ResponseQueue } from './responseQueue';
 import { IExecuteObservableResponse, ILiveShareParticipant, IServerResponse } from './types';
@@ -22,25 +36,57 @@ import { IExecuteObservableResponse, ILiveShareParticipant, IServerResponse } fr
 export class GuestJupyterNotebook
     extends LiveShareParticipantGuest(LiveShareParticipantDefault, LiveShare.JupyterNotebookSharedService)
     implements INotebook, ILiveShareParticipant {
+    private get jupyterLab(): typeof import('@jupyterlab/services') {
+        if (!this._jupyterLab) {
+            // tslint:disable-next-line:no-require-imports
+            this._jupyterLab = require('@jupyterlab/services') as typeof import('@jupyterlab/services'); // NOSONAR
+        }
+        return this._jupyterLab!;
+    }
+
+    public get identity(): Uri {
+        return this._identity;
+    }
+
+    public get resource(): Resource {
+        return this._resource;
+    }
+
+    public get connection(): INotebookProviderConnection | undefined {
+        return this._executionInfo?.connectionInfo;
+    }
+    public kernelSocket = new Observable<KernelSocketInformation | undefined>();
+
+    public get onSessionStatusChanged(): Event<ServerStatus> {
+        if (!this.onStatusChangedEvent) {
+            this.onStatusChangedEvent = new EventEmitter<ServerStatus>();
+        }
+        return this.onStatusChangedEvent.event;
+    }
+
+    public get status(): ServerStatus {
+        return ServerStatus.Idle;
+    }
+
+    public onKernelChanged: Event<IJupyterKernelSpec | LiveKernelModel> = new EventEmitter<
+        IJupyterKernelSpec | LiveKernelModel
+    >().event;
+    public onKernelRestarted = new EventEmitter<void>().event;
+    public onDisposed = new EventEmitter<void>().event;
+    private _jupyterLab?: typeof import('@jupyterlab/services');
     private responseQueue: ResponseQueue = new ResponseQueue();
+    private onStatusChangedEvent: EventEmitter<ServerStatus> | undefined;
+
     constructor(
         liveShare: ILiveShareApi,
         private disposableRegistry: IDisposableRegistry,
         private configService: IConfigurationService,
-        private _resource: Uri,
-        private _owner: INotebookServer,
+        private _resource: Resource,
+        private _identity: Uri,
+        private _executionInfo: INotebookExecutionInfo | undefined,
         private startTime: number
-
     ) {
         super(liveShare);
-    }
-
-    public get resource(): Uri {
-        return this._resource;
-    }
-
-    public get server(): INotebookServer {
-        return this._owner;
     }
 
     public shutdown(): Promise<void> {
@@ -48,6 +94,9 @@ export class GuestJupyterNotebook
     }
 
     public dispose(): Promise<void> {
+        if (this.onStatusChangedEvent) {
+            this.onStatusChangedEvent.dispose();
+        }
         return this.shutdown();
     }
 
@@ -60,7 +109,13 @@ export class GuestJupyterNotebook
         noop();
     }
 
-    public async execute(code: string, file: string, line: number, id: string, cancelToken?: CancellationToken): Promise<ICell[]> {
+    public async execute(
+        code: string,
+        file: string,
+        line: number,
+        id: string,
+        cancelToken?: CancellationToken
+    ): Promise<ICell[]> {
         // Create a deferred that we'll fire when we're done
         const deferred = createDeferred<ICell[]>();
 
@@ -77,23 +132,27 @@ export class GuestJupyterNotebook
             },
             () => {
                 deferred.resolve(output);
-            });
+            }
+        );
 
         if (cancelToken) {
-            this.disposableRegistry.push(cancelToken.onCancellationRequested(() => deferred.reject(new CancellationError())));
+            this.disposableRegistry.push(
+                cancelToken.onCancellationRequested(() => deferred.reject(new CancellationError()))
+            );
         }
 
         // Wait for the execution to finish
         return deferred.promise;
     }
 
+    public async inspect(code: string): Promise<JSONObject> {
+        // Send to the other side
+        return this.sendRequest(LiveShareCommands.inspect, [code]);
+    }
+
     public setLaunchingFile(_directory: string): Promise<void> {
         // Ignore this command on this side
         return Promise.resolve();
-    }
-
-    public addLogger(_logger: INotebookExecutionLogger): void {
-        noop();
     }
 
     public async setMatplotLibStyle(_useDark: boolean): Promise<void> {
@@ -102,11 +161,13 @@ export class GuestJupyterNotebook
 
     public executeObservable(code: string, file: string, line: number, id: string): Observable<ICell[]> {
         // Mimic this to the other side and then wait for a response
-        this.waitForService().then(s => {
-            if (s) {
-                s.notify(LiveShareCommands.executeObservable, { code, file, line, id });
-            }
-        }).ignoreErrors();
+        this.waitForService()
+            .then((s) => {
+                if (s) {
+                    s.notify(LiveShareCommands.executeObservable, { code, file, line, id });
+                }
+            })
+            .ignoreErrors();
         return this.responseQueue.waitForObservable(code, id);
     }
 
@@ -116,17 +177,17 @@ export class GuestJupyterNotebook
     }
 
     public async interruptKernel(_timeoutMs: number): Promise<InterruptResult> {
-        const settings = this.configService.getSettings();
+        const settings = this.configService.getSettings(this.resource);
         const interruptTimeout = settings.datascience.jupyterInterruptTimeout;
 
         const response = await this.sendRequest(LiveShareCommands.interrupt, [interruptTimeout]);
-        return (response as InterruptResult);
+        return response as InterruptResult;
     }
 
     public async waitForServiceName(): Promise<string> {
         // Use our base name plus our id. This means one unique server per notebook
         // Live share will not accept a '.' in the name so remove any
-        const uriString = this.resource.toString();
+        const uriString = this.identity.toString();
         return Promise.resolve(`${LiveShare.JupyterNotebookSharedService}${uriString}`);
     }
 
@@ -135,11 +196,15 @@ export class GuestJupyterNotebook
         const service = await this.waitForService();
         if (service) {
             const result = await service.request(LiveShareCommands.getSysInfo, []);
-            return (result as ICell);
+            return result as ICell;
         }
     }
 
-    public async getCompletion(_cellCode: string, _offsetInCode: number, _cancelToken?: CancellationToken): Promise<INotebookCompletion> {
+    public async getCompletion(
+        _cellCode: string,
+        _offsetInCode: number,
+        _cancelToken?: CancellationToken
+    ): Promise<INotebookCompletion> {
         return Promise.resolve({
             matches: [],
             cursor: {
@@ -172,6 +237,101 @@ export class GuestJupyterNotebook
         }
     }
 
+    public getMatchingInterpreter(): PythonInterpreter | undefined {
+        return;
+    }
+
+    public getKernelSpec(): IJupyterKernelSpec | LiveKernelModel | undefined {
+        return;
+    }
+
+    public setKernelSpec(_spec: IJupyterKernelSpec | LiveKernelModel, _timeout: number): Promise<void> {
+        return Promise.resolve();
+    }
+    public getLoggers(): INotebookExecutionLogger[] {
+        return [];
+    }
+
+    public registerCommTarget(
+        _targetName: string,
+        _callback: (comm: Kernel.IComm, msg: KernelMessage.ICommOpenMsg) => void | PromiseLike<void>
+    ) {
+        noop();
+    }
+
+    public sendCommMessage(
+        buffers: (ArrayBuffer | ArrayBufferView)[],
+        content: { comm_id: string; data: JSONObject; target_name: string | undefined },
+        // tslint:disable-next-line: no-any
+        metadata: any,
+        // tslint:disable-next-line: no-any
+        msgId: any
+    ): Kernel.IShellFuture<
+        KernelMessage.IShellMessage<'comm_msg'>,
+        KernelMessage.IShellMessage<KernelMessage.ShellMessageType>
+    > {
+        const shellMessage = this.jupyterLab?.KernelMessage.createMessage<KernelMessage.ICommMsgMsg<'shell'>>({
+            // tslint:disable-next-line: no-any
+            msgType: 'comm_msg',
+            channel: 'shell',
+            buffers,
+            content,
+            metadata,
+            msgId,
+            session: '1',
+            username: '1'
+        });
+
+        return {
+            done: Promise.resolve(undefined),
+            msg: shellMessage!, // NOSONAR
+            onReply: noop,
+            onIOPub: noop,
+            onStdin: noop,
+            registerMessageHook: noop,
+            removeMessageHook: noop,
+            sendInputReply: noop,
+            isDisposed: false,
+            dispose: noop
+        };
+    }
+
+    public requestCommInfo(
+        _content: KernelMessage.ICommInfoRequestMsg['content']
+    ): Promise<KernelMessage.ICommInfoReplyMsg> {
+        const shellMessage = this.jupyterLab?.KernelMessage.createMessage<KernelMessage.ICommInfoReplyMsg>({
+            msgType: 'comm_info_reply',
+            channel: 'shell',
+            content: {
+                status: 'ok'
+                // tslint:disable-next-line: no-any
+            } as any,
+            metadata: {},
+            session: '1',
+            username: '1'
+        });
+
+        return Promise.resolve(shellMessage);
+    }
+    public registerMessageHook(
+        _msgId: string,
+        _hook: (msg: KernelMessage.IIOPubMessage) => boolean | PromiseLike<boolean>
+    ): void {
+        noop();
+    }
+    public removeMessageHook(
+        _msgId: string,
+        _hook: (msg: KernelMessage.IIOPubMessage) => boolean | PromiseLike<boolean>
+    ): void {
+        noop();
+    }
+
+    public registerIOPubListener(
+        _listener: (msg: KernelMessage.IIOPubMessage, requestId: string) => Promise<void>
+    ): void {
+        noop();
+    }
+
     private onServerResponse = (args: Object) => {
         const er = args as IExecuteObservableResponse;
         traceInfo(`Guest serverResponse ${er.pos} ${er.id}`);
@@ -179,7 +339,7 @@ export class GuestJupyterNotebook
         if (args.hasOwnProperty('type')) {
             this.responseQueue.push(args as IServerResponse);
         }
-    }
+    };
 
     // tslint:disable-next-line:no-any
     private async sendRequest(command: string, args: any[]): Promise<any> {
@@ -188,5 +348,4 @@ export class GuestJupyterNotebook
             return service.request(command, args);
         }
     }
-
 }

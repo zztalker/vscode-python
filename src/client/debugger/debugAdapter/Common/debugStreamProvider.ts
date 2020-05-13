@@ -11,7 +11,7 @@ import { IDebugStreamProvider } from '../types';
 @injectable()
 export class DebugStreamProvider implements IDebugStreamProvider {
     private server?: Server;
-    constructor(@inject(IServiceContainer) private readonly serviceContainer: IServiceContainer) { }
+    constructor(@inject(IServiceContainer) private readonly serviceContainer: IServiceContainer) {}
     public get useDebugSocketStream(): boolean {
         return this.getDebugPort() > 0;
     }
@@ -20,14 +20,17 @@ export class DebugStreamProvider implements IDebugStreamProvider {
             this.server.close();
         }
     }
-    public async getInputAndOutputStreams(): Promise<{ input: NodeJS.ReadStream | Socket; output: NodeJS.WriteStream | Socket }> {
+    public async getInputAndOutputStreams(): Promise<{
+        input: NodeJS.ReadStream | Socket;
+        output: NodeJS.WriteStream | Socket;
+    }> {
         const debugPort = this.getDebugPort();
         let debugSocket: Promise<Socket> | undefined;
 
         if (debugPort > 0) {
             // This section is what allows VS Code extension developers to attach to the current debugger.
             // Used in scenarios where extension developers would like to debug the debugger.
-            debugSocket = new Promise<Socket>(resolve => {
+            debugSocket = new Promise<Socket>((resolve) => {
                 // start as a server, and print to console in VS Code debugger for extension developer.
                 // Do not print this out when running unit tests.
                 if (!isTestExecution()) {
@@ -55,7 +58,7 @@ export class DebugStreamProvider implements IDebugStreamProvider {
 
         let debugPort = 0;
         const args = currentProcess.argv.slice(2);
-        args.forEach(val => {
+        args.forEach((val) => {
             const portMatch = /^--server=(\d{4,5})$/.exec(val);
             if (portMatch) {
                 debugPort = parseInt(portMatch[1], 10);

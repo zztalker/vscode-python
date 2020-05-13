@@ -6,6 +6,7 @@
 import { CancellationToken, Position, TextDocument, Uri } from 'vscode';
 import { Commands as LSCommands } from '../../activation/languageServer/constants';
 import { Commands as DSCommands } from '../../datascience/constants';
+import { INotebook } from '../../datascience/types';
 import { CommandSource } from '../../testing/common/constants';
 import { TestFunction, TestsToRun } from '../../testing/common/types';
 import { TestDataItem, TestWorkspaceFolder } from '../../testing/types';
@@ -21,6 +22,8 @@ export type CommandsWithoutArgs = keyof ICommandNameWithoutArgumentTypeMapping;
 interface ICommandNameWithoutArgumentTypeMapping {
     [Commands.SwitchToInsidersDaily]: [];
     [Commands.SwitchToInsidersWeekly]: [];
+    [Commands.ClearWorkspaceInterpreter]: [];
+    [Commands.ResetInterpreterSecurityStorage]: [];
     [Commands.SwitchOffInsidersChannel]: [];
     [Commands.Set_Interpreter]: [];
     [Commands.Set_ShebangInterpreter]: [];
@@ -33,6 +36,7 @@ interface ICommandNameWithoutArgumentTypeMapping {
     ['workbench.action.closeActiveEditor']: [];
     ['editor.action.formatDocument']: [];
     ['editor.action.rename']: [];
+    ['python.datascience.selectJupyterInterpreter']: [];
     [Commands.ViewOutput]: [];
     [Commands.Set_Linter]: [];
     [Commands.Start_REPL]: [];
@@ -44,6 +48,7 @@ interface ICommandNameWithoutArgumentTypeMapping {
     [Commands.Tests_Ask_To_Stop_Discovery]: [];
     [Commands.Tests_Ask_To_Stop_Test]: [];
     [Commands.Tests_Discovering]: [];
+    [Commands.PickLocalProcess]: [];
     [DSCommands.RunCurrentCell]: [];
     [DSCommands.RunCurrentCellAdvance]: [];
     [DSCommands.ExecSelectionInInteractiveWindow]: [];
@@ -80,10 +85,15 @@ interface ICommandNameWithoutArgumentTypeMapping {
 export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgumentTypeMapping {
     ['workbench.extensions.installExtension']: [Uri | 'ms-python.python'];
     ['setContext']: [string, boolean];
+    ['python.reloadVSCode']: [string];
     ['revealLine']: [{ lineNumber: number; at: 'top' | 'center' | 'bottom' }];
     ['python._loadLanguageServerExtension']: {}[];
     ['python.SelectAndInsertDebugConfiguration']: [TextDocument, Position, CancellationToken];
+    ['vscode.open']: [Uri];
     ['python.viewLanguageServerOutput']: [];
+    ['vscode.open']: [Uri];
+    ['workbench.action.files.saveAs']: [Uri];
+    ['workbench.action.files.save']: [Uri];
     [Commands.Build_Workspace_Symbols]: [boolean, CancellationToken];
     [Commands.Sort_Imports]: [undefined, Uri];
     [Commands.Exec_In_Terminal]: [undefined, Uri];
@@ -94,9 +104,20 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
     [Commands.Tests_Stop]: [undefined, Uri];
     [Commands.Test_Reveal_Test_Item]: [TestDataItem];
     // When command is invoked from a tree node, first argument is the node data.
-    [Commands.Tests_Run]: [undefined | TestWorkspaceFolder, undefined | CommandSource, undefined | Uri, undefined | TestsToRun];
+    [Commands.Tests_Run]: [
+        undefined | TestWorkspaceFolder,
+        undefined | CommandSource,
+        undefined | Uri,
+        undefined | TestsToRun
+    ];
     // When command is invoked from a tree node, first argument is the node data.
-    [Commands.Tests_Debug]: [undefined | TestWorkspaceFolder, undefined | CommandSource, undefined | Uri, undefined | TestsToRun];
+    [Commands.Tests_Debug]: [
+        undefined | TestWorkspaceFolder,
+        undefined | CommandSource,
+        undefined | Uri,
+        undefined | TestsToRun
+    ];
+    [Commands.Tests_Run_Parametrized]: [undefined, undefined | CommandSource, Uri, TestFunction[], boolean];
     // When command is invoked from a tree node, first argument is the node data.
     [Commands.Tests_Discover]: [undefined | TestWorkspaceFolder, undefined | CommandSource, undefined | Uri];
     [Commands.Tests_Run_Failed]: [undefined, CommandSource, Uri];
@@ -136,4 +157,12 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
     [DSCommands.DebugContinue]: [];
     [DSCommands.RunCurrentCellAndAddBelow]: [string];
     [DSCommands.ScrollToCell]: [string, string];
+    [DSCommands.ViewJupyterOutput]: [];
+    [DSCommands.SwitchJupyterKernel]: [INotebook | undefined];
+    [DSCommands.SelectJupyterCommandLine]: [undefined | Uri];
+    [DSCommands.SaveNotebookNonCustomEditor]: [Uri];
+    [DSCommands.SaveAsNotebookNonCustomEditor]: [Uri, Uri];
+    [DSCommands.OpenNotebookNonCustomEditor]: [Uri];
+    [DSCommands.GatherQuality]: [string];
+    [DSCommands.EnableLoadingWidgetsFrom3rdPartySource]: [undefined | never];
 }

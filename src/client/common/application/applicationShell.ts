@@ -5,7 +5,34 @@
 // tslint:disable:no-var-requires no-any unified-signatures
 
 import { injectable } from 'inversify';
-import { CancellationToken, Disposable, env, Event, InputBox, InputBoxOptions, MessageItem, MessageOptions, OpenDialogOptions, OutputChannel, Progress, ProgressOptions, QuickPick, QuickPickItem, QuickPickOptions, SaveDialogOptions, StatusBarAlignment, StatusBarItem, TreeView, TreeViewOptions, Uri, window, WindowState, WorkspaceFolder, WorkspaceFolderPickOptions } from 'vscode';
+import {
+    CancellationToken,
+    CancellationTokenSource,
+    Disposable,
+    env,
+    Event,
+    InputBox,
+    InputBoxOptions,
+    MessageItem,
+    MessageOptions,
+    OpenDialogOptions,
+    OutputChannel,
+    Progress,
+    ProgressOptions,
+    QuickPick,
+    QuickPickItem,
+    QuickPickOptions,
+    SaveDialogOptions,
+    StatusBarAlignment,
+    StatusBarItem,
+    TreeView,
+    TreeViewOptions,
+    Uri,
+    window,
+    WindowState,
+    WorkspaceFolder,
+    WorkspaceFolderPickOptions
+} from 'vscode';
 import { IApplicationShell } from './types';
 
 @injectable()
@@ -16,7 +43,11 @@ export class ApplicationShell implements IApplicationShell {
     public showInformationMessage(message: string, ...items: string[]): Thenable<string>;
     public showInformationMessage(message: string, options: MessageOptions, ...items: string[]): Thenable<string>;
     public showInformationMessage<T extends MessageItem>(message: string, ...items: T[]): Thenable<T>;
-    public showInformationMessage<T extends MessageItem>(message: string, options: MessageOptions, ...items: T[]): Thenable<T>;
+    public showInformationMessage<T extends MessageItem>(
+        message: string,
+        options: MessageOptions,
+        ...items: T[]
+    ): Thenable<T>;
     public showInformationMessage(message: string, options?: any, ...items: any[]): Thenable<any> {
         return window.showInformationMessage(message, options, ...items);
     }
@@ -24,7 +55,11 @@ export class ApplicationShell implements IApplicationShell {
     public showWarningMessage(message: string, ...items: string[]): Thenable<string>;
     public showWarningMessage(message: string, options: MessageOptions, ...items: string[]): Thenable<string>;
     public showWarningMessage<T extends MessageItem>(message: string, ...items: T[]): Thenable<T>;
-    public showWarningMessage<T extends MessageItem>(message: string, options: MessageOptions, ...items: T[]): Thenable<T>;
+    public showWarningMessage<T extends MessageItem>(
+        message: string,
+        options: MessageOptions,
+        ...items: T[]
+    ): Thenable<T>;
     public showWarningMessage(message: any, options?: any, ...items: any[]) {
         return window.showWarningMessage(message, options, ...items);
     }
@@ -32,13 +67,25 @@ export class ApplicationShell implements IApplicationShell {
     public showErrorMessage(message: string, ...items: string[]): Thenable<string>;
     public showErrorMessage(message: string, options: MessageOptions, ...items: string[]): Thenable<string>;
     public showErrorMessage<T extends MessageItem>(message: string, ...items: T[]): Thenable<T>;
-    public showErrorMessage<T extends MessageItem>(message: string, options: MessageOptions, ...items: T[]): Thenable<T>;
+    public showErrorMessage<T extends MessageItem>(
+        message: string,
+        options: MessageOptions,
+        ...items: T[]
+    ): Thenable<T>;
     public showErrorMessage(message: any, options?: any, ...items: any[]) {
         return window.showErrorMessage(message, options, ...items);
     }
 
-    public showQuickPick(items: string[] | Thenable<string[]>, options?: QuickPickOptions, token?: CancellationToken): Thenable<string>;
-    public showQuickPick<T extends QuickPickItem>(items: T[] | Thenable<T[]>, options?: QuickPickOptions, token?: CancellationToken): Thenable<T>;
+    public showQuickPick(
+        items: string[] | Thenable<string[]>,
+        options?: QuickPickOptions,
+        token?: CancellationToken
+    ): Thenable<string>;
+    public showQuickPick<T extends QuickPickItem>(
+        items: T[] | Thenable<T[]>,
+        options?: QuickPickOptions,
+        token?: CancellationToken
+    ): Thenable<T>;
     public showQuickPick(items: any, options?: any, token?: any): Thenable<any> {
         return window.showQuickPick(items, options, token);
     }
@@ -69,8 +116,28 @@ export class ApplicationShell implements IApplicationShell {
     public showWorkspaceFolderPick(options?: WorkspaceFolderPickOptions): Thenable<WorkspaceFolder | undefined> {
         return window.showWorkspaceFolderPick(options);
     }
-    public withProgress<R>(options: ProgressOptions, task: (progress: Progress<{ message?: string; increment?: number }>, token: CancellationToken) => Thenable<R>): Thenable<R> {
+    public withProgress<R>(
+        options: ProgressOptions,
+        task: (progress: Progress<{ message?: string; increment?: number }>, token: CancellationToken) => Thenable<R>
+    ): Thenable<R> {
         return window.withProgress<R>(options, task);
+    }
+    public withProgressCustomIcon<R>(
+        icon: string,
+        task: (progress: Progress<{ message?: string; increment?: number }>, token: CancellationToken) => Thenable<R>
+    ): Thenable<R> {
+        const token = new CancellationTokenSource().token;
+        const statusBarProgress = this.createStatusBarItem(StatusBarAlignment.Left);
+        const progress = {
+            report: (value: { message?: string; increment?: number }) => {
+                statusBarProgress.text = `${icon} ${value.message}`;
+            }
+        };
+        statusBarProgress.show();
+        return task(progress, token).then((result) => {
+            statusBarProgress.dispose();
+            return result;
+        });
     }
     public createQuickPick<T extends QuickPickItem>(): QuickPick<T> {
         return window.createQuickPick<T>();

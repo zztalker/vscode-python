@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { fsExistsAsync } from '../common/utils/fs';
+import { IFileSystem } from '../common/platform/types';
 import { ITag } from './contracts';
 
 // tslint:disable:no-require-imports no-var-requires no-suspicious-comment
@@ -81,14 +81,14 @@ CTagKinMapping.set('_subroutine', vscode.SymbolKind.Method);
 CTagKinMapping.set('_subroutines', vscode.SymbolKind.Method);
 CTagKinMapping.set('_types', vscode.SymbolKind.Class);
 CTagKinMapping.set('_programs', vscode.SymbolKind.Class);
-CTagKinMapping.set('_Object\'s method', vscode.SymbolKind.Method);
+CTagKinMapping.set("_Object's method", vscode.SymbolKind.Method);
 CTagKinMapping.set('_Module or functor', vscode.SymbolKind.Module);
 CTagKinMapping.set('_Global variable', vscode.SymbolKind.Variable);
 CTagKinMapping.set('_Type name', vscode.SymbolKind.Class);
 CTagKinMapping.set('_A function', vscode.SymbolKind.Function);
 CTagKinMapping.set('_A constructor', vscode.SymbolKind.Constructor);
 CTagKinMapping.set('_An exception', vscode.SymbolKind.Class);
-CTagKinMapping.set('_A \'structure\' field', vscode.SymbolKind.Field);
+CTagKinMapping.set("_A 'structure' field", vscode.SymbolKind.Field);
 CTagKinMapping.set('_procedure', vscode.SymbolKind.Function);
 CTagKinMapping.set('_procedures', vscode.SymbolKind.Function);
 CTagKinMapping.set('_constant definitions', vscode.SymbolKind.Constant);
@@ -99,7 +99,7 @@ const newValuesAndKeys = {};
 CTagKinMapping.forEach((value, key) => {
     (newValuesAndKeys as any)[key.substring(1)] = value;
 });
-Object.keys(newValuesAndKeys).forEach(key => {
+Object.keys(newValuesAndKeys).forEach((key) => {
     CTagKinMapping.set(key, (newValuesAndKeys as any)[key]);
 });
 
@@ -107,9 +107,10 @@ export function parseTags(
     workspaceFolder: string,
     tagFile: string,
     query: string,
-    token: vscode.CancellationToken
+    token: vscode.CancellationToken,
+    fs: IFileSystem
 ): Promise<ITag[]> {
-    return fsExistsAsync(tagFile).then(exists => {
+    return fs.fileExists(tagFile).then((exists) => {
         if (!exists) {
             return Promise.resolve([]);
         }

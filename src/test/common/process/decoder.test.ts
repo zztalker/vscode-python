@@ -32,5 +32,4 @@ suite('Decoder', () => {
         decodedValue = decoder.decode([buffer], 'cp866');
         expect(decodedValue).equal(value, 'Decoded string is incorrect');
     });
-
 });

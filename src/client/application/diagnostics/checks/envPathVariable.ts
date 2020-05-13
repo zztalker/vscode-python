@@ -17,8 +17,8 @@ import { DiagnosticCommandPromptHandlerServiceId, MessageCommandPrompt } from '.
 import { DiagnosticScope, IDiagnostic, IDiagnosticHandlerService } from '../types';
 
 const InvalidEnvPathVariableMessage =
-    'The environment variable \'{0}\' seems to have some paths containing the \'"\' character.' +
-    ' The existence of such a character is known to have caused the {1} extension to not load. If the extension fails to load please modify your paths to remove this \'"\' character.';
+    "The environment variable '{0}' seems to have some paths containing the '\"' character." +
+    " The existence of such a character is known to have caused the {1} extension to not load. If the extension fails to load please modify your paths to remove this '\"' character.";
 
 export class InvalidEnvironmentPathVariableDiagnostic extends BaseDiagnostic {
     constructor(message: string, resource: Resource) {
@@ -38,8 +38,10 @@ export const EnvironmentPathVariableDiagnosticsServiceId = 'EnvironmentPathVaria
 export class EnvironmentPathVariableDiagnosticsService extends BaseDiagnosticsService {
     protected readonly messageService: IDiagnosticHandlerService<MessageCommandPrompt>;
     private readonly platform: IPlatformService;
-    constructor(@inject(IServiceContainer) serviceContainer: IServiceContainer,
-        @inject(IDisposableRegistry) disposableRegistry: IDisposableRegistry) {
+    constructor(
+        @inject(IServiceContainer) serviceContainer: IServiceContainer,
+        @inject(IDisposableRegistry) disposableRegistry: IDisposableRegistry
+    ) {
         super([DiagnosticCodes.InvalidEnvironmentPathVariableDiagnostic], serviceContainer, disposableRegistry, true);
         this.platform = this.serviceContainer.get<IPlatformService>(IPlatformService);
         this.messageService = serviceContainer.get<IDiagnosticHandlerService<MessageCommandPrompt>>(
@@ -87,6 +89,6 @@ export class EnvironmentPathVariableDiagnosticsService extends BaseDiagnosticsSe
         const pathValue = currentProc.env[this.platform.pathVariableName];
         const pathSeparator = this.serviceContainer.get<IPathUtils>(IPathUtils).delimiter;
         const paths = (pathValue || '').split(pathSeparator);
-        return paths.filter(item => item.indexOf('"') >= 0).length > 0;
+        return paths.filter((item) => item.indexOf('"') >= 0).length > 0;
     }
 }

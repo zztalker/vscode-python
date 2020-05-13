@@ -19,7 +19,7 @@ suite('Application Diagnostics - Exec VSC Commands', () => {
         const serviceContainer = typemoq.Mock.ofType<IServiceContainer>();
         commandManager = typemoq.Mock.ofType<ICommandManager>();
         serviceContainer
-            .setup(svc => svc.get<ICommandManager>(typemoq.It.isValue(ICommandManager), typemoq.It.isAny()))
+            .setup((svc) => svc.get<ICommandManager>(typemoq.It.isValue(ICommandManager), typemoq.It.isAny()))
             .returns(() => commandManager.object);
         commandFactory = new DiagnosticsCommandFactory(serviceContainer.object);
     });
@@ -27,18 +27,24 @@ suite('Application Diagnostics - Exec VSC Commands', () => {
     test('Test creation of VSC Command', async () => {
         const diagnostic = typemoq.Mock.ofType<IDiagnostic>();
 
-        const command = commandFactory.createCommand(diagnostic.object, { type: 'executeVSCCommand', options: 'editor.action.formatDocument' });
+        const command = commandFactory.createCommand(diagnostic.object, {
+            type: 'executeVSCCommand',
+            options: 'editor.action.formatDocument'
+        });
         expect(command).to.be.instanceOf(ExecuteVSCCommand);
     });
 
     test('Test execution of VSC Command', async () => {
         const diagnostic = typemoq.Mock.ofType<IDiagnostic>();
         commandManager
-            .setup(cmd => cmd.executeCommand('editor.action.formatDocument'))
+            .setup((cmd) => cmd.executeCommand('editor.action.formatDocument'))
             .returns(() => Promise.resolve(undefined))
             .verifiable(typemoq.Times.once());
 
-        const command = commandFactory.createCommand(diagnostic.object, { type: 'executeVSCCommand', options: 'editor.action.formatDocument' });
+        const command = commandFactory.createCommand(diagnostic.object, {
+            type: 'executeVSCCommand',
+            options: 'editor.action.formatDocument'
+        });
         await command.invoke();
 
         expect(command).to.be.instanceOf(ExecuteVSCCommand);

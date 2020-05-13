@@ -8,7 +8,7 @@
 import * as glob from 'glob';
 import * as Mocha from 'mocha';
 import * as path from 'path';
-import { IS_SMOKE_TEST } from './constants';
+import { IS_SMOKE_TEST, MAX_EXTENSION_ACTIVATION_TIME } from './constants';
 import { initialize } from './initialize';
 
 // Linux: prevent a weird NPE when mocha on Linux requires the window size from the TTY.
@@ -66,10 +66,10 @@ export async function run(): Promise<void> {
      * @returns
      */
     function initializationScript() {
-        const ex = new Error('Failed to initialize Python extension for tests after 2 minutes');
+        const ex = new Error('Failed to initialize Python extension for tests after 3 minutes');
         let timer: NodeJS.Timer | undefined;
         const failed = new Promise((_, reject) => {
-            timer = setTimeout(() => reject(ex), 120_000);
+            timer = setTimeout(() => reject(ex), MAX_EXTENSION_ACTIVATION_TIME);
         });
         const promise = Promise.race([initialize(), failed]);
         promise.then(() => clearTimeout(timer!)).catch(() => clearTimeout(timer!));
@@ -77,18 +77,26 @@ export async function run(): Promise<void> {
     }
     // Run the tests.
     await new Promise<void>((resolve, reject) => {
-        glob(`**/**.${testFilesGlob}.js`, { ignore: ['**/**.unit.test.js', '**/**.functional.test.js'], cwd: testsRoot }, (error, files) => {
-            if (error) {
-                return reject(error);
+        glob(
+            `**/**.${testFilesGlob}.js`,
+            { ignore: ['**/**.unit.test.js', '**/**.functional.test.js'], cwd: testsRoot },
+            (error, files) => {
+                if (error) {
+                    return reject(error);
+                }
+                try {
+                    files.forEach((file) => mocha.addFile(path.join(testsRoot, file)));
+                    initializationScript()
+                        .then(() =>
+                            mocha.run((failures) =>
+                                failures > 0 ? reject(new Error(`${failures} total failures`)) : resolve()
+                            )
+                        )
+                        .catch(reject);
+                } catch (error) {
+                    return reject(error);
+                }
             }
-            try {
-                files.forEach(file => mocha.addFile(path.join(testsRoot, file)));
-                initializationScript()
-                    .then(() => mocha.run(failures => (failures > 0 ? reject(new Error(`${failures} total failures`)) : resolve())))
-                    .catch(reject);
-            } catch (error) {
-                return reject(error);
-            }
-        });
+        );
     });
 }

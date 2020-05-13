@@ -3,18 +3,52 @@
 import * as assert from 'assert';
 import * as fs from 'fs-extra';
 import * as path from 'path';
-import { commands, Position, Range, Selection, TextEditorCursorStyle, TextEditorLineNumbersStyle, TextEditorOptions, Uri, window, workspace } from 'vscode';
+import {
+    commands,
+    Position,
+    Range,
+    Selection,
+    TextEditorCursorStyle,
+    TextEditorLineNumbersStyle,
+    TextEditorOptions,
+    Uri,
+    window,
+    workspace
+} from 'vscode';
 import { getTextEditsFromPatch } from '../../client/common/editor';
+import { IPythonExecutionFactory, IPythonExecutionService } from '../../client/common/process/types';
+import { ICondaService } from '../../client/interpreter/contracts';
+import { CondaService } from '../../client/interpreter/locators/services/condaService';
 import { extractVariable } from '../../client/providers/simpleRefactorProvider';
 import { RefactorProxy } from '../../client/refactor/proxy';
-import { getExtensionSettings, isPythonVersion } from '../common';
+import { isPythonVersion } from '../common';
 import { UnitTestIocContainer } from '../testing/serviceRegistry';
 import { closeActiveWindows, initialize, initializeTest, IS_CI_SERVER } from './../initialize';
 import { MockOutputChannel } from './../mockClasses';
 
-const EXTENSION_DIR = path.join(__dirname, '..', '..', '..');
-const refactorSourceFile = path.join(__dirname, '..', '..', '..', 'src', 'test', 'pythonFiles', 'refactoring', 'standAlone', 'refactor.py');
-const refactorTargetFileDir = path.join(__dirname, '..', '..', '..', 'out', 'test', 'pythonFiles', 'refactoring', 'standAlone');
+const refactorSourceFile = path.join(
+    __dirname,
+    '..',
+    '..',
+    '..',
+    'src',
+    'test',
+    'pythonFiles',
+    'refactoring',
+    'standAlone',
+    'refactor.py'
+);
+const refactorTargetFileDir = path.join(
+    __dirname,
+    '..',
+    '..',
+    '..',
+    'out',
+    'test',
+    'pythonFiles',
+    'refactoring',
+    'standAlone'
+);
 
 interface RenameResponse {
     results: [{ diff: string }];
@@ -23,7 +57,12 @@ interface RenameResponse {
 suite('Variable Extraction', () => {
     // Hack hac hack
     const oldExecuteCommand = commands.executeCommand;
-    const options: TextEditorOptions = { cursorStyle: TextEditorCursorStyle.Line, insertSpaces: true, lineNumbers: TextEditorLineNumbersStyle.Off, tabSize: 4 };
+    const options: TextEditorOptions = {
+        cursorStyle: TextEditorCursorStyle.Line,
+        insertSpaces: true,
+        lineNumbers: TextEditorLineNumbersStyle.Off,
+        tabSize: 4
+    };
     let refactorTargetFile = '';
     let ioc: UnitTestIocContainer;
     suiteSetup(initialize);
@@ -42,35 +81,57 @@ suite('Variable Extraction', () => {
         commands.executeCommand = oldExecuteCommand;
         try {
             await fs.unlink(refactorTargetFile);
-        } catch { }
+        } catch {}
         await closeActiveWindows();
     });
-
     function initializeDI() {
         ioc = new UnitTestIocContainer();
         ioc.registerCommonTypes();
         ioc.registerProcessTypes();
         ioc.registerVariableTypes();
+        ioc.registerInterpreterStorageTypes();
+        ioc.registerMockInterpreterTypes();
+
+        ioc.serviceManager.addSingleton<ICondaService>(ICondaService, CondaService);
+    }
+    function createPythonExecGetter(workspaceRoot: string): () => Promise<IPythonExecutionService> {
+        return async () => {
+            const factory = ioc.serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
+            return factory.create({ resource: Uri.file(workspaceRoot) });
+        };
     }
 
-    async function testingVariableExtraction(shouldError: boolean, startPos: Position, endPos: Position): Promise<void> {
-        const pythonSettings = getExtensionSettings(Uri.file(refactorTargetFile));
+    async function testingVariableExtraction(
+        shouldError: boolean,
+        startPos: Position,
+        endPos: Position
+    ): Promise<void> {
         const rangeOfTextToExtract = new Range(startPos, endPos);
-        const proxy = new RefactorProxy(EXTENSION_DIR, pythonSettings, path.dirname(refactorTargetFile), ioc.serviceContainer);
+        const workspaceRoot = path.dirname(refactorTargetFile);
+        const proxy = new RefactorProxy(workspaceRoot, createPythonExecGetter(workspaceRoot));
 
-        const DIFF = '--- a/refactor.py\n+++ b/refactor.py\n@@ -232,7 +232,8 @@\n         sys.stdout.flush()\n \n     def watch(self):\n-        self._write_response("STARTED")\n+        myNewVariable = "STARTED"\n+        self._write_response(myNewVariable)\n         while True:\n             try:\n                 self._process_request(self._input.readline())\n';
+        const DIFF =
+            '--- a/refactor.py\n+++ b/refactor.py\n@@ -232,7 +232,8 @@\n         sys.stdout.flush()\n \n     def watch(self):\n-        self._write_response("STARTED")\n+        myNewVariable = "STARTED"\n+        self._write_response(myNewVariable)\n         while True:\n             try:\n                 self._process_request(self._input.readline())\n';
         const mockTextDoc = await workspace.openTextDocument(refactorTargetFile);
         const expectedTextEdits = getTextEditsFromPatch(mockTextDoc.getText(), DIFF);
         try {
-            const response = await proxy.extractVariable<RenameResponse>(mockTextDoc, 'myNewVariable', refactorTargetFile, rangeOfTextToExtract, options);
+            const response = await proxy.extractVariable<RenameResponse>(
+                mockTextDoc,
+                'myNewVariable',
+                refactorTargetFile,
+                rangeOfTextToExtract,
+                options
+            );
             if (shouldError) {
                 assert.fail('No error', 'Error', 'Extraction should fail with an error', '');
             }
             const textEdits = getTextEditsFromPatch(mockTextDoc.getText(), DIFF);
             assert.equal(response.results.length, 1, 'Invalid number of items in response');
             assert.equal(textEdits.length, expectedTextEdits.length, 'Invalid number of Text Edits');
-            textEdits.forEach(edit => {
-                const foundEdit = expectedTextEdits.filter(item => item.newText === edit.newText && item.range.isEqual(edit.range));
+            textEdits.forEach((edit) => {
+                const foundEdit = expectedTextEdits.filter(
+                    (item) => item.newText === edit.newText && item.range.isEqual(edit.range)
+                );
                 assert.equal(foundEdit.length, 1, 'Edit not found');
             });
         } catch (error) {
@@ -98,7 +159,11 @@ suite('Variable Extraction', () => {
         await testingVariableExtraction(true, startPos, endPos);
     });
 
-    async function testingVariableExtractionEndToEnd(shouldError: boolean, startPos: Position, endPos: Position): Promise<void> {
+    async function testingVariableExtractionEndToEnd(
+        shouldError: boolean,
+        startPos: Position,
+        endPos: Position
+    ): Promise<void> {
         const ch = new MockOutputChannel('Python');
         const rangeOfTextToExtract = new Range(startPos, endPos);
 
@@ -108,7 +173,7 @@ suite('Variable Extraction', () => {
         editor.selections = [new Selection(rangeOfTextToExtract.start, rangeOfTextToExtract.end)];
         editor.selection = new Selection(rangeOfTextToExtract.start, rangeOfTextToExtract.end);
         try {
-            await extractVariable(EXTENSION_DIR, editor, rangeOfTextToExtract, ch, ioc.serviceContainer);
+            await extractVariable(editor, rangeOfTextToExtract, ch, ioc.serviceContainer);
             if (shouldError) {
                 assert.fail('No error', 'Error', 'Extraction should fail with an error', '');
             }
@@ -128,13 +193,15 @@ suite('Variable Extraction', () => {
     }
 
     // This test fails on linux (text document not getting updated in time)
-    if (!IS_CI_SERVER) {
-        test('Extract Variable (end to end)', async () => {
-            const startPos = new Position(234, 29);
-            const endPos = new Position(234, 38);
-            await testingVariableExtractionEndToEnd(false, startPos, endPos);
-        });
-    }
+    test('Extract Variable (end to end)', async function () {
+        if (!IS_CI_SERVER) {
+            // tslint:disable-next-line:no-invalid-this
+            return this.skip();
+        }
+        const startPos = new Position(234, 29);
+        const endPos = new Position(234, 38);
+        await testingVariableExtractionEndToEnd(false, startPos, endPos);
+    });
 
     test('Extract Variable fails if whole string not selected (end to end)', async () => {
         const startPos = new Position(234, 20);

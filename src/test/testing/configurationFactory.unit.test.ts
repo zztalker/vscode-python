@@ -13,9 +13,7 @@ import { TEST_OUTPUT_CHANNEL } from '../../client/testing/common/constants';
 import { TestConfigurationManagerFactory } from '../../client/testing/configurationFactory';
 import * as nose from '../../client/testing/nosetest/testConfigurationManager';
 import * as pytest from '../../client/testing/pytest/testConfigurationManager';
-import {
-    ITestConfigSettingsService, ITestConfigurationManagerFactory
-} from '../../client/testing/types';
+import { ITestConfigSettingsService, ITestConfigurationManagerFactory } from '../../client/testing/types';
 import * as unittest from '../../client/testing/unittest/testConfigurationManager';
 
 use(chaiAsPromised);
@@ -28,9 +26,13 @@ suite('Unit Tests - ConfigurationManagerFactory', () => {
         const installer = typeMoq.Mock.ofType<IInstaller>();
         const testConfigService = typeMoq.Mock.ofType<ITestConfigSettingsService>();
 
-        serviceContainer.setup(c => c.get(typeMoq.It.isValue(IOutputChannel), typeMoq.It.isValue(TEST_OUTPUT_CHANNEL))).returns(() => outputChannel.object);
-        serviceContainer.setup(c => c.get(typeMoq.It.isValue(IInstaller))).returns(() => installer.object);
-        serviceContainer.setup(c => c.get(typeMoq.It.isValue(ITestConfigSettingsService))).returns(() => testConfigService.object);
+        serviceContainer
+            .setup((c) => c.get(typeMoq.It.isValue(IOutputChannel), typeMoq.It.isValue(TEST_OUTPUT_CHANNEL)))
+            .returns(() => outputChannel.object);
+        serviceContainer.setup((c) => c.get(typeMoq.It.isValue(IInstaller))).returns(() => installer.object);
+        serviceContainer
+            .setup((c) => c.get(typeMoq.It.isValue(ITestConfigSettingsService)))
+            .returns(() => testConfigService.object);
         factory = new TestConfigurationManagerFactory(serviceContainer.object);
     });
     test('Create Unit Test Configuration', async () => {

@@ -3,12 +3,11 @@
 
 'use strict';
 
-import * as fs from 'fs';
 import * as path from 'path';
-import { promisify } from 'util';
 import { WorkspaceConfiguration } from 'vscode';
 import './common/extensions';
 import { traceError } from './common/logger';
+import { FileSystem } from './common/platform/fileSystem';
 import { EXTENSION_ROOT_DIR } from './constants';
 
 type VSCode = typeof import('vscode');
@@ -26,9 +25,10 @@ export class SourceMapSupport {
             return;
         }
         await this.enableSourceMaps(true);
+        require('source-map-support').install();
         const localize = require('./common/utils/localize') as typeof import('./common/utils/localize');
         const disable = localize.Diagnostics.disableSourceMaps();
-        this.vscode.window.showWarningMessage(localize.Diagnostics.warnSourceMaps(), disable).then(selection => {
+        this.vscode.window.showWarningMessage(localize.Diagnostics.warnSourceMaps(), disable).then((selection) => {
             if (selection === disable) {
                 this.disable().ignoreErrors();
             }
@@ -45,8 +45,18 @@ export class SourceMapSupport {
     }
     protected async enableSourceMaps(enable: boolean) {
         const extensionSourceFile = path.join(EXTENSION_ROOT_DIR, 'out', 'client', 'extension.js');
-        const debuggerSourceFile = path.join(EXTENSION_ROOT_DIR, 'out', 'client', 'debugger', 'debugAdapter', 'main.js');
-        await Promise.all([this.enableSourceMap(enable, extensionSourceFile), this.enableSourceMap(enable, debuggerSourceFile)]);
+        const debuggerSourceFile = path.join(
+            EXTENSION_ROOT_DIR,
+            'out',
+            'client',
+            'debugger',
+            'debugAdapter',
+            'main.js'
+        );
+        await Promise.all([
+            this.enableSourceMap(enable, extensionSourceFile),
+            this.enableSourceMap(enable, debuggerSourceFile)
+        ]);
     }
     protected async enableSourceMap(enable: boolean, sourceFile: string) {
         const sourceMapFile = `${sourceFile}.map`;
@@ -58,12 +68,11 @@ export class SourceMapSupport {
         }
     }
     protected async rename(sourceFile: string, targetFile: string) {
-        const fsExists = promisify(fs.exists);
-        const fsRename = promisify(fs.rename);
-        if (await fsExists(targetFile)) {
+        const fs = new FileSystem();
+        if (await fs.fileExists(targetFile)) {
             return;
         }
-        await fsRename(sourceFile, targetFile);
+        await fs.move(sourceFile, targetFile);
     }
 }
 export function initialize(vscode: VSCode = require('vscode')) {
@@ -71,7 +80,7 @@ export function initialize(vscode: VSCode = require('vscode')) {
         new SourceMapSupport(vscode).disable().ignoreErrors();
         return;
     }
-    new SourceMapSupport(vscode).initialize().catch(_ex => {
+    new SourceMapSupport(vscode).initialize().catch((_ex) => {
         traceError('Failed to initialize source map support in extension');
     });
 }

@@ -19,13 +19,14 @@ export class DebugEnvironmentVariablesHelper implements IDebugEnvironmentVariabl
         @inject(IEnvironmentVariablesService) private envParser: IEnvironmentVariablesService,
         @inject(IPathUtils) private pathUtils: IPathUtils,
         @inject(ICurrentProcess) private process: ICurrentProcess
-    ) { }
+    ) {}
     public async getEnvironmentVariables(args: LaunchRequestArguments): Promise<EnvironmentVariables> {
         const pathVariableName = this.pathUtils.getPathVariableName();
 
         // Merge variables from both .env file and env json variables.
-        // tslint:disable-next-line:no-any
-        const debugLaunchEnvVars: Record<string, string> = (args.env && Object.keys(args.env).length > 0) ? { ...args.env } as any : {} as any;
+        const debugLaunchEnvVars: Record<string, string> =
+            // tslint:disable-next-line:no-any
+            args.env && Object.keys(args.env).length > 0 ? ({ ...args.env } as any) : ({} as any);
         const envFileVars = await this.envParser.parseFile(args.envFile, debugLaunchEnvVars);
         const env = envFileVars ? { ...envFileVars! } : {};
         this.envParser.mergeVariables(debugLaunchEnvVars, env);
@@ -46,7 +47,7 @@ export class DebugEnvironmentVariablesHelper implements IDebugEnvironmentVariabl
             this.envParser.appendPythonPath(env, this.process.env.PYTHONPATH!);
         }
 
-        if (typeof args.console !== 'string' || args.console === 'internalConsole') {
+        if (args.console === 'internalConsole') {
             // For debugging, when not using any terminal, then we need to provide all env variables.
             // As we're spawning the process, we need to ensure all env variables are passed.
             // Including those from the current process (i.e. everything, not just custom vars).
@@ -68,7 +69,7 @@ export class DebugEnvironmentVariablesHelper implements IDebugEnvironmentVariabl
         }
 
         if (args.gevent) {
-            env.GEVENT_SUPPORT = 'True';  // this is read in pydevd_constants.py
+            env.GEVENT_SUPPORT = 'True'; // this is read in pydevd_constants.py
         }
 
         return env;

@@ -9,7 +9,7 @@ import { InteractiveWindow } from '../../client/datascience/interactive-window/i
 import { InteractiveWindowProvider } from '../../client/datascience/interactive-window/interactiveWindowProvider';
 import { JupyterExecutionFactory } from '../../client/datascience/jupyter/jupyterExecutionFactory';
 import { JupyterImporter } from '../../client/datascience/jupyter/jupyterImporter';
-import { JupyterServerFactory } from '../../client/datascience/jupyter/jupyterServerFactory';
+import { JupyterServerWrapper } from '../../client/datascience/jupyter/jupyterServerWrapper';
 import {
     ICodeCssGenerator,
     IInteractiveWindow,
@@ -18,6 +18,16 @@ import {
     INotebookImporter,
     INotebookServer
 } from '../../client/datascience/types';
+import { InterpreterEvaluation } from '../../client/interpreter/autoSelection/interpreterSecurity/interpreterEvaluation';
+import { InterpreterSecurityService } from '../../client/interpreter/autoSelection/interpreterSecurity/interpreterSecurityService';
+import { InterpreterSecurityStorage } from '../../client/interpreter/autoSelection/interpreterSecurity/interpreterSecurityStorage';
+import {
+    IInterpreterEvaluation,
+    IInterpreterSecurityService,
+    IInterpreterSecurityStorage
+} from '../../client/interpreter/autoSelection/types';
+import { IInterpreterHelper } from '../../client/interpreter/contracts';
+import { InterpreterHelper } from '../../client/interpreter/helpers';
 import { IServiceContainer } from '../../client/ioc/types';
 import { NOSETEST_PROVIDER, PYTEST_PROVIDER, UNITTEST_PROVIDER } from '../../client/testing/common/constants';
 import { TestContextService } from '../../client/testing/common/services/contextService';
@@ -55,9 +65,7 @@ import { TestManager as PyTestTestManager } from '../../client/testing/pytest/ma
 import { TestDiscoveryService as PytestTestDiscoveryService } from '../../client/testing/pytest/services/discoveryService';
 import { ITestDiagnosticService } from '../../client/testing/types';
 import { TestManager as UnitTestTestManager } from '../../client/testing/unittest/main';
-import {
-    TestDiscoveryService as UnitTestTestDiscoveryService
-} from '../../client/testing/unittest/services/discoveryService';
+import { TestDiscoveryService as UnitTestTestDiscoveryService } from '../../client/testing/unittest/services/discoveryService';
 import { TestsParser as UnitTestTestsParser } from '../../client/testing/unittest/services/parserService';
 import { getPythonSemVer } from '../common';
 import { IocContainer } from '../serviceRegistry';
@@ -81,12 +89,18 @@ export class UnitTestIocContainer extends IocContainer {
     public registerTestVisitors() {
         this.serviceManager.add<ITestVisitor>(ITestVisitor, TestFlatteningVisitor, 'TestFlatteningVisitor');
         this.serviceManager.add<ITestVisitor>(ITestVisitor, TestResultResetVisitor, 'TestResultResetVisitor');
-        this.serviceManager.addSingleton<ITestsStatusUpdaterService>(ITestsStatusUpdaterService, TestsStatusUpdaterService);
+        this.serviceManager.addSingleton<ITestsStatusUpdaterService>(
+            ITestsStatusUpdaterService,
+            TestsStatusUpdaterService
+        );
         this.serviceManager.addSingleton<ITestContextService>(ITestContextService, TestContextService);
     }
 
     public registerTestStorage() {
-        this.serviceManager.addSingleton<ITestCollectionStorageService>(ITestCollectionStorageService, TestCollectionStorageService);
+        this.serviceManager.addSingleton<ITestCollectionStorageService>(
+            ITestCollectionStorageService,
+            TestCollectionStorageService
+        );
     }
 
     public registerTestsHelper() {
@@ -103,9 +117,21 @@ export class UnitTestIocContainer extends IocContainer {
     }
 
     public registerTestDiscoveryServices() {
-        this.serviceManager.add<ITestDiscoveryService>(ITestDiscoveryService, UnitTestTestDiscoveryService, UNITTEST_PROVIDER);
-        this.serviceManager.add<ITestDiscoveryService>(ITestDiscoveryService, PytestTestDiscoveryService, PYTEST_PROVIDER);
-        this.serviceManager.add<ITestDiscoveryService>(ITestDiscoveryService, NoseTestDiscoveryService, NOSETEST_PROVIDER);
+        this.serviceManager.add<ITestDiscoveryService>(
+            ITestDiscoveryService,
+            UnitTestTestDiscoveryService,
+            UNITTEST_PROVIDER
+        );
+        this.serviceManager.add<ITestDiscoveryService>(
+            ITestDiscoveryService,
+            PytestTestDiscoveryService,
+            PYTEST_PROVIDER
+        );
+        this.serviceManager.add<ITestDiscoveryService>(
+            ITestDiscoveryService,
+            NoseTestDiscoveryService,
+            NOSETEST_PROVIDER
+        );
         this.serviceManager.add<ITestDiscoveryService>(ITestDiscoveryService, TestsDiscoveryService, 'common');
         this.serviceManager.add<ITestDiscoveredTestParser>(ITestDiscoveredTestParser, TestDiscoveredTestParser);
     }
@@ -137,6 +163,13 @@ export class UnitTestIocContainer extends IocContainer {
         });
     }
 
+    public registerInterpreterStorageTypes() {
+        this.serviceManager.add<IInterpreterSecurityStorage>(IInterpreterSecurityStorage, InterpreterSecurityStorage);
+        this.serviceManager.add<IInterpreterSecurityService>(IInterpreterSecurityService, InterpreterSecurityService);
+        this.serviceManager.add<IInterpreterEvaluation>(IInterpreterEvaluation, InterpreterEvaluation);
+        this.serviceManager.add<IInterpreterHelper>(IInterpreterHelper, InterpreterHelper);
+    }
+
     public registerTestManagerService() {
         this.serviceManager.addFactory<ITestManagerService>(ITestManagerServiceFactory, (context) => {
             return (workspaceFolder: Uri) => {
@@ -153,10 +186,13 @@ export class UnitTestIocContainer extends IocContainer {
 
     public registerDataScienceTypes() {
         this.serviceManager.addSingleton<IJupyterExecution>(IJupyterExecution, JupyterExecutionFactory);
-        this.serviceManager.addSingleton<IInteractiveWindowProvider>(IInteractiveWindowProvider, InteractiveWindowProvider);
+        this.serviceManager.addSingleton<IInteractiveWindowProvider>(
+            IInteractiveWindowProvider,
+            InteractiveWindowProvider
+        );
         this.serviceManager.add<IInteractiveWindow>(IInteractiveWindow, InteractiveWindow);
         this.serviceManager.add<INotebookImporter>(INotebookImporter, JupyterImporter);
-        this.serviceManager.add<INotebookServer>(INotebookServer, JupyterServerFactory);
+        this.serviceManager.add<INotebookServer>(INotebookServer, JupyterServerWrapper);
         this.serviceManager.addSingleton<ICodeCssGenerator>(ICodeCssGenerator, CodeCssGenerator);
     }
 }

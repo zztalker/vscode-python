@@ -6,8 +6,20 @@
 import { expect } from 'chai';
 import * as path from 'path';
 import * as typemoq from 'typemoq';
-import { CancellationToken, CancellationTokenSource, Range, SymbolInformation, SymbolKind, TextDocument, Uri } from 'vscode';
-import { ExecutionResult, IPythonExecutionFactory, IPythonExecutionService } from '../../../client/common/process/types';
+import {
+    CancellationToken,
+    CancellationTokenSource,
+    Range,
+    SymbolInformation,
+    SymbolKind,
+    TextDocument,
+    Uri
+} from 'vscode';
+import {
+    ExecutionResult,
+    IPythonExecutionFactory,
+    IPythonExecutionService
+} from '../../../client/common/process/types';
 import { IDocumentSymbolProvider } from '../../../client/common/types';
 import { EXTENSION_ROOT_DIR } from '../../../client/constants';
 import { TestFileSymbolProvider } from '../../../client/testing/navigation/symbolProvider';
@@ -31,13 +43,15 @@ suite('Unit Tests - Navigation Command Handler', () => {
         // so we need to mock the `then` on the service.
         pythonService.setup((x: any) => x.then).returns(() => undefined);
 
-        pythonExecFactory.setup(factory => factory.create(typemoq.It.isAny())).returns(async () => pythonService.object);
+        pythonExecFactory
+            .setup((factory) => factory.create(typemoq.It.isAny()))
+            .returns(async () => pythonService.object);
 
         doc = typemoq.Mock.ofType<TextDocument>();
         token = new CancellationTokenSource().token;
     });
     test('Ensure no symbols are returned when file has not been saved', async () => {
-        doc.setup(d => d.isUntitled)
+        doc.setup((d) => d.isUntitled)
             .returns(() => true)
             .verifiable(typemoq.Times.once());
 
@@ -48,18 +62,18 @@ suite('Unit Tests - Navigation Command Handler', () => {
         doc.verifyAll();
     });
     test('Ensure no symbols are returned when there are errors in running the code', async () => {
-        doc.setup(d => d.isUntitled)
+        doc.setup((d) => d.isUntitled)
             .returns(() => false)
             .verifiable(typemoq.Times.once());
-        doc.setup(d => d.isDirty)
+        doc.setup((d) => d.isDirty)
             .returns(() => false)
             .verifiable(typemoq.Times.once());
-        doc.setup(d => d.uri)
+        doc.setup((d) => d.uri)
             .returns(() => Uri.file(__filename))
             .verifiable(typemoq.Times.atLeastOnce());
 
         pythonService
-            .setup(service => service.exec(typemoq.It.isAny(), typemoq.It.isAny()))
+            .setup((service) => service.exec(typemoq.It.isAny(), typemoq.It.isAny()))
             .returns(async () => {
                 return { stdout: '' };
             });
@@ -72,22 +86,26 @@ suite('Unit Tests - Navigation Command Handler', () => {
     });
     test('Ensure no symbols are returned when there are no symbols to be returned', async () => {
         const docUri = Uri.file(__filename);
-        const args = [path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'symbolProvider.py'), docUri.fsPath];
+        const args = [
+            path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'pyvsc-run-isolated.py'),
+            path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'symbolProvider.py'),
+            docUri.fsPath
+        ];
         const proc: ExecutionResult<string> = {
             stdout: JSON.stringify({ classes: [], methods: [], functions: [] })
         };
-        doc.setup(d => d.isUntitled)
+        doc.setup((d) => d.isUntitled)
             .returns(() => false)
             .verifiable(typemoq.Times.once());
-        doc.setup(d => d.isDirty)
+        doc.setup((d) => d.isDirty)
             .returns(() => false)
             .verifiable(typemoq.Times.once());
-        doc.setup(d => d.uri)
+        doc.setup((d) => d.uri)
             .returns(() => docUri)
             .verifiable(typemoq.Times.atLeastOnce());
 
         pythonService
-            .setup(service => service.exec(typemoq.It.isValue(args), typemoq.It.isAny()))
+            .setup((service) => service.exec(typemoq.It.isValue(args), typemoq.It.isAny()))
             .returns(async () => proc)
             .verifiable(typemoq.Times.once());
 
@@ -100,7 +118,11 @@ suite('Unit Tests - Navigation Command Handler', () => {
     });
     test('Ensure symbols are returned', async () => {
         const docUri = Uri.file(__filename);
-        const args = [path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'symbolProvider.py'), docUri.fsPath];
+        const args = [
+            path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'pyvsc-run-isolated.py'),
+            path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'symbolProvider.py'),
+            docUri.fsPath
+        ];
         const proc: ExecutionResult<string> = {
             stdout: JSON.stringify({
                 classes: [
@@ -129,18 +151,18 @@ suite('Unit Tests - Navigation Command Handler', () => {
                 ]
             })
         };
-        doc.setup(d => d.isUntitled)
+        doc.setup((d) => d.isUntitled)
             .returns(() => false)
             .verifiable(typemoq.Times.once());
-        doc.setup(d => d.isDirty)
+        doc.setup((d) => d.isDirty)
             .returns(() => false)
             .verifiable(typemoq.Times.once());
-        doc.setup(d => d.uri)
+        doc.setup((d) => d.uri)
             .returns(() => docUri)
             .verifiable(typemoq.Times.atLeastOnce());
 
         pythonService
-            .setup(service => service.exec(typemoq.It.isValue(args), typemoq.It.isAny()))
+            .setup((service) => service.exec(typemoq.It.isValue(args), typemoq.It.isAny()))
             .returns(async () => proc)
             .verifiable(typemoq.Times.once());
 

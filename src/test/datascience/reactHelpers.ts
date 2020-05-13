@@ -102,7 +102,14 @@ class MockCanvas implements CanvasRenderingContext2D {
     public createPattern(_image: CanvasImageSource, _repetition: string): CanvasPattern | null {
         throw new Error('Method not implemented.');
     }
-    public createRadialGradient(_x0: number, _y0: number, _r0: number, _x1: number, _y1: number, _r1: number): CanvasGradient {
+    public createRadialGradient(
+        _x0: number,
+        _y0: number,
+        _r0: number,
+        _x1: number,
+        _y1: number,
+        _r1: number
+    ): CanvasGradient {
         throw new Error('Method not implemented.');
     }
     public shadowBlur!: number;
@@ -170,8 +177,28 @@ class MockCanvas implements CanvasRenderingContext2D {
     }
     public drawImage(image: CanvasImageSource, dx: number, dy: number): void;
     public drawImage(image: CanvasImageSource, dx: number, dy: number, dw: number, dh: number): void;
-    public drawImage(image: CanvasImageSource, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number): void;
-    public drawImage(_image: any, _sx: any, _sy: any, _sw?: any, _sh?: any, _dx?: any, _dy?: any, _dw?: any, _dh?: any) {
+    public drawImage(
+        image: CanvasImageSource,
+        sx: number,
+        sy: number,
+        sw: number,
+        sh: number,
+        dx: number,
+        dy: number,
+        dw: number,
+        dh: number
+    ): void;
+    public drawImage(
+        _image: any,
+        _sx: any,
+        _sy: any,
+        _sw?: any,
+        _sh?: any,
+        _dx?: any,
+        _dy?: any,
+        _dw?: any,
+        _dh?: any
+    ) {
         throw new Error('Method not implemented.');
     }
     public createImageData(sw: number, sh: number): ImageData;
@@ -183,8 +210,24 @@ class MockCanvas implements CanvasRenderingContext2D {
         throw new Error('Method not implemented.');
     }
     public putImageData(imagedata: ImageData, dx: number, dy: number): void;
-    public putImageData(imagedata: ImageData, dx: number, dy: number, dirtyX: number, dirtyY: number, dirtyWidth: number, dirtyHeight: number): void;
-    public putImageData(_imagedata: any, _dx: any, _dy: any, _dirtyX?: any, _dirtyY?: any, _dirtyWidth?: any, _dirtyHeight?: any) {
+    public putImageData(
+        imagedata: ImageData,
+        dx: number,
+        dy: number,
+        dirtyX: number,
+        dirtyY: number,
+        dirtyWidth: number,
+        dirtyHeight: number
+    ): void;
+    public putImageData(
+        _imagedata: any,
+        _dx: any,
+        _dy: any,
+        _dirtyX?: any,
+        _dirtyY?: any,
+        _dirtyWidth?: any,
+        _dirtyHeight?: any
+    ) {
         throw new Error('Method not implemented.');
     }
     public lineCap!: CanvasLineCap;
@@ -202,7 +245,14 @@ class MockCanvas implements CanvasRenderingContext2D {
     public font!: string;
     public textAlign!: CanvasTextAlign;
     public textBaseline!: CanvasTextBaseline;
-    public arc(_x: number, _y: number, _radius: number, _startAngle: number, _endAngle: number, _anticlockwise?: boolean | undefined): void {
+    public arc(
+        _x: number,
+        _y: number,
+        _radius: number,
+        _startAngle: number,
+        _endAngle: number,
+        _anticlockwise?: boolean | undefined
+    ): void {
         throw new Error('Method not implemented.');
     }
     public arcTo(_x1: number, _y1: number, _x2: number, _y2: number, _radius: number): void {
@@ -214,7 +264,16 @@ class MockCanvas implements CanvasRenderingContext2D {
     public closePath(): void {
         throw new Error('Method not implemented.');
     }
-    public ellipse(_x: number, _y: number, _radiusX: number, _radiusY: number, _rotation: number, _startAngle: number, _endAngle: number, _anticlockwise?: boolean | undefined): void {
+    public ellipse(
+        _x: number,
+        _y: number,
+        _radiusX: number,
+        _radiusY: number,
+        _rotation: number,
+        _startAngle: number,
+        _endAngle: number,
+        _anticlockwise?: boolean | undefined
+    ): void {
         throw new Error('Method not implemented.');
     }
     public lineTo(_x: number, _y: number): void {
@@ -235,7 +294,10 @@ const mockCanvas = new MockCanvas();
 
 export function setUpDomEnvironment() {
     // tslint:disable-next-line:no-http-string
-    const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', { pretendToBeVisual: true, url: 'http://localhost' });
+    const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
+        pretendToBeVisual: true,
+        url: 'http://localhost'
+    });
     const { window } = dom;
 
     // tslint:disable: no-function-expression no-empty
@@ -283,7 +345,7 @@ export function setUpDomEnvironment() {
     copyProps(window, global);
 
     // Special case. Monaco needs queryCommandSupported
-    (global as any)['document'].queryCommandSupported = () => (false);
+    (global as any)['document'].queryCommandSupported = () => false;
 
     // Special case. Transform needs createRange
     (global as any)['document'].createRange = () => ({
@@ -337,33 +399,6 @@ export function setUpDomEnvironment() {
     (global as any)['Headers'] = fetchMod.Headers;
     // tslint:disable-next-line:no-string-literal no-eval no-any
     (global as any)['WebSocket'] = eval('require')('ws');
-
-    // For the loc test to work, we have to have a global getter for loc strings
-    // tslint:disable-next-line:no-string-literal no-eval no-any
-    (global as any)['getLocStrings'] = () => {
-        return { 'DataScience.unknownMimeType': 'Unknown mime type from helper' };
-    };
-
-    // tslint:disable-next-line:no-string-literal no-eval no-any
-    (global as any)['getInitialSettings'] = () => {
-        return {
-            allowImportFromNotebook: true,
-            jupyterLaunchTimeout: 10,
-            jupyterLaunchRetries: 3,
-            enabled: true,
-            jupyterServerURI: 'local',
-            notebookFileRoot: 'WORKSPACE',
-            changeDirOnImportExport: true,
-            useDefaultConfigForJupyter: true,
-            jupyterInterruptTimeout: 10000,
-            searchForJupyter: true,
-            showCellInputCode: true,
-            collapseCellInputCodeByDefault: true,
-            allowInput: true,
-            variableExplorerExclude: 'module;function;builtin_function_or_method'
-        };
-    };
-
     (global as any)['DOMParser'] = dom.window.DOMParser;
     (global as any)['Blob'] = dom.window.Blob;
 
@@ -397,8 +432,7 @@ export function setupTranspile() {
 }
 
 function copyProps(src: any, target: any) {
-    const props = Object.getOwnPropertyNames(src)
-        .filter(prop => typeof target[prop] === undefined);
+    const props = Object.getOwnPropertyNames(src).filter((prop) => typeof target[prop] === undefined);
     props.forEach((p: string) => {
         target[p] = src[p];
     });
@@ -431,7 +465,10 @@ function waitForComponentDidUpdate<P, S, C>(component: React.Component<P, S, C>)
     });
 }
 
-export function waitForRender<P, S, C>(component: React.Component<P, S, C>, numberOfRenders: number = 1): Promise<void> {
+export function waitForRender<P, S, C>(
+    component: React.Component<P, S, C>,
+    numberOfRenders: number = 1
+): Promise<void> {
     // tslint:disable-next-line:promise-must-complete
     return new Promise((resolve, reject) => {
         if (component) {
@@ -463,7 +500,11 @@ export function waitForRender<P, S, C>(component: React.Component<P, S, C>, numb
     });
 }
 
-export async function waitForUpdate<P, S, C>(wrapper: ReactWrapper<P, S, C>, mainClass: ComponentClass<P>, numberOfRenders: number = 1): Promise<void> {
+export async function waitForUpdate<P, S, C>(
+    wrapper: ReactWrapper<P, S, C>,
+    mainClass: ComponentClass<P>,
+    numberOfRenders: number = 1
+): Promise<void> {
     const mainObj = wrapper.find(mainClass).instance();
     if (mainObj) {
         // Hook the render first.
@@ -488,32 +529,33 @@ export async function waitForUpdate<P, S, C>(wrapper: ReactWrapper<P, S, C>, mai
 // There doesn't seem to be an official way to do this (according to stack overflow)
 // so just hardcoding it here.
 const keyMap: { [key: string]: { code: number; shift: boolean } } = {
-    'A': { code: 65, shift: false },
-    'B': { code: 66, shift: false },
-    'C': { code: 67, shift: false },
-    'D': { code: 68, shift: false },
-    'E': { code: 69, shift: false },
-    'F': { code: 70, shift: false },
-    'G': { code: 71, shift: false },
-    'H': { code: 72, shift: false },
-    'I': { code: 73, shift: false },
-    'J': { code: 74, shift: false },
-    'K': { code: 75, shift: false },
-    'L': { code: 76, shift: false },
-    'M': { code: 77, shift: false },
-    'N': { code: 78, shift: false },
-    'O': { code: 79, shift: false },
-    'P': { code: 80, shift: false },
-    'Q': { code: 81, shift: false },
-    'R': { code: 82, shift: false },
-    'S': { code: 83, shift: false },
-    'T': { code: 84, shift: false },
-    'U': { code: 85, shift: false },
-    'V': { code: 86, shift: false },
-    'W': { code: 87, shift: false },
-    'X': { code: 88, shift: false },
-    'Y': { code: 89, shift: false },
-    'Z': { code: 90, shift: false },
+    A: { code: 65, shift: false },
+    B: { code: 66, shift: false },
+    C: { code: 67, shift: false },
+    D: { code: 68, shift: false },
+    E: { code: 69, shift: false },
+    F: { code: 70, shift: false },
+    G: { code: 71, shift: false },
+    H: { code: 72, shift: false },
+    I: { code: 73, shift: false },
+    J: { code: 74, shift: false },
+    K: { code: 75, shift: false },
+    L: { code: 76, shift: false },
+    M: { code: 77, shift: false },
+    N: { code: 78, shift: false },
+    O: { code: 79, shift: false },
+    P: { code: 80, shift: false },
+    Q: { code: 81, shift: false },
+    R: { code: 82, shift: false },
+    S: { code: 83, shift: false },
+    T: { code: 84, shift: false },
+    U: { code: 85, shift: false },
+    V: { code: 86, shift: false },
+    W: { code: 87, shift: false },
+    X: { code: 88, shift: false },
+    Y: { code: 89, shift: false },
+    Z: { code: 90, shift: false },
+    ESCAPE: { code: 27, shift: false },
     '0': { code: 48, shift: false },
     '1': { code: 49, shift: false },
     '2': { code: 50, shift: false },
@@ -528,7 +570,7 @@ const keyMap: { [key: string]: { code: number; shift: boolean } } = {
     '!': { code: 49, shift: true },
     '@': { code: 50, shift: true },
     '#': { code: 51, shift: true },
-    '$': { code: 52, shift: true },
+    $: { code: 52, shift: true },
     '%': { code: 53, shift: true },
     '^': { code: 54, shift: true },
     '&': { code: 55, shift: true },
@@ -541,7 +583,7 @@ const keyMap: { [key: string]: { code: number; shift: boolean } } = {
     '|': { code: 209, shift: true },
     '}': { code: 221, shift: true },
     ';': { code: 186, shift: false },
-    '\'': { code: 222, shift: false },
+    "'": { code: 222, shift: false },
     ':': { code: 186, shift: true },
     '"': { code: 222, shift: true },
     ',': { code: 188, shift: false },
@@ -577,7 +619,7 @@ export function createKeyboardEvent(type: string, options: KeyboardEventInit): K
 
     // JSDOM doesn't support typescript so well. The options are supposed to be flexible to support just about anything, but
     // the type KeyboardEventInit only supports the minimum. Stick in extras with some typecasting hacks
-    return new domWindow.KeyboardEvent(type, (({ ...options, keyCode, shiftKey: shift } as any) as KeyboardEventInit));
+    return new domWindow.KeyboardEvent(type, ({ ...options, keyCode, shiftKey: shift } as any) as KeyboardEventInit);
 }
 
 export function createInputEvent(): Event {

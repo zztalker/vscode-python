@@ -5,76 +5,80 @@ import * as monacoEditor from 'monaco-editor/esm/vs/editor/editor.api';
 
 import { IDataScienceExtraSettings } from '../../client/datascience/types';
 
-// The WebPanel constructed by the extension should inject a getInitialSettings function into
-// the script. This should return a dictionary of key value pairs for settings
-// tslint:disable:no-any
-export declare function getInitialSettings(): any;
-
-export function loadDefaultSettings() {
-    // tslint:disable-next-line:no-typeof-undefined
-    if (typeof getInitialSettings !== 'undefined') {
-        return <IDataScienceExtraSettings>getInitialSettings(); // NOSONAR
-    } else {
-        // Default settings for tests
-        // tslint:disable-next-line: no-unnecessary-local-variable
-        const result: IDataScienceExtraSettings = {
-            allowImportFromNotebook: true,
-            jupyterLaunchTimeout: 10,
-            jupyterLaunchRetries: 3,
-            enabled: true,
-            jupyterServerURI: 'local',
-            notebookFileRoot: 'WORKSPACE',
-            changeDirOnImportExport: true,
-            useDefaultConfigForJupyter: true,
-            jupyterInterruptTimeout: 10000,
-            searchForJupyter: true,
-            allowInput: true,
-            showCellInputCode: true,
-            collapseCellInputCodeByDefault: true,
-            maxOutputSize: 400,
-            errorBackgroundColor: '#FFFFFF',
-            sendSelectionToInteractiveWindow: false,
-            markdownRegularExpression: '^(#\\s*%%\\s*\\[markdown\\]|#\\s*\\<markdowncell\\>)',
-            codeRegularExpression: '^(#\\s*%%|#\\s*\\<codecell\\>|#\\s*In\\[\\d*?\\]|#\\s*In\\[ \\])',
-            variableExplorerExclude: 'module;function;builtin_function_or_method',
-            enablePlotViewer: true,
-            extraSettings: {
-                editor: {
-                    cursor: 'line',
-                    cursorBlink: 'blink',
-                    autoClosingBrackets: 'languageDefined',
-                    autoClosingQuotes: 'languageDefined',
-                    autoSurround: 'languageDefined',
-                    autoIndent: false,
-                    fontLigatures: false
-                },
+export function getDefaultSettings() {
+    // Default settings for tests
+    // tslint:disable-next-line: no-unnecessary-local-variable
+    const result: IDataScienceExtraSettings = {
+        allowImportFromNotebook: true,
+        jupyterLaunchTimeout: 10,
+        jupyterLaunchRetries: 3,
+        enabled: true,
+        jupyterServerURI: 'local',
+        // tslint:disable-next-line: no-invalid-template-strings
+        notebookFileRoot: '${fileDirname}',
+        changeDirOnImportExport: false,
+        useDefaultConfigForJupyter: true,
+        jupyterInterruptTimeout: 10000,
+        searchForJupyter: true,
+        allowInput: true,
+        showCellInputCode: true,
+        collapseCellInputCodeByDefault: true,
+        maxOutputSize: 400,
+        enableScrollingForCellOutputs: true,
+        errorBackgroundColor: '#FFFFFF',
+        sendSelectionToInteractiveWindow: false,
+        markdownRegularExpression: '^(#\\s*%%\\s*\\[markdown\\]|#\\s*\\<markdowncell\\>)',
+        codeRegularExpression: '^(#\\s*%%|#\\s*\\<codecell\\>|#\\s*In\\[\\d*?\\]|#\\s*In\\[ \\])',
+        variableExplorerExclude: 'module;function;builtin_function_or_method',
+        enablePlotViewer: true,
+        extraSettings: {
+            editor: {
+                cursor: 'line',
+                cursorBlink: 'blink',
+                autoClosingBrackets: 'languageDefined',
+                autoClosingQuotes: 'languageDefined',
+                autoSurround: 'languageDefined',
+                autoIndent: false,
+                fontLigatures: false,
+                scrollBeyondLastLine: true,
+                // VS Code puts a value for this, but it's 10 (the explorer bar size) not 14 the editor size for vert
+                verticalScrollbarSize: 14,
+                horizontalScrollbarSize: 14,
                 fontSize: 14,
-                fontFamily: 'Consolas, \'Courier New\', monospace',
-                theme: 'Default Dark+'
+                fontFamily: "Consolas, 'Courier New', monospace"
             },
-            intellisenseOptions: {
-                quickSuggestions: {
-                    other: true,
-                    comments: false,
-                    strings: false
-                },
-                acceptSuggestionOnEnter: 'on',
-                quickSuggestionsDelay: 10,
-                suggestOnTriggerCharacters: true,
-                tabCompletion: 'on',
-                suggestLocalityBonus: true,
-                suggestSelection: 'recentlyUsed',
-                wordBasedSuggestions: true,
-                parameterHintsEnabled: true
+            theme: 'Default Dark+',
+            useCustomEditorApi: false
+        },
+        intellisenseOptions: {
+            quickSuggestions: {
+                other: true,
+                comments: false,
+                strings: false
             },
-            runStartupCommands: '',
-            debugJustMyCode: true
-        };
+            acceptSuggestionOnEnter: 'on',
+            quickSuggestionsDelay: 10,
+            suggestOnTriggerCharacters: true,
+            tabCompletion: 'on',
+            suggestLocalityBonus: true,
+            suggestSelection: 'recentlyUsed',
+            wordBasedSuggestions: true,
+            parameterHintsEnabled: true
+        },
+        variableOptions: {
+            enableDuringDebugger: false
+        },
+        runStartupCommands: '',
+        debugJustMyCode: true,
+        variableQueries: [],
+        jupyterCommandLineArguments: [],
+        widgetScriptSources: []
+    };
 
-        return result;
-    }
+    return result;
 }
 
+//tslint:disable:no-any
 export function computeEditorOptions(settings: IDataScienceExtraSettings): monacoEditor.editor.IEditorOptions {
     const intellisenseOptions = settings.intellisenseOptions;
     const extraSettings = settings.extraSettings;

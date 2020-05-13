@@ -9,7 +9,6 @@ import { expect } from 'chai';
 import * as fs from 'fs';
 import { ConfigurationTarget, Disposable } from 'vscode';
 import { FileSystem } from '../client/common/platform/fileSystem';
-import { PlatformService } from '../client/common/platform/platformService';
 import { Diagnostics } from '../client/common/utils/localize';
 import { SourceMapSupport } from '../client/sourceMapSupport';
 import { noop } from './core';
@@ -57,7 +56,7 @@ suite('Source Map Support', () => {
 
     const disposables: Disposable[] = [];
     teardown(() => {
-        disposables.forEach(disposable => {
+        disposables.forEach((disposable) => {
             try {
                 disposable.dispose();
             } catch {
@@ -66,7 +65,7 @@ suite('Source Map Support', () => {
         });
     });
     test('When disabling source maps, the map file is renamed and vice versa', async () => {
-        const fileSystem = new FileSystem(new PlatformService());
+        const fileSystem = new FileSystem();
         const jsFile = await fileSystem.createTemporaryFile('.js');
         disposables.push(jsFile);
         const mapFile = `${jsFile.filePath}.map`;
@@ -77,11 +76,11 @@ suite('Source Map Support', () => {
         expect(await fileSystem.fileExists(mapFile)).to.be.true;
 
         const stub = createVSCStub(true, true);
-        const instance = new class extends SourceMapSupport {
+        const instance = new (class extends SourceMapSupport {
             public async enableSourceMap(enable: boolean, sourceFile: string) {
                 return super.enableSourceMap(enable, sourceFile);
             }
-        }(stub.vscode as any);
+        })(stub.vscode as any);
 
         await instance.enableSourceMap(false, jsFile.filePath);
 

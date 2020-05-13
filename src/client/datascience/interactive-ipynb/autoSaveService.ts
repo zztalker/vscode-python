@@ -4,14 +4,19 @@
 'use strict';
 
 import { inject, injectable } from 'inversify';
-import { ConfigurationChangeEvent, Event, EventEmitter, TextEditor, Uri } from 'vscode';
+import { ConfigurationChangeEvent, Event, EventEmitter, TextEditor, Uri, WindowState } from 'vscode';
 import { IApplicationShell, IDocumentManager, IWorkspaceService } from '../../common/application/types';
 import '../../common/extensions';
-import { traceError } from '../../common/logger';
 import { IFileSystem } from '../../common/platform/types';
 import { IDisposable } from '../../common/types';
 import { INotebookIdentity, InteractiveWindowMessages } from '../interactive-common/interactiveWindowTypes';
-import { FileSettings, IInteractiveWindowListener, INotebookEditor, INotebookEditorProvider } from '../types';
+import {
+    FileSettings,
+    IInteractiveWindowListener,
+    INotebookEditor,
+    INotebookEditorProvider,
+    WebViewViewChangeEventArgs
+} from '../types';
 
 // tslint:disable: no-any
 
@@ -27,14 +32,19 @@ import { FileSettings, IInteractiveWindowListener, INotebookEditor, INotebookEdi
  */
 @injectable()
 export class AutoSaveService implements IInteractiveWindowListener {
-    private postEmitter: EventEmitter<{ message: string; payload: any }> = new EventEmitter<{ message: string; payload: any }>();
+    private postEmitter: EventEmitter<{ message: string; payload: any }> = new EventEmitter<{
+        message: string;
+        payload: any;
+    }>();
     private disposables: IDisposable[] = [];
     private notebookUri?: Uri;
     private timeout?: ReturnType<typeof setTimeout>;
+    private visible: boolean | undefined;
+    private active: boolean | undefined;
     constructor(
         @inject(IApplicationShell) appShell: IApplicationShell,
         @inject(IDocumentManager) documentManager: IDocumentManager,
-        @inject(INotebookEditorProvider) private readonly notebookProvider: INotebookEditorProvider,
+        @inject(INotebookEditorProvider) private readonly notebookEditorProvider: INotebookEditorProvider,
         @inject(IFileSystem) private readonly fileSystem: IFileSystem,
         @inject(IWorkspaceService) private readonly workspace: IWorkspaceService
     ) {
@@ -49,20 +59,37 @@ export class AutoSaveService implements IInteractiveWindowListener {
 
     public onMessage(message: string, payload?: any): void {
         if (message === InteractiveWindowMessages.NotebookIdentity) {
-            this.notebookUri = Uri.parse((payload as INotebookIdentity).resource);
-        }
-        if (message === InteractiveWindowMessages.LoadAllCellsComplete) {
+            this.notebookUri = (payload as INotebookIdentity).resource;
+        } else if (message === InteractiveWindowMessages.NotebookClose) {
+            this.dispose();
+        } else if (message === InteractiveWindowMessages.LoadAllCellsComplete) {
             const notebook = this.getNotebook();
             if (!notebook) {
-                traceError(`Received message ${message}, but there is no notebook for ${this.notebookUri ? this.notebookUri.fsPath : undefined}`);
                 return;
             }
             this.disposables.push(notebook.modified(this.onNotebookModified, this, this.disposables));
             this.disposables.push(notebook.saved(this.onNotebookSaved, this, this.disposables));
         }
     }
+    public onViewStateChanged(args: WebViewViewChangeEventArgs) {
+        let changed = false;
+        if (this.visible !== args.current.visible) {
+            this.visible = args.current.visible;
+            changed = true;
+        }
+        if (this.active !== args.current.active) {
+            this.active = args.current.active;
+            changed = true;
+        }
+        if (changed) {
+            const settings = this.getAutoSaveSettings();
+            if (settings && settings.autoSave === 'onFocusChange') {
+                this.save();
+            }
+        }
+    }
     public dispose(): void | undefined {
-        this.disposables.filter(item => !!item).forEach(item => item.dispose());
+        this.disposables.filter((item) => !!item).forEach((item) => item.dispose());
         this.clearTimeout();
     }
     private onNotebookModified(_: INotebookEditor) {
@@ -82,7 +109,9 @@ export class AutoSaveService implements IInteractiveWindowListener {
         if (!uri) {
             return;
         }
-        return this.notebookProvider.editors.find(item => this.fileSystem.arePathsSame(item.file.fsPath, uri.fsPath));
+        return this.notebookEditorProvider.editors.find((item) =>
+            this.fileSystem.arePathsSame(item.file.fsPath, uri.fsPath)
+        );
     }
     private getAutoSaveSettings(): FileSettings {
         const filesConfig = this.workspace.getConfiguration('files', this.notebookUri);
@@ -92,7 +121,10 @@ export class AutoSaveService implements IInteractiveWindowListener {
         };
     }
     private onSettingsChanded(e: ConfigurationChangeEvent) {
-        if (e.affectsConfiguration('files.autoSave') || e.affectsConfiguration('files.autoSaveDelay')) {
+        if (
+            e.affectsConfiguration('files.autoSave', this.notebookUri) ||
+            e.affectsConfiguration('files.autoSaveDelay', this.notebookUri)
+        ) {
             // Reset the timer, as we may have increased it, turned it off or other.
             this.clearTimeout();
             this.setTimer();
@@ -127,9 +159,9 @@ export class AutoSaveService implements IInteractiveWindowListener {
             this.setTimer();
         }
     }
-    private onDidChangeWindowState() {
+    private onDidChangeWindowState(_state: WindowState) {
         const settings = this.getAutoSaveSettings();
-        if (settings && settings.autoSave === 'onWindowChange') {
+        if (settings && (settings.autoSave === 'onWindowChange' || settings.autoSave === 'onFocusChange')) {
             this.save();
         }
     }

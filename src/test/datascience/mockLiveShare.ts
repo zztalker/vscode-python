@@ -3,14 +3,22 @@
 'use strict';
 import { inject, injectable } from 'inversify';
 import * as uuid from 'uuid/v4';
-import { CancellationToken, CancellationTokenSource, Disposable, Event, EventEmitter, TreeDataProvider, Uri } from 'vscode';
+import {
+    CancellationToken,
+    CancellationTokenSource,
+    Disposable,
+    Event,
+    EventEmitter,
+    TreeDataProvider,
+    Uri
+} from 'vscode';
 import * as vsls from 'vsls/vscode';
 
 import { IApplicationShell, ILiveShareTestingApi } from '../../client/common/application/types';
-import { LiveShareProxy } from '../../client/common/liveshare/liveshareProxy';
 import { IConfigurationService, IDisposable, IDisposableRegistry } from '../../client/common/types';
 import { noop } from '../../client/common/utils/misc';
 import { LiveShare } from '../../client/datascience/constants';
+import { LiveShareProxy } from '../../client/datascience/liveshare/liveshareProxy';
 
 // tslint:disable:no-any unified-signatures max-classes-per-file
 
@@ -82,7 +90,6 @@ function checkArg(value: any, name: string, type?: ArgumentType) {
 type Listener = [Function, any] | Function;
 
 class Emitter<T> {
-
     private _event: Event<T> | undefined;
     private _disposed: boolean = false;
     private _deliveryQueue: { listener: Listener; event?: T }[] = [];
@@ -97,7 +104,7 @@ class Emitter<T> {
                     dispose: () => {
                         result.dispose = noop;
                         if (!this._disposed) {
-                            this._listeners = this._listeners.filter(l => l !== listener);
+                            this._listeners = this._listeners.filter((l) => l !== listener);
                         }
                     }
                 };
@@ -185,7 +192,7 @@ class MockLiveShare implements vsls.LiveShare, vsls.Session, vsls.Peer, IDisposa
     }
 
     public dispose() {
-        MockLiveShare.others = MockLiveShare.others.filter(o => o._id !== this._id);
+        MockLiveShare.others = MockLiveShare.others.filter((o) => o._id !== this._id);
     }
 
     public get session(): vsls.Session {
@@ -275,7 +282,7 @@ class MockLiveShare implements vsls.LiveShare, vsls.Session, vsls.Peer, IDisposa
         if (this._role === vsls.Role.Guest) {
             await this.stop();
         } else {
-            await Promise.all(MockLiveShare.others.map(p => p.stop()));
+            await Promise.all(MockLiveShare.others.map((p) => p.stop()));
         }
     }
     public shareService(name: string): Promise<vsls.SharedService> {
@@ -335,8 +342,7 @@ class MockLiveShare implements vsls.LiveShare, vsls.Session, vsls.Peer, IDisposa
 
         const scheme = 'vsls';
         if (sharedUri.scheme !== scheme) {
-            throw new Error(
-                `Not a shared URI: ${sharedUri}`);
+            throw new Error(`Not a shared URI: ${sharedUri}`);
         }
 
         return Uri.file(sharedUri.fsPath);
@@ -347,7 +353,10 @@ class MockLiveShare implements vsls.LiveShare, vsls.Session, vsls.Peer, IDisposa
     public registerTreeDataProvider<T>(_viewId: vsls.View, _treeDataProvider: TreeDataProvider<T>): Disposable {
         throw new Error('Method not implemented.');
     }
-    public registerContactServiceProvider(_name: string, _contactServiceProvider: vsls.ContactServiceProvider): Disposable {
+    public registerContactServiceProvider(
+        _name: string,
+        _contactServiceProvider: vsls.ContactServiceProvider
+    ): Disposable {
         throw new Error('Method not implemented.');
     }
     public shareServer(_server: vsls.Server): Promise<Disposable> {
@@ -355,7 +364,7 @@ class MockLiveShare implements vsls.LiveShare, vsls.Session, vsls.Peer, IDisposa
         return Promise.resolve({ dispose: noop });
     }
 
-    private generateServicePair() : MockLiveService[] {
+    private generateServicePair(): MockLiveService[] {
         const hostService = new MockLiveService();
         const guestService = new MockLiveService();
         hostService.setSibling(guestService);
@@ -367,7 +376,6 @@ class MockLiveShare implements vsls.LiveShare, vsls.Session, vsls.Peer, IDisposa
 
 @injectable()
 export class MockLiveShareApi implements ILiveShareTestingApi {
-
     private currentRole: vsls.Role = vsls.Role.None;
     private internalApi: MockLiveShare | null = null;
     private externalProxy: vsls.LiveShare | null = null;
@@ -375,10 +383,9 @@ export class MockLiveShareApi implements ILiveShareTestingApi {
 
     constructor(
         @inject(IDisposableRegistry) private disposables: IDisposableRegistry,
-        @inject(IApplicationShell) private appShell : IApplicationShell,
+        @inject(IApplicationShell) private appShell: IApplicationShell,
         @inject(IConfigurationService) private config: IConfigurationService
-        ) {
-    }
+    ) {}
 
     public getApi(): Promise<vsls.LiveShare | null> {
         return Promise.resolve(this.externalProxy);
@@ -388,7 +395,11 @@ export class MockLiveShareApi implements ILiveShareTestingApi {
         // Force a role on our live share api
         if (role !== this.currentRole) {
             this.internalApi = new MockLiveShare(role);
-            this.externalProxy = new LiveShareProxy(this.appShell, this.config.getSettings().datascience.liveShareConnectionTimeout, this.internalApi);
+            this.externalProxy = new LiveShareProxy(
+                this.appShell,
+                this.config.getSettings().datascience.liveShareConnectionTimeout,
+                this.internalApi
+            );
             this.internalApi.onDidChangeSession(this.onInternalSessionChanged, this);
             this.currentRole = role;
             this.disposables.push(this.internalApi);

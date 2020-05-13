@@ -7,7 +7,10 @@
 
 import { Uri } from 'vscode';
 import '../../common/extensions';
-import { Resource } from '../types';
+import { IServiceContainer } from '../../ioc/types';
+import { DEFAULT_INTERPRETER_SETTING } from '../constants';
+import { DeprecatePythonPath } from '../experimentGroups';
+import { IExperimentsManager, IInterpreterPathService, Resource } from '../types';
 
 type VSCodeType = typeof import('vscode');
 type CacheData = {
@@ -25,21 +28,44 @@ const resourceSpecificCacheStores = new Map<string, Map<string, CacheData>>();
  * @param {VSCodeType} [vscode=require('vscode')]
  * @returns
  */
-function getCacheKey(resource: Resource, vscode: VSCodeType = require('vscode')) {
+function getCacheKey(
+    resource: Resource,
+    vscode: VSCodeType = require('vscode'),
+    serviceContainer: IServiceContainer | undefined
+) {
     const section = vscode.workspace.getConfiguration('python', vscode.Uri.file(__filename));
     if (!section) {
         return 'python';
     }
-    const globalPythonPath = section.inspect<string>('pythonPath')!.globalValue || 'python';
+    let interpreterPathService: IInterpreterPathService | undefined;
+    let inExperiment: boolean | undefined;
+    if (serviceContainer) {
+        interpreterPathService = serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
+        const abExperiments = serviceContainer.get<IExperimentsManager>(IExperimentsManager);
+        inExperiment = abExperiments.inExperiment(DeprecatePythonPath.experiment);
+        abExperiments.sendTelemetryIfInExperiment(DeprecatePythonPath.control);
+    }
+    const globalPythonPath =
+        inExperiment && interpreterPathService
+            ? interpreterPathService.inspect(vscode.Uri.file(__filename)).globalValue || DEFAULT_INTERPRETER_SETTING
+            : section.inspect<string>('pythonPath')!.globalValue || DEFAULT_INTERPRETER_SETTING;
     // Get the workspace related to this resource.
-    if (!resource || !Array.isArray(vscode.workspace.workspaceFolders) || vscode.workspace.workspaceFolders.length === 0) {
+    if (
+        !resource ||
+        !Array.isArray(vscode.workspace.workspaceFolders) ||
+        vscode.workspace.workspaceFolders.length === 0
+    ) {
         return globalPythonPath;
     }
     const folder = resource ? vscode.workspace.getWorkspaceFolder(resource) : vscode.workspace.workspaceFolders[0];
     if (!folder) {
         return globalPythonPath;
     }
-    const workspacePythonPath = vscode.workspace.getConfiguration('python', resource).get<string>('pythonPath') || 'python';
+    const workspacePythonPath =
+        inExperiment && interpreterPathService
+            ? interpreterPathService.get(resource)
+            : vscode.workspace.getConfiguration('python', resource).get<string>('pythonPath') ||
+              DEFAULT_INTERPRETER_SETTING;
     return `${folder.uri.fsPath}-${workspacePythonPath}`;
 }
 /**
@@ -49,15 +75,19 @@ function getCacheKey(resource: Resource, vscode: VSCodeType = require('vscode'))
  * @param {VSCodeType} [vscode=require('vscode')]
  * @returns
  */
-function getCacheStore(resource: Resource, vscode: VSCodeType = require('vscode')) {
-    const key = getCacheKey(resource, vscode);
+function getCacheStore(
+    resource: Resource,
+    vscode: VSCodeType = require('vscode'),
+    serviceContainer: IServiceContainer | undefined
+) {
+    const key = getCacheKey(resource, vscode, serviceContainer);
     if (!resourceSpecificCacheStores.has(key)) {
         resourceSpecificCacheStores.set(key, new Map<string, CacheData>());
     }
     return resourceSpecificCacheStores.get(key)!;
 }
 
-const globalCacheStore = new Map<string, {expiry: number; data: any}>();
+const globalCacheStore = new Map<string, { expiry: number; data: any }>();
 
 /**
  * Gets a cache store to be used to store return values of methods or any other.
@@ -69,7 +99,7 @@ export function getGlobalCacheStore() {
 }
 
 export function getCacheKeyFromFunctionArgs(keyPrefix: string, fnArgs: any[]): string {
-    const argsKey = fnArgs.map(arg => `${JSON.stringify(arg)}`).join('-Arg-Separator-');
+    const argsKey = fnArgs.map((arg) => `${JSON.stringify(arg)}`).join('-Arg-Separator-');
     return `KeyPrefix=${keyPrefix}-Args=${argsKey}`;
 }
 
@@ -78,25 +108,15 @@ export function clearCache() {
     resourceSpecificCacheStores.clear();
 }
 
-export class InMemoryInterpreterSpecificCache<T> {
-    private readonly resource: Resource;
-    private readonly args: any[];
-    constructor(private readonly keyPrefix: string,
-        protected readonly expiryDurationMs: number,
-        args: [Uri | undefined, ...any[]],
-        private readonly vscode: VSCodeType = require('vscode')) {
-        this.resource = args[0];
-        this.args = args.slice(1);
+export class InMemoryCache<T> {
+    private readonly _store = new Map<string, CacheData>();
+    protected get store(): Map<string, CacheData> {
+        return this._store;
     }
+    constructor(protected readonly expiryDurationMs: number, protected readonly cacheKey: string = '') {}
     public get hasData() {
-        const store = getCacheStore(this.resource, this.vscode);
-        const key = getCacheKeyFromFunctionArgs(this.keyPrefix, this.args);
-        const data = store.get(key);
-        if (!store.has(key) || !data) {
-            return false;
-        }
-        if (this.hasExpired(data.expiry)) {
-            store.delete(key);
+        if (!this.store.get(this.cacheKey) || this.hasExpired(this.store.get(this.cacheKey)!.expiry)) {
+            this.store.delete(this.cacheKey);
             return false;
         }
         return true;
@@ -105,33 +125,24 @@ export class InMemoryInterpreterSpecificCache<T> {
      * Returns undefined if there is no data.
      * Uses `hasData` to determine whether any cached data exists.
      *
+     * @readonly
      * @type {(T | undefined)}
-     * @memberof InMemoryInterpreterSpecificCache
+     * @memberof InMemoryCache
      */
     public get data(): T | undefined {
-        if (!this.hasData) {
+        if (!this.hasData || !this.store.has(this.cacheKey)) {
             return;
         }
-        const store = getCacheStore(this.resource, this.vscode);
-        const key = getCacheKeyFromFunctionArgs(this.keyPrefix, this.args);
-        const data = store.get(key);
-        if (!store.has(key) || !data) {
-            return;
-        }
-        return data.value as T;
+        return this.store.get(this.cacheKey)?.value as T;
     }
     public set data(value: T | undefined) {
-        const store = getCacheStore(this.resource, this.vscode);
-        const key = getCacheKeyFromFunctionArgs(this.keyPrefix, this.args);
-        store.set(key, {
+        this.store.set(this.cacheKey, {
             expiry: this.calculateExpiry(),
             value
         });
     }
     public clear() {
-        const store = getCacheStore(this.resource, this.vscode);
-        const key = getCacheKeyFromFunctionArgs(this.keyPrefix, this.args);
-        store.delete(key);
+        this.store.clear();
     }
 
     /**
@@ -142,7 +153,7 @@ export class InMemoryInterpreterSpecificCache<T> {
      * @returns true if the data expired, false otherwise.
      */
     protected hasExpired(expiry: number): boolean {
-        return expiry < Date.now();
+        return expiry <= Date.now();
     }
 
     /**
@@ -153,5 +164,22 @@ export class InMemoryInterpreterSpecificCache<T> {
      */
     protected calculateExpiry(): number {
         return Date.now() + this.expiryDurationMs;
+    }
+}
+
+export class InMemoryInterpreterSpecificCache<T> extends InMemoryCache<T> {
+    private readonly resource: Resource;
+    protected get store() {
+        return getCacheStore(this.resource, this.vscode, this.serviceContainer);
+    }
+    constructor(
+        keyPrefix: string,
+        expiryDurationMs: number,
+        args: [Uri | undefined, ...any[]],
+        private readonly serviceContainer: IServiceContainer | undefined,
+        private readonly vscode: VSCodeType = require('vscode')
+    ) {
+        super(expiryDurationMs, getCacheKeyFromFunctionArgs(keyPrefix, args.slice(1)));
+        this.resource = args[0];
     }
 }

@@ -9,10 +9,6 @@ import { IDebugService } from '../../../client/common/application/types';
 import { IFileSystem } from '../../../client/common/platform/types';
 import { IConfigurationService, IDataScienceSettings, IPythonSettings } from '../../../client/common/types';
 import { CellHashProvider } from '../../../client/datascience/editor-integration/cellhashprovider';
-import {
-    InteractiveWindowMessages,
-    SysInfoReason
-} from '../../../client/datascience/interactive-common/interactiveWindowTypes';
 import { CellState, ICell, ICellHashListener, IFileHashes } from '../../../client/datascience/types';
 import { MockDocumentManager } from '../mockDocumentManager';
 
@@ -22,7 +18,6 @@ class HashListener implements ICellHashListener {
     public async hashesUpdated(hashes: IFileHashes[]): Promise<void> {
         this.lastHashes = hashes;
     }
-
 }
 
 // tslint:disable-next-line: max-func-body-length
@@ -41,13 +36,19 @@ suite('CellHashProvider Unit Tests', () => {
         dataScienceSettings = TypeMoq.Mock.ofType<IDataScienceSettings>();
         debugService = TypeMoq.Mock.ofType<IDebugService>();
         fileSystem = TypeMoq.Mock.ofType<IFileSystem>();
-        dataScienceSettings.setup(d => d.enabled).returns(() => true);
-        pythonSettings.setup(p => p.datascience).returns(() => dataScienceSettings.object);
-        configurationService.setup(c => c.getSettings(TypeMoq.It.isAny())).returns(() => pythonSettings.object);
-        debugService.setup(d => d.activeDebugSession).returns(() => undefined);
-        fileSystem.setup(d => d.arePathsSame(TypeMoq.It.isAnyString(), TypeMoq.It.isAnyString())).returns(() => true);
+        dataScienceSettings.setup((d) => d.enabled).returns(() => true);
+        pythonSettings.setup((p) => p.datascience).returns(() => dataScienceSettings.object);
+        configurationService.setup((c) => c.getSettings(TypeMoq.It.isAny())).returns(() => pythonSettings.object);
+        debugService.setup((d) => d.activeDebugSession).returns(() => undefined);
+        fileSystem.setup((d) => d.arePathsSame(TypeMoq.It.isAnyString(), TypeMoq.It.isAnyString())).returns(() => true);
         documentManager = new MockDocumentManager();
-        hashProvider = new CellHashProvider(documentManager, configurationService.object, debugService.object, fileSystem.object, [hashListener]);
+        hashProvider = new CellHashProvider(
+            documentManager,
+            configurationService.object,
+            debugService.object,
+            fileSystem.object,
+            [hashListener]
+        );
     });
 
     function addSingleChange(file: string, range: Range, newText: string) {
@@ -61,9 +62,7 @@ suite('CellHashProvider Unit Tests', () => {
             data: {
                 source: code,
                 cell_type: 'code',
-                metadata: {
-
-                },
+                metadata: {},
                 outputs: [],
                 execution_count: 1
             },
@@ -101,7 +100,6 @@ suite('CellHashProvider Unit Tests', () => {
         assert.equal(hashes[0].hashes[0].line, 2, 'Wrong start line');
         assert.equal(hashes[0].hashes[0].endLine, 2, 'Wrong end line');
         assert.equal(hashes[0].hashes[0].executionCount, 1, 'Wrong execution count');
-
     });
 
     test('Add a cell, delete it, and recreate it', async () => {
@@ -282,8 +280,8 @@ suite('CellHashProvider Unit Tests', () => {
         // Execution count should go up, but still only have two cells.
         const hashes = hashProvider.getHashes();
         assert.equal(hashes.length, 2, 'Wrong number of hashes');
-        const fooHash = hashes.find(h => h.file === Uri.file('foo.py').fsPath);
-        const barHash = hashes.find(h => h.file === Uri.file('bar.py').fsPath);
+        const fooHash = hashes.find((h) => h.file === Uri.file('foo.py').fsPath);
+        const barHash = hashes.find((h) => h.file === Uri.file('bar.py').fsPath);
         assert.ok(fooHash, 'No hash for foo.py');
         assert.ok(barHash, 'No hash for bar.py');
         assert.equal(fooHash!.hashes.length, 2, 'Not enough hashes found');
@@ -476,17 +474,16 @@ suite('CellHashProvider Unit Tests', () => {
         assert.equal(hashes[0].hashes[0].executionCount, 1, 'Wrong execution count');
 
         // Apply a couple of edits at once
-        documentManager.changeDocument('foo.py',
-            [
-                {
-                    range: new Range(new Position(0, 0), new Position(0, 0)),
-                    newText: '#%%\r\nprint("new cell")\r\n'
-                },
-                {
-                    range: new Range(new Position(0, 0), new Position(0, 0)),
-                    newText: '#%%\r\nprint("new cell")\r\n'
-                }
-            ]);
+        documentManager.changeDocument('foo.py', [
+            {
+                range: new Range(new Position(0, 0), new Position(0, 0)),
+                newText: '#%%\r\nprint("new cell")\r\n'
+            },
+            {
+                range: new Range(new Position(0, 0), new Position(0, 0)),
+                newText: '#%%\r\nprint("new cell")\r\n'
+            }
+        ]);
         hashes = hashProvider.getHashes();
         assert.equal(hashes.length, 1, 'No hashes found');
         assert.equal(hashes[0].hashes.length, 1, 'Not enough hashes found');
@@ -494,24 +491,22 @@ suite('CellHashProvider Unit Tests', () => {
         assert.equal(hashes[0].hashes[0].endLine, 8, 'Wrong end line');
         assert.equal(hashes[0].hashes[0].executionCount, 1, 'Wrong execution count');
 
-        documentManager.changeDocument('foo.py',
-            [
-                {
-                    range: new Range(new Position(0, 0), new Position(0, 0)),
-                    newText: '#%%\r\nprint("new cell")\r\n'
-                },
-                {
-                    range: new Range(new Position(0, 0), new Position(2, 0)),
-                    newText: ''
-                }
-            ]);
+        documentManager.changeDocument('foo.py', [
+            {
+                range: new Range(new Position(0, 0), new Position(0, 0)),
+                newText: '#%%\r\nprint("new cell")\r\n'
+            },
+            {
+                range: new Range(new Position(0, 0), new Position(2, 0)),
+                newText: ''
+            }
+        ]);
         hashes = hashProvider.getHashes();
         assert.equal(hashes.length, 1, 'No hashes found');
         assert.equal(hashes[0].hashes.length, 1, 'Not enough hashes found');
         assert.equal(hashes[0].hashes[0].line, 8, 'Wrong start line');
         assert.equal(hashes[0].hashes[0].endLine, 8, 'Wrong end line');
         assert.equal(hashes[0].hashes[0].executionCount, 1, 'Wrong execution count');
-
     });
 
     test('Restart kernel', async () => {
@@ -532,7 +527,7 @@ suite('CellHashProvider Unit Tests', () => {
         assert.equal(hashes[0].hashes[0].executionCount, 1, 'Wrong execution count');
 
         // Restart the kernel
-        hashProvider.onMessage(InteractiveWindowMessages.AddedSysInfo, { type: SysInfoReason.Restart });
+        hashProvider.onKernelRestarted();
 
         hashes = hashProvider.getHashes();
         assert.equal(hashes.length, 0, 'Restart should have cleared');

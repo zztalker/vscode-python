@@ -17,34 +17,45 @@ import { anything, deepEqual, instance, mock, verify, when } from 'ts-mockito';
 import { createMessageConnection, StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc';
 import { ProcessLogger } from '../../../client/common/process/logger';
 import { PythonDaemonExecutionServicePool } from '../../../client/common/process/pythonDaemonPool';
-import { PythonExecutionService } from '../../../client/common/process/pythonProcess';
-import { IProcessLogger, IPythonDaemonExecutionService, IPythonExecutionService, ObservableExecutionResult, Output, PythonVersionInfo } from '../../../client/common/process/types';
+import {
+    IProcessLogger,
+    IPythonDaemonExecutionService,
+    IPythonExecutionService,
+    ObservableExecutionResult,
+    Output,
+    PythonVersionInfo
+} from '../../../client/common/process/types';
 import { IDisposable } from '../../../client/common/types';
 import { sleep } from '../../../client/common/utils/async';
-import { createTemporaryFile } from '../../../client/common/utils/fs';
 import { noop } from '../../../client/common/utils/misc';
 import { Architecture } from '../../../client/common/utils/platform';
 import { parsePythonVersion } from '../../../client/common/utils/version';
 import { EXTENSION_ROOT_DIR } from '../../../client/constants';
-import { PythonDaemonModule } from '../../../client/datascience/constants';
+import { JupyterDaemonModule } from '../../../client/datascience/constants';
 import { isPythonVersion, PYTHON_PATH, waitForCondition } from '../../common';
+import { createTemporaryFile } from '../../utils/fs';
 use(chaiPromised);
 
 // tslint:disable: max-func-body-length
 suite('Daemon - Python Daemon Pool', () => {
     // Set PYTHONPATH to pickup our module and the jsonrpc modules.
-    const envPythonPath = `${path.join(EXTENSION_ROOT_DIR, 'pythonFiles')}${path.delimiter}${path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'lib', 'python')}`;
+    const envPythonPath = `${path.join(EXTENSION_ROOT_DIR, 'pythonFiles')}${path.delimiter}${path.join(
+        EXTENSION_ROOT_DIR,
+        'pythonFiles',
+        'lib',
+        'python'
+    )}`;
     const env = { PYTHONPATH: envPythonPath, PYTHONUNBUFFERED: '1' };
     let fullyQualifiedPythonPath: string = PYTHON_PATH;
     let pythonDaemonPool: PythonDaemonExecutionServicePool;
     let pythonExecutionService: IPythonExecutionService;
     let disposables: IDisposable[] = [];
-    let createDaemonServicesSpy: sinon.SinonSpy<[], Promise<IPythonDaemonExecutionService>>;
+    let createDaemonServicesSpy: sinon.SinonSpy<[], Promise<IPythonDaemonExecutionService | IDisposable>>;
     let logger: IProcessLogger;
     class DaemonPool extends PythonDaemonExecutionServicePool {
         // tslint:disable-next-line: no-unnecessary-override
-        public createDaemonServices(): Promise<IPythonDaemonExecutionService> {
-            return super.createDaemonServices();
+        public createDaemonService<T extends IPythonDaemonExecutionService | IDisposable>(): Promise<T> {
+            return super.createDaemonService();
         }
     }
     suiteSetup(() => {
@@ -56,37 +67,47 @@ suite('Daemon - Python Daemon Pool', () => {
         }
     });
     setup(async function () {
-        if (isPythonVersion('2.7')){
+        if (isPythonVersion('2.7')) {
             // tslint:disable-next-line: no-invalid-this
             return this.skip();
         }
         logger = mock(ProcessLogger);
-        createDaemonServicesSpy = sinon.spy(DaemonPool.prototype, 'createDaemonServices');
-        pythonExecutionService = mock(PythonExecutionService);
-        when(pythonExecutionService.execModuleObservable('datascience.daemon', anything(), anything())).thenCall(() => {
-            const pythonProc = spawn(fullyQualifiedPythonPath, ['-m', 'datascience.daemon'], { env });
-            const connection = createMessageConnection(new StreamMessageReader(pythonProc.stdout), new StreamMessageWriter(pythonProc.stdin));
+        createDaemonServicesSpy = sinon.spy(DaemonPool.prototype, 'createDaemonService');
+        pythonExecutionService = mock<IPythonExecutionService>();
+        when(
+            pythonExecutionService.execModuleObservable('vscode_datascience_helpers.daemon', anything(), anything())
+        ).thenCall(() => {
+            const pythonProc = spawn(fullyQualifiedPythonPath, ['-m', 'vscode_datascience_helpers.daemon'], { env });
+            const connection = createMessageConnection(
+                new StreamMessageReader(pythonProc.stdout),
+                new StreamMessageWriter(pythonProc.stdin)
+            );
             connection.listen();
             disposables.push({ dispose: () => pythonProc.kill() });
             disposables.push({ dispose: () => connection.dispose() });
             // tslint:disable-next-line: no-any
             return { proc: pythonProc, dispose: noop, out: undefined as any };
         });
-        const options = { pythonPath: fullyQualifiedPythonPath, daemonModule: PythonDaemonModule, daemonCount: 2, observableDaemonCount: 1 };
+        const options = {
+            pythonPath: fullyQualifiedPythonPath,
+            daemonModule: JupyterDaemonModule,
+            daemonCount: 2,
+            observableDaemonCount: 1
+        };
         pythonDaemonPool = new DaemonPool(logger, [], options, instance(pythonExecutionService), {}, 100);
         await pythonDaemonPool.initialize();
         disposables.push(pythonDaemonPool);
     });
     teardown(() => {
         sinon.restore();
-        disposables.forEach(item => item.dispose());
+        disposables.forEach((item) => item.dispose());
         disposables = [];
     });
     async function getStdOutFromObservable(output: ObservableExecutionResult<string>) {
         return new Promise<string>((resolve, reject) => {
             const data: string[] = [];
             output.out.subscribe(
-                out => data.push(out.out.trim()),
+                (out) => data.push(out.out.trim()),
                 reject,
                 () => resolve(data.join(''))
             );
@@ -101,13 +122,21 @@ suite('Daemon - Python Daemon Pool', () => {
     }
 
     test('Interpreter Information', async () => {
-        type InterpreterInfo = { versionInfo: PythonVersionInfo; sysPrefix: string; sysVersion: string; is64Bit: boolean };
+        type InterpreterInfo = {
+            versionInfo: PythonVersionInfo;
+            sysPrefix: string;
+            sysVersion: string;
+            is64Bit: boolean;
+        };
         const json: InterpreterInfo = JSON.parse(
             spawnSync(fullyQualifiedPythonPath, [path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'interpreterInfo.py')])
                 .stdout.toString()
                 .trim()
         );
-        const versionValue = json.versionInfo.length === 4 ? `${json.versionInfo.slice(0, 3).join('.')}-${json.versionInfo[3]}` : json.versionInfo.join('.');
+        const versionValue =
+            json.versionInfo.length === 4
+                ? `${json.versionInfo.slice(0, 3).join('.')}-${json.versionInfo[3]}`
+                : json.versionInfo.join('.');
         const expectedVersion = {
             architecture: json.is64Bit ? Architecture.x64 : Architecture.x86,
             path: fullyQualifiedPythonPath,
@@ -131,9 +160,10 @@ suite('Daemon - Python Daemon Pool', () => {
         await assert.eventually.equal(pythonDaemonPool.isModuleInstalled(moduleName), expectedToBeInstalled);
     }
 
-    test('\'pip\' module is installed', async () => testModuleInstalled('pip', true));
-    test('\'unittest\' module is installed', async () => testModuleInstalled('unittest', true));
-    test('\'VSCode-Python-Rocks\' module is not Installed', async () => testModuleInstalled('VSCode-Python-Rocks', false));
+    test("'pip' module is installed", async () => testModuleInstalled('pip', true));
+    test("'unittest' module is installed", async () => testModuleInstalled('unittest', true));
+    test("'VSCode-Python-Rocks' module is not Installed", async () =>
+        testModuleInstalled('VSCode-Python-Rocks', false));
 
     test('Execute a file and capture stdout (with unicode)', async () => {
         const source = dedent`
@@ -251,10 +281,10 @@ suite('Daemon - Python Daemon Pool', () => {
         const output = pythonDaemonPool.execObservable([fileToExecute], {});
         const outputsReceived: string[] = [];
         await new Promise((resolve, reject) => {
-            output.out.subscribe(out => outputsReceived.push(out.out.trim()), reject, resolve);
+            output.out.subscribe((out) => outputsReceived.push(out.out.trim()), reject, resolve);
         });
         assert.deepEqual(
-            outputsReceived.filter(item => item.length > 0),
+            outputsReceived.filter((item) => item.length > 0),
             ['0', '1', '2', '3', '4']
         );
     }).timeout(5_000);
@@ -278,7 +308,7 @@ suite('Daemon - Python Daemon Pool', () => {
         const output = pythonDaemonPool.execObservable([fileToExecute], { throwOnStdErr: true });
         const outputsReceived: string[] = [];
         const promise = new Promise((resolve, reject) => {
-            output.out.subscribe(out => outputsReceived.push(out.out.trim()), reject, resolve);
+            output.out.subscribe((out) => outputsReceived.push(out.out.trim()), reject, resolve);
         });
         await expect(promise).to.eventually.be.rejectedWith('KABOOM');
     }).timeout(5_000);
@@ -292,7 +322,7 @@ suite('Daemon - Python Daemon Pool', () => {
         const fileToExecute = await createPythonFile(source);
         // When using the python execution service, return a bogus value.
         when(pythonExecutionService.execObservable(deepEqual([fileToExecute]), anything())).thenCall(() => {
-            const observable = new Observable<Output<string>>(s => {
+            const observable = new Observable<Output<string>>((s) => {
                 s.next({ out: 'mypid', source: 'stdout' });
                 s.complete();
             });
@@ -304,7 +334,11 @@ suite('Daemon - Python Daemon Pool', () => {
         // These two will use a python execution service.
         const output2 = pythonDaemonPool.execObservable([fileToExecute], {});
         const output3 = pythonDaemonPool.execObservable([fileToExecute], {});
-        const [result1, result2, result3] = await Promise.all([getStdOutFromObservable(output1), getStdOutFromObservable(output2), getStdOutFromObservable(output3)]);
+        const [result1, result2, result3] = await Promise.all([
+            getStdOutFromObservable(output1),
+            getStdOutFromObservable(output2),
+            getStdOutFromObservable(output3)
+        ]);
 
         // Two process ids are used to run the code (one process for a daemon, another for bogus puthon process).
         expect(result1).to.not.equal('mypid');
@@ -343,7 +377,10 @@ suite('Daemon - Python Daemon Pool', () => {
         `;
         const fileToExecute = await createPythonFile(source);
 
-        const [output1, output2] = await Promise.all([pythonDaemonPool.exec([fileToExecute], {}), pythonDaemonPool.exec([fileToExecute], {})]);
+        const [output1, output2] = await Promise.all([
+            pythonDaemonPool.exec([fileToExecute], {}),
+            pythonDaemonPool.exec([fileToExecute], {})
+        ]);
 
         // The pid for both processes will be different.
         // This means we're running both in two separate daemons.
@@ -361,8 +398,8 @@ suite('Daemon - Python Daemon Pool', () => {
         const fileToExecute1 = await createPythonFile(source1);
 
         let [pid1, pid2] = await Promise.all([
-            pythonDaemonPool.exec([fileToExecute1], {}).then(out => out.stdout.trim()),
-            pythonDaemonPool.exec([fileToExecute1], {}).then(out => out.stdout.trim())
+            pythonDaemonPool.exec([fileToExecute1], {}).then((out) => out.stdout.trim()),
+            pythonDaemonPool.exec([fileToExecute1], {}).then((out) => out.stdout.trim())
         ]);
 
         const processesUsedToRunCode = new Set<string>();
@@ -384,11 +421,11 @@ suite('Daemon - Python Daemon Pool', () => {
         [pid1, pid2] = await Promise.all([
             pythonDaemonPool
                 .exec([fileToExecute1], {})
-                .then(out => out.stdout.trim())
+                .then((out) => out.stdout.trim())
                 .catch(() => 'FAILED'),
             pythonDaemonPool
                 .exec([fileToExecute2], {})
-                .then(out => out.stdout.trim())
+                .then((out) => out.stdout.trim())
                 .catch(() => 'FAILED')
         ]);
 
@@ -400,13 +437,17 @@ suite('Daemon - Python Daemon Pool', () => {
         expect(processesUsedToRunCode.size).to.equal(2);
 
         // Wait for a new daemon to be created.
-        await waitForCondition(async () => createDaemonServicesSpy.callCount - daemonsCreated === 1, 5_000, 'Failed to create a new daemon');
+        await waitForCondition(
+            async () => createDaemonServicesSpy.callCount - daemonsCreated === 1,
+            5_000,
+            'Failed to create a new daemon'
+        );
 
         // Confirm we have two daemons by checking the Pids again.
         // One of them will be new.
         [pid1, pid2] = await Promise.all([
-            pythonDaemonPool.exec([fileToExecute1], {}).then(out => out.stdout.trim()),
-            pythonDaemonPool.exec([fileToExecute1], {}).then(out => out.stdout.trim())
+            pythonDaemonPool.exec([fileToExecute1], {}).then((out) => out.stdout.trim()),
+            pythonDaemonPool.exec([fileToExecute1], {}).then((out) => out.stdout.trim())
         ]);
 
         // Keep track of the pids.

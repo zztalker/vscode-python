@@ -8,8 +8,13 @@ import { anything, instance, mock, when } from 'ts-mockito';
 import { ConfigurationTarget, Disposable, Uri, workspace } from 'vscode';
 import { WorkspaceService } from '../../../client/common/application/workspace';
 import { ConfigurationService } from '../../../client/common/configuration/service';
-import { IS_WINDOWS, NON_WINDOWS_PATH_VARIABLE_NAME, WINDOWS_PATH_VARIABLE_NAME } from '../../../client/common/platform/constants';
+import {
+    IS_WINDOWS,
+    NON_WINDOWS_PATH_VARIABLE_NAME,
+    WINDOWS_PATH_VARIABLE_NAME
+} from '../../../client/common/platform/constants';
 import { PlatformService } from '../../../client/common/platform/platformService';
+import { IFileSystem } from '../../../client/common/platform/types';
 import { IDisposableRegistry, IPathUtils } from '../../../client/common/types';
 import { clearCache } from '../../../client/common/utils/cacheUtils';
 import { EnvironmentVariablesService } from '../../../client/common/variables/environment';
@@ -48,9 +53,17 @@ suite('Multiroot Environment Variables Provider', () => {
         ioc.registerCommonTypes();
         ioc.registerVariableTypes();
         ioc.registerProcessTypes();
+        ioc.registerInterpreterStorageTypes();
         const mockEnvironmentActivationService = mock(EnvironmentActivationService);
         when(mockEnvironmentActivationService.getActivatedEnvironmentVariables(anything())).thenResolve();
-        ioc.serviceManager.rebindInstance<IEnvironmentActivationService>(IEnvironmentActivationService, instance(mockEnvironmentActivationService));
+        when(mockEnvironmentActivationService.getActivatedEnvironmentVariables(anything(), anything())).thenResolve();
+        when(
+            mockEnvironmentActivationService.getActivatedEnvironmentVariables(anything(), anything(), anything())
+        ).thenResolve();
+        ioc.serviceManager.rebindInstance<IEnvironmentActivationService>(
+            IEnvironmentActivationService,
+            instance(mockEnvironmentActivationService)
+        );
         clearCache();
         return initializeTest();
     });
@@ -66,14 +79,22 @@ suite('Multiroot Environment Variables Provider', () => {
 
     function getVariablesProvider(mockVariables: EnvironmentVariables = { ...process.env }) {
         const pathUtils = ioc.serviceContainer.get<IPathUtils>(IPathUtils);
+        const fs = ioc.serviceContainer.get<IFileSystem>(IFileSystem);
         const mockProcess = new MockProcess(mockVariables);
-        const variablesService = new EnvironmentVariablesService(pathUtils);
+        const variablesService = new EnvironmentVariablesService(pathUtils, fs);
         const disposables = ioc.serviceContainer.get<Disposable[]>(IDisposableRegistry);
         ioc.serviceManager.addSingletonInstance(IInterpreterAutoSelectionService, new MockAutoSelectionService());
         const cfgService = new ConfigurationService(ioc.serviceContainer);
         const workspaceService = new WorkspaceService();
-        return new EnvironmentVariablesProvider(variablesService, disposables,
-            new PlatformService(), workspaceService, cfgService, mockProcess);
+        return new EnvironmentVariablesProvider(
+            variablesService,
+            disposables,
+            new PlatformService(),
+            workspaceService,
+            cfgService,
+            mockProcess,
+            ioc.serviceContainer
+        );
     }
 
     test('Custom variables should not be undefined without an env file', async () => {
@@ -112,8 +133,13 @@ suite('Multiroot Environment Variables Provider', () => {
         expect(vars).to.have.property('X1234PYEXTUNITTESTVAR', '1234', 'X1234PYEXTUNITTESTVAR value is invalid');
         expect(vars).to.have.property('PYTHONPATH', '../workspace5', 'PYTHONPATH value is invalid');
 
-        Object.keys(processVariables).forEach(variable => {
-            expect(vars).to.have.property(variable, processVariables[variable], 'Value of the variable is incorrect');
+        Object.keys(processVariables).forEach((variable) => {
+            expect(vars).to.have.property(variable);
+            // On CI, it was seen that processVariable[variable] can contain spaces at the end, which causes tests to fail. So trim the strings before comparing.
+            expect(vars[variable]?.trim()).to.equal(
+                processVariables[variable]?.trim(),
+                'Value of the variable is incorrect'
+            );
         });
     });
 
@@ -312,7 +338,7 @@ suite('Multiroot Environment Variables Provider', () => {
         await settings.update('envFile', '${workspaceRoot}/.env2', ConfigurationTarget.WorkspaceFolder);
 
         // Wait for settings to get refreshed.
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        await new Promise((resolve) => setTimeout(resolve, 5000));
 
         const newVars = await envProvider.getEnvironmentVariables(workspace4PyFile);
         expect(newVars).to.not.equal(undefined, 'Variables is is undefiend');

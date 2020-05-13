@@ -20,7 +20,8 @@ export class DataScienceCodeLensProvider implements IDataScienceCodeLensProvider
     private totalGetCodeLensCalls: number = 0;
     private activeCodeWatchers: ICodeWatcher[] = [];
     private didChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-    constructor(@inject(IServiceContainer) private serviceContainer: IServiceContainer,
+    constructor(
+        @inject(IServiceContainer) private serviceContainer: IServiceContainer,
         @inject(IDebugLocationTracker) private debugLocationTracker: IDebugLocationTracker,
         @inject(IDocumentManager) private documentManager: IDocumentManager,
         @inject(IConfigurationService) private configuration: IConfigurationService,
@@ -38,7 +39,10 @@ export class DataScienceCodeLensProvider implements IDataScienceCodeLensProvider
     public dispose() {
         // On shutdown send how long on average we spent parsing code lens
         if (this.totalGetCodeLensCalls > 0) {
-            sendTelemetryEvent(Telemetry.CodeLensAverageAcquisitionTime, this.totalExecutionTimeInMs / this.totalGetCodeLensCalls);
+            sendTelemetryEvent(
+                Telemetry.CodeLensAverageAcquisitionTime,
+                this.totalExecutionTimeInMs / this.totalGetCodeLensCalls
+            );
         }
     }
 
@@ -55,7 +59,11 @@ export class DataScienceCodeLensProvider implements IDataScienceCodeLensProvider
 
     // IDataScienceCodeLensProvider interface
     public getCodeWatcher(document: vscode.TextDocument): ICodeWatcher | undefined {
-        return this.matchWatcher(document.fileName, document.version, this.configuration.getSettings().datascience);
+        return this.matchWatcher(
+            document.fileName,
+            document.version,
+            this.configuration.getSettings(document.uri).datascience
+        );
     }
 
     private onDebugLocationUpdated() {
@@ -67,7 +75,7 @@ export class DataScienceCodeLensProvider implements IDataScienceCodeLensProvider
     }
 
     private onDidCloseTextDocument(e: vscode.TextDocument) {
-        const index = this.activeCodeWatchers.findIndex(item => item.getFileName() === e.fileName);
+        const index = this.activeCodeWatchers.findIndex((item) => item.getFileName() === e.fileName);
         if (index >= 0) {
             this.activeCodeWatchers.splice(index, 1);
         }
@@ -86,7 +94,7 @@ export class DataScienceCodeLensProvider implements IDataScienceCodeLensProvider
         editorContext.set(result && result.length > 0).catch();
 
         // Don't provide any code lenses if we have not enabled data science
-        const settings = this.configuration.getSettings();
+        const settings = this.configuration.getSettings(document.uri);
         if (!settings.datascience.enabled || !settings.datascience.enableCellCodeLens) {
             // Clear out any existing code watchers, providecodelenses is called on settings change
             // so we don't need to watch the settings change specifically here
@@ -108,13 +116,13 @@ export class DataScienceCodeLensProvider implements IDataScienceCodeLensProvider
 
             if (debugLocation && this.fileSystem.arePathsSame(debugLocation.fileName, document.uri.fsPath)) {
                 // We are in the given debug file, so only return the code lens that contains the given line
-                const activeLenses = lenses.filter(lens => {
+                const activeLenses = lenses.filter((lens) => {
                     // -1 for difference between file system one based and debugger zero based
                     const pos = new vscode.Position(debugLocation.lineNumber - 1, debugLocation.column - 1);
                     return lens.range.contains(pos);
                 });
 
-                return activeLenses.filter(lens => {
+                return activeLenses.filter((lens) => {
                     if (lens.command) {
                         return debugCellList.includes(lens.command.command);
                     }
@@ -122,9 +130,9 @@ export class DataScienceCodeLensProvider implements IDataScienceCodeLensProvider
                 });
             }
         } else {
-            return lenses.filter(lens => {
+            return lenses.filter((lens) => {
                 if (lens.command) {
-                    return !(debugCellList.includes(lens.command.command));
+                    return !debugCellList.includes(lens.command.command);
                 }
                 return false;
             });
@@ -136,7 +144,11 @@ export class DataScienceCodeLensProvider implements IDataScienceCodeLensProvider
 
     private getCodeLens(document: vscode.TextDocument): vscode.CodeLens[] {
         // See if we already have a watcher for this file and version
-        const codeWatcher: ICodeWatcher | undefined = this.matchWatcher(document.fileName, document.version, this.configuration.getSettings().datascience);
+        const codeWatcher: ICodeWatcher | undefined = this.matchWatcher(
+            document.fileName,
+            document.version,
+            this.configuration.getSettings(document.uri).datascience
+        );
         if (codeWatcher) {
             return codeWatcher.getCodeLenses();
         }
@@ -147,7 +159,7 @@ export class DataScienceCodeLensProvider implements IDataScienceCodeLensProvider
     }
 
     private matchWatcher(fileName: string, version: number, settings: IDataScienceSettings): ICodeWatcher | undefined {
-        const index = this.activeCodeWatchers.findIndex(item => item.getFileName() === fileName);
+        const index = this.activeCodeWatchers.findIndex((item) => item.getFileName() === fileName);
         if (index >= 0) {
             const item = this.activeCodeWatchers[index];
             if (item.getVersion() === version) {
@@ -164,7 +176,7 @@ export class DataScienceCodeLensProvider implements IDataScienceCodeLensProvider
         }
 
         // Create a new watcher for this file if we can find a matching document
-        const possibleDocuments = this.documentManager.textDocuments.filter(d => d.fileName === fileName);
+        const possibleDocuments = this.documentManager.textDocuments.filter((d) => d.fileName === fileName);
         if (possibleDocuments && possibleDocuments.length > 0) {
             return this.createNewCodeWatcher(possibleDocuments[0]);
         }

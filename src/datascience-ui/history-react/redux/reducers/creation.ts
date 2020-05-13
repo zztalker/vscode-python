@@ -1,12 +1,14 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
+import { Identifiers } from '../../../../client/datascience/constants';
 import { InteractiveWindowMessages } from '../../../../client/datascience/interactive-common/interactiveWindowTypes';
 import { ICell, IDataScienceExtraSettings } from '../../../../client/datascience/types';
+import { removeLinesFromFrontAndBack } from '../../../common';
 import { createCellVM, extractInputText, ICellViewModel, IMainState } from '../../../interactive-common/mainState';
-import { createPostableAction } from '../../../interactive-common/redux/postOffice';
+import { postActionToExtension } from '../../../interactive-common/redux/helpers';
 import { Helpers } from '../../../interactive-common/redux/reducers/helpers';
-import { ICellAction } from '../../../interactive-common/redux/reducers/types';
+import { IAddCellAction, ICellAction } from '../../../interactive-common/redux/reducers/types';
 import { InteractiveReducerArg } from '../mapping';
 
 export namespace Creation {
@@ -18,7 +20,20 @@ export namespace Creation {
         return true;
     }
 
-    export function alterCellVM(cellVM: ICellViewModel, settings: IDataScienceExtraSettings, visible: boolean, expanded: boolean): ICellViewModel {
+    function extractInputBlockText(cellVM: ICellViewModel, settings?: IDataScienceExtraSettings) {
+        // Use the base function first
+        const text = extractInputText(cellVM, settings);
+
+        // Then remove text on the front and back. We only do this for the interactive window
+        return removeLinesFromFrontAndBack(text);
+    }
+
+    export function alterCellVM(
+        cellVM: ICellViewModel,
+        settings?: IDataScienceExtraSettings,
+        visible?: boolean,
+        expanded?: boolean
+    ): ICellViewModel {
         if (cellVM.cell.data.cell_type === 'code') {
             // If we are already in the correct state, return back our initial cell vm
             if (cellVM.inputBlockShow === visible && cellVM.inputBlockOpen === expanded) {
@@ -38,22 +53,29 @@ export namespace Creation {
 
             // No elseif as we want newly visible cells to pick up the correct expand / collapse state
             if (cellVM.inputBlockOpen !== expanded && cellVM.inputBlockCollapseNeeded && cellVM.inputBlockShow) {
-                if (expanded) {
-                    // Expand the cell
-                    const newText = extractInputText(cellVM.cell, settings);
+                let newText = extractInputBlockText(cellVM, settings);
 
-                    newCellVM.inputBlockOpen = true;
-                    newCellVM.inputBlockText = newText;
-                } else {
-                    // Collapse the cell
-                    let newText = extractInputText(cellVM.cell, settings);
-                    if (newText.length > 0) {
-                        newText = newText.split('\n', 1)[0];
-                        newText = newText.slice(0, 255); // Slice to limit length, slicing past length is fine
-                        newText = newText.concat('...');
+                // While extracting the text, we might eliminate all extra lines
+                if (newText.includes('\n')) {
+                    if (expanded) {
+                        // Expand the cell
+                        newCellVM.inputBlockOpen = true;
+                        newCellVM.inputBlockText = newText;
+                    } else {
+                        // Collapse the cell
+                        if (newText.length > 0) {
+                            newText = newText.split('\n', 1)[0];
+                            newText = newText.slice(0, 255); // Slice to limit length, slicing past length is fine
+                            newText = newText.concat('...');
+                        }
+
+                        newCellVM.inputBlockOpen = false;
+                        newCellVM.inputBlockText = newText;
                     }
-
-                    newCellVM.inputBlockOpen = false;
+                } else {
+                    // If all lines eliminated, get rid of the collapse bar.
+                    newCellVM.inputBlockCollapseNeeded = false;
+                    newCellVM.inputBlockOpen = true;
                     newCellVM.inputBlockText = newText;
                 }
             }
@@ -64,59 +86,82 @@ export namespace Creation {
         return cellVM;
     }
 
-    export function prepareCellVM(cell: ICell, settings: IDataScienceExtraSettings): ICellViewModel {
-        let cellVM: ICellViewModel = createCellVM(cell, settings, false);
+    export function prepareCellVM(cell: ICell, mainState: IMainState): ICellViewModel {
+        let cellVM: ICellViewModel = createCellVM(cell, mainState.settings, false, mainState.debugging);
 
-        const visible = settings.showCellInputCode;
-        const expanded = !settings.collapseCellInputCodeByDefault;
+        const visible = mainState.settings ? mainState.settings.showCellInputCode : false;
+        const expanded = !mainState.settings?.collapseCellInputCodeByDefault;
 
         // Set initial cell visibility and collapse
-        cellVM = alterCellVM(cellVM, settings, visible, expanded);
+        cellVM = alterCellVM(cellVM, mainState.settings, visible, expanded);
         cellVM.hasBeenRun = true;
 
         return cellVM;
     }
 
     export function startCell(arg: InteractiveReducerArg<ICell>): IMainState {
-        if (isCellSupported(arg.prevState, arg.payload)) {
-            return Helpers.updateOrAdd(arg, prepareCellVM);
+        if (isCellSupported(arg.prevState, arg.payload.data)) {
+            const result = Helpers.updateOrAdd(arg, prepareCellVM);
+            if (
+                result.cellVMs.length > arg.prevState.cellVMs.length &&
+                arg.payload.data.id !== Identifiers.EditCellId
+            ) {
+                const cellVM = result.cellVMs[result.cellVMs.length - 1];
+
+                // We're adding a new cell here. Tell the intellisense engine we have a new cell
+                postActionToExtension(arg, InteractiveWindowMessages.UpdateModel, {
+                    source: 'user',
+                    kind: 'add',
+                    oldDirty: arg.prevState.dirty,
+                    newDirty: true,
+                    cell: cellVM.cell,
+                    fullText: extractInputText(cellVM, result.settings),
+                    currentText: cellVM.inputBlockText
+                });
+            }
+
+            return result;
         }
         return arg.prevState;
     }
 
     export function updateCell(arg: InteractiveReducerArg<ICell>): IMainState {
-        if (isCellSupported(arg.prevState, arg.payload)) {
+        if (isCellSupported(arg.prevState, arg.payload.data)) {
             return Helpers.updateOrAdd(arg, prepareCellVM);
         }
         return arg.prevState;
     }
 
     export function finishCell(arg: InteractiveReducerArg<ICell>): IMainState {
-        if (isCellSupported(arg.prevState, arg.payload)) {
+        if (isCellSupported(arg.prevState, arg.payload.data)) {
             return Helpers.updateOrAdd(arg, prepareCellVM);
         }
         return arg.prevState;
     }
 
-    export function deleteAllCells(arg: InteractiveReducerArg): IMainState {
+    export function deleteAllCells(arg: InteractiveReducerArg<IAddCellAction>): IMainState {
         // Send messages to other side to indicate the deletes
-        arg.queueAction(createPostableAction(InteractiveWindowMessages.DeleteAllCells));
+        postActionToExtension(arg, InteractiveWindowMessages.DeleteAllCells);
 
         return {
             ...arg.prevState,
             cellVMs: [],
-            undoStack: Helpers.pushStack(arg.prevState.undoStack, arg.prevState.cellVMs),
-            selectedCellId: undefined,
-            focusedCellId: undefined
+            undoStack: Helpers.pushStack(arg.prevState.undoStack, arg.prevState.cellVMs)
         };
     }
 
     export function deleteCell(arg: InteractiveReducerArg<ICellAction>): IMainState {
-        const index = arg.prevState.cellVMs.findIndex(c => c.cell.id === arg.payload.cellId);
-        if (index >= 0 && arg.payload.cellId) {
+        const index = arg.prevState.cellVMs.findIndex((c) => c.cell.id === arg.payload.data.cellId);
+        if (index >= 0 && arg.payload.data.cellId) {
             // Send messages to other side to indicate the delete
-            arg.queueAction(createPostableAction(InteractiveWindowMessages.DeleteCell));
-            arg.queueAction(createPostableAction(InteractiveWindowMessages.RemoveCell, { id: arg.payload.cellId }));
+            postActionToExtension(arg, InteractiveWindowMessages.UpdateModel, {
+                source: 'user',
+                kind: 'remove',
+                index,
+                oldDirty: arg.prevState.dirty,
+                newDirty: true,
+                cell: arg.prevState.cellVMs[index].cell
+            });
 
             const newVMs = arg.prevState.cellVMs.filter((_c, i) => i !== index);
             return {
@@ -134,7 +179,19 @@ export namespace Creation {
             ...arg.prevState,
             cellVMs: [],
             undoStack: [],
-            redoStack: []
+            redoStack: [],
+            editCellVM: undefined
+        };
+    }
+
+    export function loaded(arg: InteractiveReducerArg<{ cells: ICell[] }>): IMainState {
+        postActionToExtension(arg, InteractiveWindowMessages.LoadAllCellsComplete, {
+            cells: []
+        });
+        return {
+            ...arg.prevState,
+            loaded: true,
+            busy: false
         };
     }
 }

@@ -7,8 +7,7 @@ import { inject, injectable } from 'inversify';
 import { ConfigurationTarget } from 'vscode';
 import { IApplicationShell } from '../common/application/types';
 import '../common/extensions';
-import { IConfigurationService, IPersistentStateFactory,
-    IPythonExtensionBanner } from '../common/types';
+import { IConfigurationService, IPersistentStateFactory, IPythonExtensionBanner } from '../common/types';
 import { getRandomBetween } from '../common/utils/random';
 
 // persistent state names, exported to make use of in testing
@@ -34,15 +33,16 @@ export class ProposeLanguageServerBanner implements IPythonExtensionBanner {
     private initialized?: boolean;
     private disabledInCurrentSession: boolean = false;
     private sampleSizePerHundred: number;
-    private bannerMessage: string = 'Try out Preview of our new Python Language Server to get richer and faster IntelliSense completions, and syntax errors as you type.';
-    private bannerLabels: string[] = [ 'Try it now', 'No thanks', 'Remind me Later' ];
+    private bannerMessage: string =
+        'Try out Preview of our new Python Language Server to get richer and faster IntelliSense completions, and syntax errors as you type.';
+    private bannerLabels: string[] = ['Try it now', 'No thanks', 'Remind me Later'];
 
     constructor(
         @inject(IApplicationShell) private appShell: IApplicationShell,
         @inject(IPersistentStateFactory) private persistentState: IPersistentStateFactory,
         @inject(IConfigurationService) private configuration: IConfigurationService,
-        sampleSizePerOneHundredUsers: number = 10)
-    {
+        sampleSizePerOneHundredUsers: number = 10
+    ) {
         this.sampleSizePerHundred = sampleSizePerOneHundredUsers;
         this.initialize();
     }
@@ -106,7 +106,9 @@ export class ProposeLanguageServerBanner implements IPythonExtensionBanner {
     }
 
     public async disable(): Promise<void> {
-        await this.persistentState.createGlobalPersistentState<boolean>(ProposeLSStateKeys.ShowBanner, false).updateValue(false);
+        await this.persistentState
+            .createGlobalPersistentState<boolean>(ProposeLSStateKeys.ShowBanner, false)
+            .updateValue(false);
     }
 
     public async enableNewLanguageServer(): Promise<void> {

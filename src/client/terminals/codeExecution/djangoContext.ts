@@ -17,19 +17,21 @@ export class DjangoContextInitializer implements Disposable {
     private lastCheckedWorkspace: string = '';
     private disposables: Disposable[] = [];
 
-    constructor(private documentManager: IDocumentManager,
+    constructor(
+        private documentManager: IDocumentManager,
         private workpaceService: IWorkspaceService,
         private fileSystem: IFileSystem,
-        commandManager: ICommandManager) {
-
+        commandManager: ICommandManager
+    ) {
         this.isDjangoProject = new ContextKey('python.isDjangoProject', commandManager);
-        this.ensureContextStateIsSet()
-            .catch(ex => traceError('Python Extension: ensureState', ex));
-        this.disposables.push(this.workpaceService.onDidChangeWorkspaceFolders(() => this.updateContextKeyBasedOnActiveWorkspace()));
+        this.ensureContextStateIsSet().catch((ex) => traceError('Python Extension: ensureState', ex));
+        this.disposables.push(
+            this.workpaceService.onDidChangeWorkspaceFolders(() => this.updateContextKeyBasedOnActiveWorkspace())
+        );
     }
 
     public dispose() {
-        this.disposables.forEach(disposable => disposable.dispose());
+        this.disposables.forEach((disposable) => disposable.dispose());
     }
     private updateContextKeyBasedOnActiveWorkspace() {
         if (this.monitoringActiveTextEditor) {
@@ -39,7 +41,10 @@ export class DjangoContextInitializer implements Disposable {
         this.disposables.push(this.documentManager.onDidChangeActiveTextEditor(() => this.ensureContextStateIsSet()));
     }
     private getActiveWorkspace(): string | undefined {
-        if (!Array.isArray(this.workpaceService.workspaceFolders) || this.workpaceService.workspaceFolders.length === 0) {
+        if (
+            !Array.isArray(this.workpaceService.workspaceFolders) ||
+            this.workpaceService.workspaceFolders.length === 0
+        ) {
             return;
         }
         if (this.workpaceService.workspaceFolders.length === 1) {

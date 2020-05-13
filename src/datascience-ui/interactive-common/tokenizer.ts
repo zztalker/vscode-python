@@ -15,78 +15,79 @@ export function registerMonacoLanguage() {
     });
 
     // Setup the configuration so that auto indent and other things work. Onigasm is just going to setup the tokenizer
-    monacoEditor.languages.setLanguageConfiguration(
-        PYTHON_LANGUAGE,
-        {
-            comments: {
-                lineComment: '#',
-                blockComment: ['\"\"\"', '\"\"\"']
-            },
-            brackets: [
-                ['{', '}'],
-                ['[', ']'],
-                ['(', ')']
-            ],
-            autoClosingPairs: [
-                { open: '{', close: '}' },
-                { open: '[', close: ']' },
-                { open: '(', close: ')' },
-                { open: '"', close: '"', notIn: ['string'] },
-                { open: '\'', close: '\'', notIn: ['string', 'comment'] }
-            ],
-            surroundingPairs: [
-                { open: '{', close: '}' },
-                { open: '[', close: ']' },
-                { open: '(', close: ')' },
-                { open: '"', close: '"' },
-                { open: '\'', close: '\'' }
-            ],
-            onEnterRules: [
-                {
-                    beforeText: new RegExp('^\\s*(?:def|class|for|if|elif|else|while|try|with|finally|except|async).*?:\\s*$'),
-                    action: { indentAction: monacoEditor.languages.IndentAction.Indent }
-                }
-            ],
-            folding: {
-                offSide: true,
-                markers: {
-                    start: new RegExp('^\\s*#region\\b'),
-                    end: new RegExp('^\\s*#endregion\\b')
-                }
+    monacoEditor.languages.setLanguageConfiguration(PYTHON_LANGUAGE, {
+        comments: {
+            lineComment: '#',
+            blockComment: ['"""', '"""']
+        },
+        brackets: [
+            ['{', '}'],
+            ['[', ']'],
+            ['(', ')']
+        ],
+        autoClosingPairs: [
+            { open: '{', close: '}' },
+            { open: '[', close: ']' },
+            { open: '(', close: ')' },
+            { open: '"', close: '"', notIn: ['string'] },
+            { open: "'", close: "'", notIn: ['string', 'comment'] }
+        ],
+        surroundingPairs: [
+            { open: '{', close: '}' },
+            { open: '[', close: ']' },
+            { open: '(', close: ')' },
+            { open: '"', close: '"' },
+            { open: "'", close: "'" }
+        ],
+        onEnterRules: [
+            {
+                beforeText: new RegExp(
+                    '^\\s*(?:def|class|for|if|elif|else|while|try|with|finally|except|async).*?:\\s*$'
+                ),
+                action: { indentAction: monacoEditor.languages.IndentAction.Indent }
+            }
+        ],
+        folding: {
+            offSide: true,
+            markers: {
+                start: new RegExp('^\\s*#region\\b'),
+                end: new RegExp('^\\s*#endregion\\b')
             }
         }
-    );
+    });
 }
 
 // tslint:disable: no-any
 export async function initializeTokenizer(
     onigasm: ArrayBuffer,
     tmlanguageJSON: string,
-    loadingFinished: (e?: any) => void): Promise<void> {
+    loadingFinished: (e?: any) => void
+): Promise<void> {
     try {
         // Register the language first
         registerMonacoLanguage();
 
-        // Load the web assembly
-        await loadWASM(onigasm);
+        // Load the web assembly if necessary
+        if (onigasm && onigasm.byteLength > 0) {
+            await loadWASM(onigasm);
 
-        // Setup our registry of different
-        const registry = new Registry({
-            getGrammarDefinition: async (_scopeName) => {
-                return {
-                    format: 'json',
-                    content: tmlanguageJSON
-                };
-            }
-        });
+            // Setup our registry of different
+            const registry = new Registry({
+                getGrammarDefinition: async (_scopeName) => {
+                    return {
+                        format: 'json',
+                        content: tmlanguageJSON
+                    };
+                }
+            });
 
-        // map of monaco "language id's" to TextMate scopeNames
-        const grammars = new Map();
-        grammars.set('python', 'source.python');
+            // map of monaco "language id's" to TextMate scopeNames
+            const grammars = new Map();
+            grammars.set('python', 'source.python');
 
-        // Wire everything together.
-        await wireTmGrammars(monacoEditor, registry, grammars);
-
+            // Wire everything together.
+            await wireTmGrammars(monacoEditor, registry, grammars);
+        }
         // Indicate to the callback that we're done.
         loadingFinished();
     } catch (e) {

@@ -13,7 +13,11 @@ import { TerminalCodeExecutionProvider } from './codeExecution/terminalCodeExecu
 import { ICodeExecutionHelper, ICodeExecutionManager, ICodeExecutionService, ITerminalAutoActivation } from './types';
 
 interface IServiceRegistry {
-    addSingleton<T>(serviceIdentifier: interfaces.ServiceIdentifier<T>, constructor: ClassType<T>, name?: string | number | symbol): void;
+    addSingleton<T>(
+        serviceIdentifier: interfaces.ServiceIdentifier<T>,
+        constructor: ClassType<T>,
+        name?: string | number | symbol
+    ): void;
 }
 
 export function registerTypes(serviceManager: IServiceRegistry) {
@@ -21,8 +25,16 @@ export function registerTypes(serviceManager: IServiceRegistry) {
 
     serviceManager.addSingleton<ICodeExecutionManager>(ICodeExecutionManager, CodeExecutionManager);
 
-    serviceManager.addSingleton<ICodeExecutionService>(ICodeExecutionService, DjangoShellCodeExecutionProvider, 'djangoShell');
-    serviceManager.addSingleton<ICodeExecutionService>(ICodeExecutionService, TerminalCodeExecutionProvider, 'standard');
+    serviceManager.addSingleton<ICodeExecutionService>(
+        ICodeExecutionService,
+        DjangoShellCodeExecutionProvider,
+        'djangoShell'
+    );
+    serviceManager.addSingleton<ICodeExecutionService>(
+        ICodeExecutionService,
+        TerminalCodeExecutionProvider,
+        'standard'
+    );
     serviceManager.addSingleton<ICodeExecutionService>(ICodeExecutionService, ReplProvider, 'repl');
 
     serviceManager.addSingleton<ITerminalAutoActivation>(ITerminalAutoActivation, TerminalAutoActivation);

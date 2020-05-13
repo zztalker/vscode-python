@@ -22,22 +22,24 @@ import { MockDocument } from './mockDocument';
 import { MockDocumentManager } from './mockDocumentManager';
 
 class MockEditorEdit implements TextEditorEdit {
-
-    constructor(private _documentManager: MockDocumentManager, private _document: MockDocument) {
-    }
+    constructor(private _documentManager: MockDocumentManager, private _document: MockDocument) {}
 
     public replace(location: Selection | Range | Position, value: string): void {
-        this._documentManager.changeDocument(this._document.fileName, [{
-            range: location as Range,
-            newText: value
-        }]);
+        this._documentManager.changeDocument(this._document.fileName, [
+            {
+                range: location as Range,
+                newText: value
+            }
+        ]);
     }
 
     public insert(location: Position, value: string): void {
-        this._documentManager.changeDocument(this._document.fileName, [{
-            range: new Range(location, location),
-            newText: value
-        }]);
+        this._documentManager.changeDocument(this._document.fileName, [
+            {
+                range: new Range(location, location),
+                newText: value
+            }
+        ]);
     }
     public delete(_location: Selection | Range): void {
         throw new Error('Method not implemented.');
@@ -64,23 +66,32 @@ export class MockEditor implements TextEditor {
         return [];
     }
     public get options(): TextEditorOptions {
-        return {
-        };
+        return {};
     }
     public get viewColumn(): ViewColumn | undefined {
         return undefined;
     }
-    public edit(callback: (editBuilder: TextEditorEdit) => void, _options?: { undoStopBefore: boolean; undoStopAfter: boolean } | undefined): Thenable<boolean> {
-        return new Promise(r => {
+    public edit(
+        callback: (editBuilder: TextEditorEdit) => void,
+        _options?: { undoStopBefore: boolean; undoStopAfter: boolean } | undefined
+    ): Thenable<boolean> {
+        return new Promise((r) => {
             const editor = new MockEditorEdit(this._documentManager, this._document);
             callback(editor);
             r(true);
         });
     }
-    public insertSnippet(_snippet: SnippetString, _location?: Range | Position | Range[] | Position[] | undefined, _options?: { undoStopBefore: boolean; undoStopAfter: boolean } | undefined): Thenable<boolean> {
+    public insertSnippet(
+        _snippet: SnippetString,
+        _location?: Range | Position | Range[] | Position[] | undefined,
+        _options?: { undoStopBefore: boolean; undoStopAfter: boolean } | undefined
+    ): Thenable<boolean> {
         throw new Error('Method not implemented.');
     }
-    public setDecorations(_decorationType: TextEditorDecorationType, _rangesOrOptions: Range[] | DecorationOptions[]): void {
+    public setDecorations(
+        _decorationType: TextEditorDecorationType,
+        _rangesOrOptions: Range[] | DecorationOptions[]
+    ): void {
         throw new Error('Method not implemented.');
     }
     public revealRange(_range: Range, _revealType?: TextEditorRevealType | undefined): void {

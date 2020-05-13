@@ -6,12 +6,19 @@ import { IServiceContainer } from '../../ioc/types';
 import { PYTEST_PROVIDER } from '../common/constants';
 import { Options } from '../common/runner';
 import {
-    ITestDebugLauncher, ITestManager, ITestResultsService, ITestRunner,
-    IXUnitParser, LaunchOptions, TestRunOptions, Tests
+    ITestDebugLauncher,
+    ITestManager,
+    ITestResultsService,
+    ITestRunner,
+    IXUnitParser,
+    LaunchOptions,
+    TestRunOptions,
+    Tests
 } from '../common/types';
 import { IArgumentsHelper, IArgumentsService, ITestManagerRunner } from '../types';
 
-const JunitXmlArg = '--junitxml';
+const JunitXmlArgOld = '--junitxml';
+const JunitXmlArg = '--junit-xml';
 @injectable()
 export class TestManagerRunner implements ITestManagerRunner {
     private readonly argsService: IArgumentsService;
@@ -26,19 +33,23 @@ export class TestManagerRunner implements ITestManagerRunner {
         this.xUnitParser = this.serviceContainer.get<IXUnitParser>(IXUnitParser);
         this.fs = this.serviceContainer.get<IFileSystem>(IFileSystem);
     }
-    public async runTest(testResultsService: ITestResultsService, options: TestRunOptions, _: ITestManager): Promise<Tests> {
+    public async runTest(
+        testResultsService: ITestResultsService,
+        options: TestRunOptions,
+        _: ITestManager
+    ): Promise<Tests> {
         let testPaths: string[] = [];
         if (options.testsToRun && options.testsToRun.testFolder) {
-            testPaths = testPaths.concat(options.testsToRun.testFolder.map(f => f.nameToRun));
+            testPaths = testPaths.concat(options.testsToRun.testFolder.map((f) => f.nameToRun));
         }
         if (options.testsToRun && options.testsToRun.testFile) {
-            testPaths = testPaths.concat(options.testsToRun.testFile.map(f => f.nameToRun));
+            testPaths = testPaths.concat(options.testsToRun.testFile.map((f) => f.nameToRun));
         }
         if (options.testsToRun && options.testsToRun.testSuite) {
-            testPaths = testPaths.concat(options.testsToRun.testSuite.map(f => f.nameToRun));
+            testPaths = testPaths.concat(options.testsToRun.testSuite.map((f) => f.nameToRun));
         }
         if (options.testsToRun && options.testsToRun.testFunction) {
-            testPaths = testPaths.concat(options.testsToRun.testFunction.map(f => f.nameToRun));
+            testPaths = testPaths.concat(options.testsToRun.testFunction.map((f) => f.nameToRun));
         }
 
         let deleteJUnitXmlFile: Function = noop;
@@ -47,11 +58,12 @@ export class TestManagerRunner implements ITestManagerRunner {
             const xmlLogResult = await this.getJUnitXmlFile(args);
             const xmlLogFile = xmlLogResult.filePath;
             deleteJUnitXmlFile = xmlLogResult.dispose;
-            // Remove the '--junixml' if it exists, and add it with our path.
-            const testArgs = this.argsService.filterArguments(args, [JunitXmlArg]);
+            // Remove the '--junitxml' or '--junit-xml' if it exists, and add it with our path.
+            const testArgs = this.argsService.filterArguments(args, [JunitXmlArg, JunitXmlArgOld]);
             testArgs.splice(0, 0, `${JunitXmlArg}=${xmlLogFile}`);
 
             testArgs.splice(0, 0, '--rootdir', options.workspaceFolder.fsPath);
+            testArgs.splice(0, 0, '--override-ini', 'junit_family=xunit1');
 
             // Positional arguments control the tests to be run.
             testArgs.push(...testPaths);
@@ -59,7 +71,13 @@ export class TestManagerRunner implements ITestManagerRunner {
             if (options.debug) {
                 const debugLauncher = this.serviceContainer.get<ITestDebugLauncher>(ITestDebugLauncher);
                 const debuggerArgs = [options.cwd, 'pytest'].concat(testArgs);
-                const launchOptions: LaunchOptions = { cwd: options.cwd, args: debuggerArgs, token: options.token, outChannel: options.outChannel, testProvider: PYTEST_PROVIDER };
+                const launchOptions: LaunchOptions = {
+                    cwd: options.cwd,
+                    args: debuggerArgs,
+                    token: options.token,
+                    outChannel: options.outChannel,
+                    testProvider: PYTEST_PROVIDER
+                };
                 await debugLauncher.launchDebugger(launchOptions);
             } else {
                 const runOptions: Options = {
@@ -72,7 +90,9 @@ export class TestManagerRunner implements ITestManagerRunner {
                 await this.testRunner.run(PYTEST_PROVIDER, runOptions);
             }
 
-            return options.debug ? options.tests : await this.updateResultsFromLogFiles(options.tests, xmlLogFile, testResultsService);
+            return options.debug
+                ? options.tests
+                : await this.updateResultsFromLogFiles(options.tests, xmlLogFile, testResultsService);
         } catch (ex) {
             return Promise.reject<Tests>(ex);
         } finally {
@@ -80,7 +100,11 @@ export class TestManagerRunner implements ITestManagerRunner {
         }
     }
 
-    private async updateResultsFromLogFiles(tests: Tests, outputXmlFile: string, testResultsService: ITestResultsService): Promise<Tests> {
+    private async updateResultsFromLogFiles(
+        tests: Tests,
+        outputXmlFile: string,
+        testResultsService: ITestResultsService
+    ): Promise<Tests> {
         await this.xUnitParser.updateResultsFromXmlLogFile(tests, outputXmlFile);
         testResultsService.updateResults(tests);
         return tests;
@@ -93,5 +117,4 @@ export class TestManagerRunner implements ITestManagerRunner {
         }
         return this.fs.createTemporaryFile('.xml');
     }
-
 }

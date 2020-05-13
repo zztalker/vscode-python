@@ -29,10 +29,11 @@ const nativeDependencyChecker = require('node-has-native-dependencies');
 const flat = require('flat');
 const argv = require('yargs').argv;
 const os = require('os');
+const rmrf = require('rimraf');
 
 const isCI = process.env.TRAVIS === 'true' || process.env.TF_BUILD !== undefined;
 
-const noop = function() {};
+const noop = function () {};
 /**
  * Hygiene works by creating cascading subsets of all our files and
  * passing them through a sequence of checks. Here are the current subsets,
@@ -63,7 +64,7 @@ const tslintFilter = [
     '!**/*.d.ts'
 ];
 
-gulp.task('compile', done => {
+gulp.task('compile', (done) => {
     let failed = false;
     const tsProject = ts.createProject('tsconfig.json');
     tsProject
@@ -72,15 +73,18 @@ gulp.task('compile', done => {
         .on('error', () => (failed = true))
         .js.pipe(gulp.dest('out'))
         .on('finish', () => (failed ? done(new Error('TypeScript compilation errors')) : done()));
-    });
+});
 
-gulp.task('precommit', done => run({ exitOnError: true, mode: 'staged' }, done));
+gulp.task('precommit', (done) => run({ exitOnError: true, mode: 'staged' }, done));
 
 gulp.task('hygiene-watch', () => gulp.watch(tsFilter, gulp.series('hygiene-modified')));
 
-gulp.task('hygiene', done => run({ mode: 'compile', skipFormatCheck: true, skipIndentationCheck: true }, done));
+gulp.task('hygiene', (done) => run({ mode: 'compile', skipFormatCheck: true, skipIndentationCheck: true }, done));
 
-gulp.task('hygiene-modified', gulp.series('compile', done => run({ mode: 'changes' }, done)));
+gulp.task(
+    'hygiene-modified',
+    gulp.series('compile', (done) => run({ mode: 'changes' }, done))
+);
 
 gulp.task('watch', gulp.parallel('hygiene-modified', 'hygiene-watch'));
 
@@ -89,9 +93,9 @@ gulp.task('watchProblems', gulp.parallel('hygiene-modified', 'hygiene-watch'));
 
 gulp.task('hygiene-watch-branch', () => gulp.watch(tsFilter, gulp.series('hygiene-branch')));
 
-gulp.task('hygiene-all', done => run({ mode: 'all' }, done));
+gulp.task('hygiene-all', (done) => run({ mode: 'all' }, done));
 
-gulp.task('hygiene-branch', done => run({ mode: 'diffMaster' }, done));
+gulp.task('hygiene-branch', (done) => run({ mode: 'diffMaster' }, done));
 
 gulp.task('output:clean', () => del(['coverage']));
 
@@ -101,7 +105,7 @@ gulp.task('clean:out', () => del(['out']));
 
 gulp.task('clean', gulp.parallel('output:clean', 'clean:vsix', 'clean:out'));
 
-gulp.task('checkNativeDependencies', done => {
+gulp.task('checkNativeDependencies', (done) => {
     if (hasNativeDependencies()) {
         done(new Error('Native dependencies detected'));
     }
@@ -110,23 +114,89 @@ gulp.task('checkNativeDependencies', done => {
 
 gulp.task('check-datascience-dependencies', () => checkDatascienceDependencies());
 
-gulp.task('compile-webviews', async () =>
-    spawnAsync('npx', ['-n', '--max_old_space_size=4096', 'webpack', '--config', 'webpack.datascience-ui.config.js', '--mode', 'production'])
-);
+const webpackEnv = { NODE_OPTIONS: '--max_old_space_size=9096' };
+
+async function buildIPyWidgets() {
+    await spawnAsync('npm', ['run', 'build-ipywidgets'], webpackEnv);
+}
+async function buildDataScienceUI(forceBundleAnalyzer = false) {
+    if (forceBundleAnalyzer) {
+        process.env.VSC_PYTHON_FORCE_ANALYZER = 1;
+    }
+    await buildIPyWidgets();
+    await spawnAsync(
+        'npm',
+        [
+            'run',
+            'webpack',
+            '--',
+            '--config',
+            './build/webpack/webpack.datascience-ui-notebooks.config.js',
+            '--mode',
+            'production'
+        ],
+        webpackEnv
+    );
+    await spawnAsync(
+        'npm',
+        [
+            'run',
+            'webpack',
+            '--',
+            '--config',
+            './build/webpack/webpack.datascience-ui-viewers.config.js',
+            '--mode',
+            'production'
+        ],
+        webpackEnv
+    );
+    if (forceBundleAnalyzer) {
+        delete process.env.VSC_PYTHON_FORCE_ANALYZER;
+    }
+}
+
+gulp.task('compile-webviews', async () => {
+    buildDataScienceUI(false);
+});
 
 gulp.task('webpack', async () => {
-    // Build node_modules and DS stuff.
-    await buildWebPack('production', []);
+    // Build node_modules.
+    await buildWebPack(
+        'production',
+        ['--config', './build/webpack/webpack.extension.dependencies.config.js'],
+        webpackEnv
+    );
+    // Build DS stuff (separately as it uses far too much memory and slows down CI).
+    // Individually is faster on CI.
+    await buildIPyWidgets();
+    await buildWebPack(
+        'production',
+        ['--config', './build/webpack/webpack.datascience-ui-notebooks.config.js'],
+        webpackEnv
+    );
+    await buildWebPack(
+        'production',
+        ['--config', './build/webpack/webpack.datascience-ui-viewers.config.js'],
+        webpackEnv
+    );
     // Run both in parallel, for faster process on CI.
     // Yes, console would print output from both, that's ok, we have a faster CI.
     // If things fail, we can run locally separately.
     if (isCI) {
-        const buildExtension = buildWebPack('extension', ['--config', './build/webpack/webpack.extension.config.js']);
-        const buildDebugAdapter = buildWebPack('debugAdapter', ['--config', './build/webpack/webpack.debugadapter.config.js']);
+        const buildExtension = buildWebPack(
+            'extension',
+            ['--config', './build/webpack/webpack.extension.config.js'],
+            webpackEnv
+        );
+        const buildDebugAdapter = buildWebPack(
+            'debugAdapter',
+            ['--config', './build/webpack/webpack.debugadapter.config.js'],
+            webpackEnv
+        );
         await Promise.all([buildExtension, buildDebugAdapter]);
     } else {
-        await buildWebPack('extension', ['--config', './build/webpack/webpack.extension.config.js']);
-        await buildWebPack('debugAdapter', ['--config', './build/webpack/webpack.debugadapter.config.js']);
+        await buildWebPack('extension', ['--config', './build/webpack/webpack.extension.config.js'], webpackEnv);
+        await buildWebPack('debugAdapter', ['--config', './build/webpack/webpack.debugadapter.config.js'], webpackEnv);
     }
 });
 
@@ -142,8 +212,12 @@ async function updateBuildNumber(args) {
 
         // Change version number
         const versionParts = packageJson['version'].split('.');
-        const buildNumberPortion = versionParts.length > 2 ? versionParts[2].replace(/(\d+)/, args.buildNumber) : args.buildNumber;
-        const newVersion = versionParts.length > 1 ? `${versionParts[0]}.${versionParts[1]}.${buildNumberPortion}` : packageJson['version'];
+        const buildNumberPortion =
+            versionParts.length > 2 ? versionParts[2].replace(/(\d+)/, args.buildNumber) : args.buildNumber;
+        const newVersion =
+            versionParts.length > 1
+                ? `${versionParts[0]}.${versionParts[1]}.${buildNumberPortion}`
+                : packageJson['version'];
         packageJson['version'] = newVersion;
 
         // Write back to the package json
@@ -152,7 +226,10 @@ async function updateBuildNumber(args) {
         // Update the changelog.md if we are told to (this should happen on the release branch)
         if (args.updateChangelog) {
             const changeLogContents = await fsExtra.readFile('CHANGELOG.md', 'utf-8');
-            const fixedContents = changeLogContents.replace(/##\s*(\d+)\.(\d+)\.(\d+)\s*\(/, `## $1.$2.${buildNumberPortion} (`);
+            const fixedContents = changeLogContents.replace(
+                /##\s*(\d+)\.(\d+)\.(\d+)\s*\(/,
+                `## $1.$2.${buildNumberPortion} (`
+            );
 
             // Write back to changelog.md
             await fsExtra.writeFile('CHANGELOG.md', fixedContents, 'utf-8');
@@ -162,24 +239,35 @@ async function updateBuildNumber(args) {
     }
 }
 
-async function buildWebPack(webpackConfigName, args) {
+async function buildWebPack(webpackConfigName, args, env) {
     // Remember to perform a case insensitive search.
-    const allowedWarnings = getAllowedWarningsForWebPack(webpackConfigName).map(item => item.toLowerCase());
-    const stdOut = await spawnAsync('npx', ['-n', '--max_old_space_size=4096', 'webpack', ...args, ...['--mode', 'production']], allowedWarnings);
+    const allowedWarnings = getAllowedWarningsForWebPack(webpackConfigName).map((item) => item.toLowerCase());
+    const stdOut = await spawnAsync(
+        'npm',
+        ['run', 'webpack', '--', ...args, ...['--mode', 'production', '--devtool', 'source-map']],
+        env
+    );
     const stdOutLines = stdOut
         .split(os.EOL)
-        .map(item => item.trim())
-        .filter(item => item.length > 0);
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
     // Remember to perform a case insensitive search.
     const warnings = stdOutLines
-        .filter(item => item.startsWith('WARNING in '))
-        .filter(item => allowedWarnings.findIndex(allowedWarning => item.toLowerCase().startsWith(allowedWarning.toLowerCase())) == -1);
-    const errors = stdOutLines.some(item => item.startsWith('ERROR in'));
+        .filter((item) => item.startsWith('WARNING in '))
+        .filter(
+            (item) =>
+                allowedWarnings.findIndex((allowedWarning) =>
+                    item.toLowerCase().startsWith(allowedWarning.toLowerCase())
+                ) == -1
+        );
+    const errors = stdOutLines.some((item) => item.startsWith('ERROR in'));
     if (errors) {
         throw new Error(`Errors in ${webpackConfigName}, \n${warnings.join(', ')}\n\n${stdOut}`);
     }
     if (warnings.length > 0) {
-        throw new Error(`Warnings in ${webpackConfigName}, \n\n${stdOut}`);
+        throw new Error(
+            `Warnings in ${webpackConfigName}, Check gulpfile.js to see if the warning should be allowed., \n\n${stdOut}`
+        );
     }
 }
 function getAllowedWarningsForWebPack(buildConfig) {
@@ -196,7 +284,10 @@ function getAllowedWarningsForWebPack(buildConfig) {
                 'WARNING in ./node_modules/ws/lib/Validation.js',
                 'WARNING in ./node_modules/ws/lib/validation.js',
                 'WARNING in ./node_modules/@jupyterlab/services/node_modules/ws/lib/buffer-util.js',
-                'WARNING in ./node_modules/@jupyterlab/services/node_modules/ws/lib/validation.js'
+                'WARNING in ./node_modules/@jupyterlab/services/node_modules/ws/lib/validation.js',
+                'WARNING in ./node_modules/any-promise/register.js',
+                'WARNING in ./node_modules/log4js/lib/appenders/index.js',
+                'WARNING in ./node_modules/log4js/lib/clustering.js'
             ];
         case 'extension':
             return [
@@ -204,7 +295,12 @@ function getAllowedWarningsForWebPack(buildConfig) {
                 'WARNING in ./node_modules/ws/lib/BufferUtil.js',
                 'WARNING in ./node_modules/ws/lib/buffer-util.js',
                 'WARNING in ./node_modules/ws/lib/Validation.js',
-                'WARNING in ./node_modules/ws/lib/validation.js'
+                'WARNING in ./node_modules/ws/lib/validation.js',
+                'WARNING in ./node_modules/any-promise/register.js',
+                'remove-files-plugin@1.4.0:',
+                'WARNING in ./node_modules/@jupyterlab/services/node_modules/ws/lib/buffer-util.js',
+                'WARNING in ./node_modules/@jupyterlab/services/node_modules/ws/lib/validation.js',
+                'WARNING in ./node_modules/@jupyterlab/services/node_modules/ws/lib/Validation.js'
             ];
         case 'debugAdapter':
             return ['WARNING in ./node_modules/vscode-uri/lib/index.js'];
@@ -213,7 +309,7 @@ function getAllowedWarningsForWebPack(buildConfig) {
     }
 }
 gulp.task('renameSourceMaps', async () => {
-    // By default souce maps will be disabled in the extenion.
+    // By default source maps will be disabled in the extension.
     // Users will need to use the command `python.enableSourceMapSupport` to enable source maps.
     const extensionSourceMap = path.join(__dirname, 'out', 'client', 'extension.js.map');
     const debuggerSourceMap = path.join(__dirname, 'out', 'client', 'debugger', 'debugAdapter', 'main.js.map');
@@ -235,62 +331,113 @@ gulp.task('checkDependencies', gulp.series('checkNativeDependencies', 'check-dat
 gulp.task('prePublishNonBundle', gulp.series('compile', 'compile-webviews'));
 
 gulp.task('installPythonRequirements', async () => {
-    const requirements = fs
-        .readFileSync(path.join(__dirname, 'requirements.txt'), 'utf8')
-        .split('\n')
-        .map(item => item.trim())
-        .filter(item => item.length > 0);
-    const args = ['-m', 'pip', '--disable-pip-version-check', 'install', '-t', './pythonFiles/lib/python', '--no-cache-dir', '--implementation', 'py', '--no-deps', '--upgrade'];
-    await Promise.all(
-        requirements.map(async requirement => {
-            const success = await spawnAsync(process.env.CI_PYTHON_PATH || 'python3', args.concat(requirement))
-                .then(() => true)
-                .catch(ex => {
-                    console.error("Failed to install Python Libs using 'python3'", ex);
-                    return false;
-                });
-            if (!success) {
-                console.info("Failed to install Python Libs using 'python3', attempting to install using 'python'");
-                await spawnAsync('python', args.concat(requirement)).catch(ex => console.error("Failed to install Python Libs using 'python'", ex));
-            }
-        })
-    );
-});
-
-// Install new PTVSD wheels for python 3.7
-// See https://github.com/microsoft/vscode-python/issues/7136
-gulp.task('installPtvsdWheels', async () => {
-    const args = ['./pythonFiles/install_ptvsd.py']
-    const success = await spawnAsync(process.env.CI_PYTHON_PATH || 'python3', args)
+    const args = [
+        '-m',
+        'pip',
+        '--disable-pip-version-check',
+        'install',
+        '-t',
+        './pythonFiles/lib/python',
+        '--no-cache-dir',
+        '--implementation',
+        'py',
+        '--no-deps',
+        '--upgrade',
+        '-r',
+        './requirements.txt'
+    ];
+    const success = await spawnAsync(process.env.CI_PYTHON_PATH || 'python3', args, undefined, true)
         .then(() => true)
-        .catch(ex => {
-            console.error("Failed to install new PTVSD wheels using 'python3'", ex);
+        .catch((ex) => {
+            console.error("Failed to install Python Libs using 'python3'", ex);
             return false;
         });
     if (!success) {
-        console.info("Failed to install new PTVSD wheels using 'python3', attempting to install using 'python'");
-        await spawnAsync('python', args).catch(ex => console.error("Failed to install PTVSD 5.0 wheels using 'python'", ex));
+        console.info("Failed to install Python Libs using 'python3', attempting to install using 'python'");
+        await spawnAsync('python', args).catch((ex) =>
+            console.error("Failed to install Python Libs using 'python'", ex)
+        );
     }
 });
 
+// See https://github.com/microsoft/vscode-python/issues/7136
+gulp.task('installNewDebugpy', async () => {
+    // Install dependencies needed for 'install_debugpy.py'
+    const depsArgs = [
+        '-m',
+        'pip',
+        '--disable-pip-version-check',
+        'install',
+        '-t',
+        './pythonFiles/lib/temp',
+        '-r',
+        './build/debugger-install-requirements.txt'
+    ];
+    const successWithWheelsDeps = await spawnAsync(process.env.CI_PYTHON_PATH || 'python3', depsArgs, undefined, true)
+        .then(() => true)
+        .catch((ex) => {
+            console.error("Failed to install new DEBUGPY wheels using 'python3'", ex);
+            return false;
+        });
+    if (!successWithWheelsDeps) {
+        console.info(
+            "Failed to install dependencies need by 'install_debugpy.py' using 'python3', attempting to install using 'python'"
+        );
+        await spawnAsync('python', depsArgs).catch((ex) =>
+            console.error("Failed to install dependencies need by 'install_debugpy.py' using 'python'", ex)
+        );
+    }
+
+    // Install new DEBUGPY with wheels for python 3.7
+    const wheelsArgs = ['./pythonFiles/install_debugpy.py'];
+    const wheelsEnv = { PYTHONPATH: './pythonFiles/lib/temp' };
+    const successWithWheels = await spawnAsync(process.env.CI_PYTHON_PATH || 'python3', wheelsArgs, wheelsEnv, true)
+        .then(() => true)
+        .catch((ex) => {
+            console.error("Failed to install new DEBUGPY wheels using 'python3'", ex);
+            return false;
+        });
+    if (!successWithWheels) {
+        console.info("Failed to install new DEBUGPY wheels using 'python3', attempting to install using 'python'");
+        await spawnAsync('python', wheelsArgs, wheelsEnv).catch((ex) =>
+            console.error("Failed to install DEBUGPY wheels using 'python'", ex)
+        );
+    }
+
+    rmrf.sync('./pythonFiles/lib/temp');
+});
+
 // Install the last stable version of old PTVSD (which includes a middle layer adapter and requires ptvsd_launcher.py)
-// until all users have migrated to the new debug adapter + new PTVSD (specified in requirements.txt)
+// until all users have migrated to the new debug adapter + new DEBUGPY (specified in requirements.txt)
 // See https://github.com/microsoft/vscode-python/issues/7136
 gulp.task('installOldPtvsd', async () => {
-    const args = ['-m', 'pip', '--disable-pip-version-check', 'install', '-t', './pythonFiles/lib/python/old_ptvsd', '--no-cache-dir', '--implementation', 'py', '--no-deps', '--upgrade', 'ptvsd==4.3.2']
-    const success = await spawnAsync(process.env.CI_PYTHON_PATH || 'python3', args)
+    const args = [
+        '-m',
+        'pip',
+        '--disable-pip-version-check',
+        'install',
+        '-t',
+        './pythonFiles/lib/python/old_ptvsd',
+        '--no-cache-dir',
+        '--implementation',
+        'py',
+        '--no-deps',
+        '--upgrade',
+        'ptvsd==4.3.2'
+    ];
+    const success = await spawnAsync(process.env.CI_PYTHON_PATH || 'python3', args, undefined, true)
         .then(() => true)
-        .catch(ex => {
+        .catch((ex) => {
             console.error("Failed to install PTVSD using 'python3'", ex);
             return false;
         });
     if (!success) {
         console.info("Failed to install PTVSD using 'python3', attempting to install using 'python'");
-        await spawnAsync('python', args).catch(ex => console.error("Failed to install PTVSD using 'python'", ex));
+        await spawnAsync('python', args).catch((ex) => console.error("Failed to install PTVSD using 'python'", ex));
     }
 });
 
-gulp.task('installPythonLibs', gulp.series('installPythonRequirements', 'installOldPtvsd', 'installPtvsdWheels'));
+gulp.task('installPythonLibs', gulp.series('installPythonRequirements', 'installOldPtvsd', 'installNewDebugpy'));
 
 function uploadExtension(uploadBlobName) {
     const azure = require('gulp-azure-storage');
@@ -308,98 +455,226 @@ function uploadExtension(uploadBlobName) {
 }
 
 gulp.task('uploadDeveloperExtension', () => uploadExtension('ms-python-insiders.vsix'));
-gulp.task('uploadReleaseExtension', () => uploadExtension(`ms-python-${process.env.TRAVIS_BRANCH || process.env.BUILD_SOURCEBRANCHNAME}.vsix`));
+gulp.task('uploadReleaseExtension', () =>
+    uploadExtension(`ms-python-${process.env.TRAVIS_BRANCH || process.env.BUILD_SOURCEBRANCHNAME}.vsix`)
+);
 
-function spawnAsync(command, args) {
+function spawnAsync(command, args, env, rejectOnStdErr = false) {
+    env = env || {};
+    env = { ...process.env, ...env };
     return new Promise((resolve, reject) => {
         let stdOut = '';
-        const proc = spawn(command, args, { cwd: __dirname });
-        proc.stdout.on('data', data => {
+        console.info(`> ${command} ${args.join(' ')}`);
+        const proc = spawn(command, args, { cwd: __dirname, env });
+        proc.stdout.on('data', (data) => {
             // Log output on CI (else travis times out when there's not output).
             stdOut += data.toString();
             if (isCI) {
                 console.log(data.toString());
             }
         });
-        proc.stderr.on('data', data => console.error(data.toString()));
+        proc.stderr.on('data', (data) => {
+            console.error(data.toString());
+            if (rejectOnStdErr) {
+                reject(data.toString());
+            }
+        });
         proc.on('close', () => resolve(stdOut));
-        proc.on('error', error => reject(error));
+        proc.on('error', (error) => reject(error));
     });
 }
-function buildDatascienceDependencies() {
-    fsExtra.ensureDirSync(path.join(__dirname, 'tmp'));
-    spawn.sync('npm', ['run', 'dump-datascience-webpack-stats']);
-}
 
+/**
+ * Analyzes the dependencies pulled in by WebPack.
+ * Details on the structure of the stats json file can be found here https://webpack.js.org/api/stats/
+ *
+ * We go through the stats file and check all node modules that are part of the bundle(s).
+ * If they are in the bundle, they are used, hence they need to be registered in the `package.datascience-ui.dependencies.json` file.
+ * If not found, this will throw an error with the list of those dependencies.
+ * If a dependency is no longer use, this will throw an error with the details of the module to be removed from the `package.datascience-ui.dependencies.json` file.
+ *
+ */
 async function checkDatascienceDependencies() {
-    buildDatascienceDependencies();
+    await buildDataScienceUI(true);
 
     const existingModulesFileName = 'package.datascience-ui.dependencies.json';
     const existingModulesFile = path.join(__dirname, existingModulesFileName);
-    const existingModulesList = JSON.parse(await fsExtra.readFile(existingModulesFile).then(data => data.toString()));
+    const existingModulesList = JSON.parse(await fsExtra.readFile(existingModulesFile).then((data) => data.toString()));
     const existingModules = new Set(existingModulesList);
     const existingModulesCopy = new Set(existingModulesList);
 
-    const statsOutput = path.join(__dirname, 'tmp', 'ds-stats.json');
-    const contents = await fsExtra.readFile(statsOutput).then(data => data.toString());
-    const startIndex = contents.toString().indexOf('{') - 1;
-
-    const json = JSON.parse(contents.substring(startIndex));
     const newModules = new Set();
-    const packageLock = JSON.parse(await fsExtra.readFile('package-lock.json').then(data => data.toString()));
+    const packageLock = JSON.parse(await fsExtra.readFile('package-lock.json').then((data) => data.toString()));
     const modulesInPackageLock = Object.keys(packageLock.dependencies);
 
     // Right now the script only handles two parts in the dependency name (with one '/').
     // If we have dependencies with more than one '/', then update this code.
-    if (modulesInPackageLock.some(dependency => dependency.indexOf('/') !== dependency.lastIndexOf('/'))) {
+    if (modulesInPackageLock.some((dependency) => dependency.indexOf('/') !== dependency.lastIndexOf('/'))) {
         throwAndLogError("Dependencies detected with more than one '/', please update this script.");
     }
-    json.children.forEach(c => {
-        c.chunks[0].modules.forEach(m => {
-            const name = m.name;
-            if (!name.startsWith('./node_modules')) {
-                return;
-            }
 
-            let nameWithoutNodeModules = name.substring('./node_modules'.length);
-            // Special case expose-loader.
-            if (nameWithoutNodeModules.startsWith('/expose-loader')) {
-                nameWithoutNodeModules = nameWithoutNodeModules.substring(nameWithoutNodeModules.indexOf('./node_modules') + './node_modules'.length);
-            }
-
-            let moduleName1 = nameWithoutNodeModules.split('/')[1];
-            moduleName1 = moduleName1.endsWith('!.') ? moduleName1.substring(0, moduleName1.length - 2) : moduleName1;
-            const moduleName2 = `${nameWithoutNodeModules.split('/')[1]}/${nameWithoutNodeModules.split('/')[2]}`;
-
-            const matchedModules = modulesInPackageLock.filter(dependency => dependency === moduleName2 || dependency === moduleName1);
-            switch (matchedModules.length) {
-                case 0:
-                    throwAndLogError(`Dependency not found in package-lock.json, Dependency = '${name}, ${moduleName1}, ${moduleName2}'`);
-                    break;
-                case 1:
-                    break;
-                default: {
-                    throwAndLogError(`Exact Dependency not found in package-lock.json, Dependency = '${name}'`);
-                }
-            }
-
-            const moduleName = matchedModules[0];
-            if (existingModulesCopy.has(moduleName)) {
-                existingModulesCopy.delete(moduleName);
-            }
-            if (existingModules.has(moduleName) || newModules.has(moduleName)) {
-                return;
-            }
-            newModules.add(moduleName);
+    /**
+     * Processes the output in a webpack stat file.
+     *
+     * @param {string} statFile
+     */
+    async function processWebpackStatFile(statFile) {
+        /** @type{import("webpack").Stats.ToJsonOutput} */
+        const json = await fsExtra.readFile(statFile).then((data) => JSON.parse(data.toString()));
+        json.children.forEach((child) => {
+            child.chunks.forEach((chunk) => {
+                processModules(chunk.modules);
+                (chunk.origins || []).forEach((origin) => processOriginOrReason(origin));
+            });
         });
-    });
+        json.chunks.forEach((chunk) => {
+            processModules(chunk.modules);
+            (chunk.origins || []).forEach((origin) => processOriginOrReason(origin));
+        });
+    }
+
+    /**
+     * @param {string} name Name of module to find.
+     * @param {string} moduleName1 Another name of module to find.
+     * @param {string} moduleName2 Yet another name of module to find.
+     * @returns
+     */
+    function findModule(name, moduleName1, moduleName2) {
+        // If the module name contains `?`, then its a webpack loader that can be ignored.
+        if (name.includes('loader') && (name.includes('?') || name.includes('!'))) {
+            return;
+        }
+        const matchedModules = modulesInPackageLock.filter(
+            (dependency) => dependency === moduleName2 || dependency === moduleName1 || dependency === name
+        );
+        switch (matchedModules.length) {
+            case 0:
+                throwAndLogError(
+                    `Dependency not found in package-lock.json, Dependency = '${name}, ${moduleName1}, ${moduleName2}'`
+                );
+                break;
+            case 1:
+                break;
+            default: {
+                throwAndLogError(`Exact Dependency not found in package-lock.json, Dependency = '${name}'`);
+            }
+        }
+
+        const moduleName = matchedModules[0];
+        if (existingModulesCopy.has(moduleName)) {
+            existingModulesCopy.delete(moduleName);
+        }
+        if (existingModules.has(moduleName) || newModules.has(moduleName)) {
+            return;
+        }
+        newModules.add(moduleName);
+    }
+
+    /**
+     * Processes webpack stat Modules.
+     *
+     * @param modules { Array.<import("webpack").Stats.FnModules> }
+     * @returns
+     */
+    function processModules(modules) {
+        (modules || []).forEach(processModule);
+    }
+
+    /**
+     * Processes a webpack stat Module.
+     *
+     * @param module { import("webpack").Stats.FnModules }
+     * @returns
+     */
+    function processModule(module) {
+        const name = module.name;
+
+        if (!name.includes('/node_modules')) {
+            processReasons(module.reasons);
+            processModules(module.modules);
+            return;
+        }
+
+        let nameWithoutNodeModules = name.substring('/node_modules'.length);
+        // Special case expose-loader.
+        if (nameWithoutNodeModules.startsWith('/expose-loader')) {
+            nameWithoutNodeModules = nameWithoutNodeModules.substring(
+                nameWithoutNodeModules.indexOf('/node_modules') + '/node_modules'.length
+            );
+        }
+
+        let moduleName1 = nameWithoutNodeModules.split('/')[1];
+        moduleName1 = moduleName1.endsWith('!.') ? moduleName1.substring(0, moduleName1.length - 2) : moduleName1;
+        const moduleName2 = `${nameWithoutNodeModules.split('/')[1]}/${nameWithoutNodeModules.split('/')[2]}`;
+
+        findModule(name, moduleName1, moduleName2);
+
+        processModules(module.modules);
+        processReasons(module.reasons);
+    }
+
+    /**
+     * Processes a origin or a reason object from a webpack stat.
+     *
+     * @param {*} origin
+     * @returns
+     */
+    function processOriginOrReason(origin) {
+        if (!origin || !origin.name) {
+            return;
+        }
+        const name = origin.name;
+        if (!name.includes('/node_modules')) {
+            processReasons(origin.reasons);
+            return;
+        }
+
+        let nameWithoutNodeModules = name.substring('/node_modules'.length);
+        // Special case expose-loader.
+        if (nameWithoutNodeModules.startsWith('/expose-loader')) {
+            nameWithoutNodeModules = nameWithoutNodeModules.substring(
+                nameWithoutNodeModules.indexOf('/node_modules') + '/node_modules'.length
+            );
+        }
+
+        let moduleName1 = nameWithoutNodeModules.split('/')[1];
+        moduleName1 = moduleName1.endsWith('!.') ? moduleName1.substring(0, moduleName1.length - 2) : moduleName1;
+        const moduleName2 = `${nameWithoutNodeModules.split('/')[1]}/${nameWithoutNodeModules.split('/')[2]}`;
+
+        findModule(name, moduleName1, moduleName2);
+
+        processReasons(origin.reasons);
+    }
+
+    /**
+     * Processes the `reasons` property of a webpack stat module object.
+     *
+     * @param {*} reasons
+     */
+    function processReasons(reasons) {
+        reasons = (reasons || [])
+            .map((reason) => reason.userRequest)
+            .filter((item) => typeof item === 'string' && !item.startsWith('.'));
+        reasons.forEach((item) => processOriginOrReason(item));
+    }
+
+    await processWebpackStatFile(path.join(__dirname, 'out', 'datascience-ui', 'notebook', 'notebook.stats.json'));
+    await processWebpackStatFile(path.join(__dirname, 'out', 'datascience-ui', 'viewers', 'viewers.stats.json'));
 
     const errorMessages = [];
     if (newModules.size > 0) {
-        errorMessages.push(`Add the untracked dependencies '${Array.from(newModules.values()).join(', ')}' to ${existingModulesFileName}`);
+        errorMessages.push(
+            `Add the untracked dependencies '${Array.from(newModules.values()).join(
+                ', '
+            )}' to ${existingModulesFileName}`
+        );
     }
     if (existingModulesCopy.size > 0) {
-        errorMessages.push(`Remove the unused '${Array.from(existingModulesCopy.values()).join(', ')}' dependencies from ${existingModulesFileName}`);
+        errorMessages.push(
+            `Remove the unused '${Array.from(existingModulesCopy.values()).join(
+                ', '
+            )}' dependencies from ${existingModulesFileName}`
+        );
     }
     if (errorMessages.length > 0) {
         throwAndLogError(errorMessages.join('\n'));
@@ -418,9 +693,17 @@ function hasNativeDependencies() {
     }
     const dependencies = JSON.parse(spawn.sync('npm', ['ls', '--json', '--prod']).stdout.toString());
     const jsonProperties = Object.keys(flat.flatten(dependencies));
-    nativeDependencies = _.flatMap(nativeDependencies, item => path.dirname(item.substring(item.indexOf('node_modules') + 'node_modules'.length)).split(path.sep))
-        .filter(item => item.length > 0)
-        .filter(item => jsonProperties.findIndex(flattenedDependency => flattenedDependency.endsWith(`dependencies.${item}.version`)) >= 0);
+    nativeDependencies = _.flatMap(nativeDependencies, (item) =>
+        path.dirname(item.substring(item.indexOf('node_modules') + 'node_modules'.length)).split(path.sep)
+    )
+        .filter((item) => item.length > 0)
+        .filter((item) => !item.includes('zeromq')) // This is a known native. Allow this one for now
+        .filter(
+            (item) =>
+                jsonProperties.findIndex((flattenedDependency) =>
+                    flattenedDependency.endsWith(`dependencies.${item}.version`)
+                ) >= 0
+        );
     if (nativeDependencies.length > 0) {
         console.error('Native dependencies detected', nativeDependencies);
         return true;
@@ -469,7 +752,11 @@ const hygiene = (options, done) => {
         return done();
     }
     const fileListToProcess = options.mode === 'compile' ? undefined : getFileListToProcess(options);
-    if (Array.isArray(fileListToProcess) && fileListToProcess !== all && fileListToProcess.filter(item => item.endsWith('.ts')).length === 0) {
+    if (
+        Array.isArray(fileListToProcess) &&
+        fileListToProcess !== all &&
+        fileListToProcess.filter((item) => item.endsWith('.ts')).length === 0
+    ) {
         return done();
     }
 
@@ -478,7 +765,7 @@ const hygiene = (options, done) => {
     options = options || {};
     let errorCount = 0;
 
-    const indentation = es.through(function(file) {
+    const indentation = es.through(function (file) {
         file.contents
             .toString('utf8')
             .split(/\r\n|\r|\n/)
@@ -488,7 +775,12 @@ const hygiene = (options, done) => {
                 } else if (/^(\s\s\s\s)+.*/.test(line)) {
                     // Good indent.
                 } else if (/^[\t]+.*/.test(line)) {
-                    console.error(file.relative + '(' + (i + 1) + ',1): Bad whitespace indentation (use 4 spaces instead of tabs or other)');
+                    console.error(
+                        file.relative +
+                            '(' +
+                            (i + 1) +
+                            ',1): Bad whitespace indentation (use 4 spaces instead of tabs or other)'
+                    );
                     errorCount++;
                 }
             });
@@ -497,10 +789,10 @@ const hygiene = (options, done) => {
     });
 
     const formatOptions = { verify: true, tsconfig: true, tslint: true, editorconfig: true, tsfmt: true };
-    const formatting = es.map(function(file, cb) {
+    const formatting = es.map(function (file, cb) {
         tsfmt
             .processString(file.path, file.contents.toString('utf8'), formatOptions)
-            .then(result => {
+            .then((result) => {
                 if (result.error) {
                     let message = result.message.trim();
                     let formattedMessage = '';
@@ -534,14 +826,18 @@ const hygiene = (options, done) => {
     function reportLinterFailures(failures) {
         return (
             failures
-                .map(failure => {
+                .map((failure) => {
                     const name = failure.name || failure.fileName;
                     const position = failure.startPosition;
                     const line = position.lineAndCharacter ? position.lineAndCharacter.line : position.line;
-                    const character = position.lineAndCharacter ? position.lineAndCharacter.character : position.character;
+                    const character = position.lineAndCharacter
+                        ? position.lineAndCharacter.character
+                        : position.character;
 
                     // Output in format similar to tslint for the linter to pickup.
-                    const message = `ERROR: (${failure.ruleName}) ${relative(__dirname, name)}[${line + 1}, ${character + 1}]: ${failure.failure}`;
+                    const message = `ERROR: (${failure.ruleName}) ${relative(__dirname, name)}[${line + 1}, ${
+                        character + 1
+                    }]: ${failure.failure}`;
                     if (reportedLinterFailures.indexOf(message) === -1) {
                         console.error(message);
                         reportedLinterFailures.push(message);
@@ -550,12 +846,12 @@ const hygiene = (options, done) => {
                         return false;
                     }
                 })
-                .filter(reported => reported === true).length > 0
+                .filter((reported) => reported === true).length > 0
         );
     }
 
     const { linter, configuration } = getLinter(options);
-    const tsl = es.through(function(file) {
+    const tsl = es.through(function (file) {
         const contents = file.contents.toString('utf8');
         if (isCI) {
             // Don't print anything to the console, we'll do that.
@@ -582,7 +878,7 @@ const hygiene = (options, done) => {
     });
 
     const tsFiles = [];
-    const tscFilesTracker = es.through(function(file) {
+    const tscFilesTracker = es.through(function (file) {
         tsFiles.push(file.path.replace(/\\/g, '/'));
         tsFiles.push(file.path);
         this.emit('data', file);
@@ -590,19 +886,19 @@ const hygiene = (options, done) => {
 
     const tsProject = getTsProject(options);
 
-    const tsc = function() {
+    const tsc = function () {
         function customReporter() {
             return {
-                error: function(error, typescript) {
+                error: function (error, typescript) {
                     const fullFilename = error.fullFilename || '';
                     const relativeFilename = error.relativeFilename || '';
-                    if (tsFiles.findIndex(file => fullFilename === file || relativeFilename === file) === -1) {
+                    if (tsFiles.findIndex((file) => fullFilename === file || relativeFilename === file) === -1) {
                         return;
                     }
                     console.error(`Error: ${error.message}`);
                     errorCount += 1;
                 },
-                finish: function() {
+                finish: function () {
                     // forget the summary.
                     console.log('Finished compilation');
                 }
@@ -614,7 +910,7 @@ const hygiene = (options, done) => {
 
     const files = options.mode === 'compile' ? tsProject.src() : getFilesToProcess(fileListToProcess);
     const dest = options.mode === 'compile' ? './out' : '.';
-    let result = files.pipe(filter(f => f && f.stat && !f.stat.isDirectory()));
+    let result = files.pipe(filter((f) => f && f.stat && !f.stat.isDirectory()));
 
     if (!options.skipIndentationCheck) {
         result = result.pipe(filter(indentationFilter)).pipe(indentation);
@@ -636,12 +932,9 @@ const hygiene = (options, done) => {
         .pipe(sourcemaps.init())
         .pipe(tsc())
         .pipe(
-            sourcemaps.mapSources(function(sourcePath, file) {
+            sourcemaps.mapSources(function (sourcePath, file) {
                 let tsFileName = path.basename(file.path).replace(/js$/, 'ts');
-                const qualifiedSourcePath = path
-                    .dirname(file.path)
-                    .replace('out/', 'src/')
-                    .replace('out\\', 'src\\');
+                const qualifiedSourcePath = path.dirname(file.path).replace('out/', 'src/').replace('out\\', 'src\\');
                 if (!fs.existsSync(path.join(qualifiedSourcePath, tsFileName))) {
                     const tsxFileName = path.basename(file.path).replace(/js$/, 'tsx');
                     if (!fs.existsSync(path.join(qualifiedSourcePath, tsxFileName))) {
@@ -656,13 +949,19 @@ const hygiene = (options, done) => {
         .pipe(sourcemaps.write('.', { includeContent: false }))
         .pipe(gulp.dest(dest))
         .pipe(
-            es.through(null, function() {
+            es.through(null, function () {
                 if (errorCount > 0) {
-                    const errorMessage = `Hygiene failed with errors 👎 . Check 'gulpfile.js' (completed in ${new Date().getTime() - started}ms).`;
+                    const errorMessage = `Hygiene failed with errors 👎 . Check 'gulpfile.js' (completed in ${
+                        new Date().getTime() - started
+                    }ms).`;
                     console.error(colors.red(errorMessage));
                     exitHandler(options);
                 } else {
-                    console.log(colors.green(`Hygiene passed with 0 errors 👍 (completed in ${new Date().getTime() - started}ms).`));
+                    console.log(
+                        colors.green(
+                            `Hygiene passed with 0 errors 👍 (completed in ${new Date().getTime() - started}ms).`
+                        )
+                    );
                 }
                 // Reset error counter.
                 errorCount = 0;
@@ -678,7 +977,7 @@ const hygiene = (options, done) => {
                 this.emit('end');
             })
         )
-        .on('error', ex => {
+        .on('error', (ex) => {
             exitHandler(options, ex);
             done();
         });
@@ -742,24 +1041,15 @@ function git(args) {
 
 function getStagedFilesSync() {
     const out = git(['diff', '--cached', '--name-only']);
-    return out.split(/\r?\n/).filter(l => !!l);
+    return out.split(/\r?\n/).filter((l) => !!l);
 }
 function getAddedFilesSync() {
     const out = git(['status', '-u', '-s']);
     return out
         .split(/\r?\n/)
-        .filter(l => !!l)
-        .filter(
-            l =>
-                _.intersection(
-                    ['A', '?', 'U'],
-                    l
-                        .substring(0, 2)
-                        .trim()
-                        .split('')
-                ).length > 0
-        )
-        .map(l => path.join(__dirname, l.substring(2).trim()));
+        .filter((l) => !!l)
+        .filter((l) => _.intersection(['A', '?', 'U'], l.substring(0, 2).trim().split('')).length > 0)
+        .map((l) => path.join(__dirname, l.substring(2).trim()));
 }
 function getAzureDevOpsVarValue(varName) {
     return process.env[varName.replace(/\./g, '_').toUpperCase()];
@@ -777,12 +1067,19 @@ function getModifiedFilesSync() {
         }
 
         const repo = process.env.TRAVIS_REPO_SLUG || getAzureDevOpsVarValue('Build.Repository.Name');
-        const originOrUpstream = repo.toUpperCase() === 'MICROSOFT/VSCODE-PYTHON' || repo.toUpperCase() === 'VSCODE-PYTHON-DATASCIENCE/VSCODE-PYTHON' ? 'origin' : 'upstream';
+        const originOrUpstream =
+            repo.toUpperCase() === 'MICROSOFT/VSCODE-PYTHON' ||
+            repo.toUpperCase() === 'VSCODE-PYTHON-DATASCIENCE/VSCODE-PYTHON'
+                ? 'origin'
+                : 'upstream';
 
         // If on CI, get a list of modified files comparing against
         // PR branch and master of current (assumed 'origin') repo.
         try {
-            cp.execSync(`git remote set-branches --add ${originOrUpstream} master`, { encoding: 'utf8', cwd: __dirname });
+            cp.execSync(`git remote set-branches --add ${originOrUpstream} master`, {
+                encoding: 'utf8',
+                cwd: __dirname
+            });
             cp.execSync('git fetch', { encoding: 'utf8', cwd: __dirname });
         } catch (ex) {
             return [];
@@ -792,34 +1089,19 @@ function getModifiedFilesSync() {
         const out = cp.execSync(cmd, { encoding: 'utf8', cwd: __dirname });
         return out
             .split(/\r?\n/)
-            .filter(l => !!l)
-            .filter(l => l.length > 0)
-            .map(l => l.trim().replace(/\//g, path.sep))
-            .map(l => path.join(__dirname, l));
+            .filter((l) => !!l)
+            .filter((l) => l.length > 0)
+            .map((l) => l.trim().replace(/\//g, path.sep))
+            .map((l) => path.join(__dirname, l));
     } else {
         const out = cp.execSync('git status -u -s', { encoding: 'utf8' });
         return out
             .split(/\r?\n/)
-            .filter(l => !!l)
+            .filter((l) => !!l)
             .filter(
-                l =>
-                    _.intersection(
-                        ['M', 'A', 'R', 'C', 'U', '?'],
-                        l
-                            .substring(0, 2)
-                            .trim()
-                            .split('')
-                    ).length > 0
+                (l) => _.intersection(['M', 'A', 'R', 'C', 'U', '?'], l.substring(0, 2).trim().split('')).length > 0
             )
-            .map(l =>
-                path.join(
-                    __dirname,
-                    l
-                        .substring(2)
-                        .trim()
-                        .replace(/\//g, path.sep)
-                )
-            );
+            .map((l) => path.join(__dirname, l.substring(2).trim().replace(/\//g, path.sep)));
     }
 }
 
@@ -827,8 +1109,8 @@ function getDifferentFromMasterFilesSync() {
     const out = git(['diff', '--name-status', 'master']);
     return out
         .split(/\r?\n/)
-        .filter(l => !!l)
-        .map(l => path.join(__dirname, l.substring(2).trim()));
+        .filter((l) => !!l)
+        .map((l) => path.join(__dirname, l.substring(2).trim()));
 }
 
 /**
@@ -848,15 +1130,15 @@ function getFileListToProcess(options) {
 
     // If we need only modified files, then filter the glob.
     if (options && options.mode === 'changes') {
-        return getModifiedFilesSync().filter(f => fs.existsSync(f));
+        return getModifiedFilesSync().filter((f) => fs.existsSync(f));
     }
 
     if (options && options.mode === 'staged') {
-        return getStagedFilesSync().filter(f => fs.existsSync(f));
+        return getStagedFilesSync().filter((f) => fs.existsSync(f));
     }
 
     if (options && options.mode === 'diffMaster') {
-        return getDifferentFromMasterFilesSync().filter(f => fs.existsSync(f));
+        return getDifferentFromMasterFilesSync().filter((f) => fs.existsSync(f));
     }
 
     return all;

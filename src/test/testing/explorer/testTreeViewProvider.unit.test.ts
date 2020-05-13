@@ -16,7 +16,11 @@ import { CommandSource } from '../../../client/testing/common/constants';
 import { TestCollectionStorageService } from '../../../client/testing/common/services/storageService';
 import { getTestDataItemType } from '../../../client/testing/common/testUtils';
 import {
-    ITestCollectionStorageService, TestFile, TestFolder, Tests, TestStatus
+    ITestCollectionStorageService,
+    TestFile,
+    TestFolder,
+    Tests,
+    TestStatus
 } from '../../../client/testing/common/types';
 import { TestTreeItem } from '../../../client/testing/explorer/testTreeViewItem';
 import { TestTreeViewProvider } from '../../../client/testing/explorer/testTreeViewProvider';
@@ -24,8 +28,12 @@ import { UnitTestManagementService } from '../../../client/testing/main';
 import { TestDataItem, TestDataItemType, TestWorkspaceFolder } from '../../../client/testing/types';
 import { noop } from '../../core';
 import {
-    createMockTestExplorer as createMockTestTreeProvider, createMockTestsData,
-    getMockTestFile, getMockTestFolder, getMockTestFunction, getMockTestSuite
+    createMockTestExplorer as createMockTestTreeProvider,
+    createMockTestsData,
+    getMockTestFile,
+    getMockTestFolder,
+    getMockTestFunction,
+    getMockTestSuite
 } from './explorerTestData';
 
 // tslint:disable:no-any
@@ -67,9 +75,15 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
 
         test('Create the initial view and ensure it provides a default view', async () => {
             const testTreeProvider = createMockTestTreeProvider();
-            expect(testTreeProvider).is.not.equal(undefined, 'Could not create a mock test explorer, check the parameters of the test setup.');
+            expect(testTreeProvider).is.not.equal(
+                undefined,
+                'Could not create a mock test explorer, check the parameters of the test setup.'
+            );
             const treeRoot = await testTreeProvider.getChildren();
-            expect(treeRoot.length).to.be.greaterThan(0, 'No children returned from default view of the TreeViewProvider.');
+            expect(treeRoot.length).to.be.greaterThan(
+                0,
+                'No children returned from default view of the TreeViewProvider.'
+            );
         });
 
         test('Ensure that updates from the test manager propagate to the TestExplorer', async () => {
@@ -82,16 +96,21 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
             when(testStore.getTests(testResource)).thenReturn(testsData);
             when(testStore.onDidChange).thenReturn(noop as any);
             const changeItem = testsData.testFolders[1].testFiles[0].functions[0];
-            const testTreeProvider = createMockTestTreeProvider(instance(testStore), testsData, undefined, instance(workspaceService));
+            const testTreeProvider = createMockTestTreeProvider(
+                instance(testStore),
+                testsData,
+                undefined,
+                instance(workspaceService)
+            );
             const refreshCap = new TestExplorerCaptureRefresh(testTreeProvider, disposables);
 
             testTreeProvider.refresh(testResource);
-            const originalTreeItem = await testTreeProvider.getTreeItem(changeItem) as TestTreeItem;
+            const originalTreeItem = (await testTreeProvider.getTreeItem(changeItem)) as TestTreeItem;
             const origStatus = originalTreeItem.testStatus;
 
             changeItem.status = TestStatus.Fail;
             testTreeProvider.refresh(testResource);
-            const changedTreeItem = await testTreeProvider.getTreeItem(changeItem) as TestTreeItem;
+            const changedTreeItem = (await testTreeProvider.getTreeItem(changeItem)) as TestTreeItem;
             const updatedStatus = changedTreeItem.testStatus;
 
             expect(origStatus).to.not.equal(updatedStatus);
@@ -107,7 +126,12 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
             when(workspaceService.onDidChangeWorkspaceFolders).thenReturn(noop as any);
             when(testStore.getTests(testResource)).thenReturn(testsData);
             when(testStore.onDidChange).thenReturn(noop as any);
-            const testView = createMockTestTreeProvider(instance(testStore), testsData, undefined, instance(workspaceService));
+            const testView = createMockTestTreeProvider(
+                instance(testStore),
+                testsData,
+                undefined,
+                instance(workspaceService)
+            );
 
             const refreshCap = new TestExplorerCaptureRefresh(testView, disposables);
             testView.refresh(testResource);
@@ -129,7 +153,7 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
 
             let testData = originalTestData;
             const testStoreMoq = typemoq.Mock.ofType<ITestCollectionStorageService>();
-            testStoreMoq.setup(a => a.getTests(typemoq.It.isAny())).returns(() => testData);
+            testStoreMoq.setup((a) => a.getTests(typemoq.It.isAny())).returns(() => testData);
 
             const testTreeProvider = createMockTestTreeProvider(testStoreMoq.object);
 
@@ -142,8 +166,11 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
 
             unchangedItem = await testTreeProvider.getTreeItem(fl1);
             expect(unchangedItem).to.not.be.equal(undefined, 'The file that will always be present, is not present.');
-            let addedTreeItem = await testTreeProvider.getTreeItem(fl2) as TestTreeItem;
-            expect(addedTreeItem).to.not.be.equal(undefined, 'The file has been added to the tests tree but not found?');
+            let addedTreeItem = (await testTreeProvider.getTreeItem(fl2)) as TestTreeItem;
+            expect(addedTreeItem).to.not.be.equal(
+                undefined,
+                'The file has been added to the tests tree but not found?'
+            );
             expect(addedTreeItem.data.name).to.be.equal(`${origName}.py`);
 
             // change the name of the added file...
@@ -159,8 +186,11 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
 
             unchangedItem = await testTreeProvider.getTreeItem(fl1);
             expect(unchangedItem).to.not.be.equal(undefined, 'The file that will always be present, is not present.');
-            addedTreeItem = await testTreeProvider.getTreeItem(fl2) as TestTreeItem;
-            expect(addedTreeItem).to.not.be.equal(undefined, 'The file has been updated in the tests tree but in tree view?');
+            addedTreeItem = (await testTreeProvider.getTreeItem(fl2)) as TestTreeItem;
+            expect(addedTreeItem).to.not.be.equal(
+                undefined,
+                'The file has been updated in the tests tree but in tree view?'
+            );
             expect(addedTreeItem.data.name).to.be.equal(`${newName}.py`);
         });
 
@@ -180,7 +210,7 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
 
             let testData = originalTestData;
             const testStoreMoq = typemoq.Mock.ofType<ITestCollectionStorageService>();
-            testStoreMoq.setup(a => a.getTests(typemoq.It.isAny())).returns(() => testData);
+            testStoreMoq.setup((a) => a.getTests(typemoq.It.isAny())).returns(() => testData);
 
             const testTreeProvider = createMockTestTreeProvider(testStoreMoq.object);
 
@@ -193,8 +223,11 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
 
             unchangedItem = await testTreeProvider.getTreeItem(suite);
             expect(unchangedItem).to.not.be.equal(undefined, 'The suite that will always be present, is not present.');
-            let addedTreeItem = await testTreeProvider.getTreeItem(suite2) as TestTreeItem;
-            expect(addedTreeItem).to.not.be.equal(undefined, 'The suite has been added to the tests tree but not found?');
+            let addedTreeItem = (await testTreeProvider.getTreeItem(suite2)) as TestTreeItem;
+            expect(addedTreeItem).to.not.be.equal(
+                undefined,
+                'The suite has been added to the tests tree but not found?'
+            );
 
             const newName = 'suite_two';
             suite2.name = suite2.name.replace(origName, newName);
@@ -205,8 +238,11 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
 
             unchangedItem = await testTreeProvider.getTreeItem(suite);
             expect(unchangedItem).to.not.be.equal(undefined, 'The suite that will always be present, is not present.');
-            addedTreeItem = await testTreeProvider.getTreeItem(suite2) as TestTreeItem;
-            expect(addedTreeItem).to.not.be.equal(undefined, 'The suite has been updated in the tests tree but in tree view?');
+            addedTreeItem = (await testTreeProvider.getTreeItem(suite2)) as TestTreeItem;
+            expect(addedTreeItem).to.not.be.equal(
+                undefined,
+                'The suite has been updated in the tests tree but in tree view?'
+            );
             expect(addedTreeItem.data.name).to.be.equal(newName);
         });
 
@@ -224,21 +260,30 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
 
             let testData = originalTestData;
             const testStoreMoq = typemoq.Mock.ofType<ITestCollectionStorageService>();
-            testStoreMoq.setup(a => a.getTests(typemoq.It.isAny())).returns(() => testData);
+            testStoreMoq.setup((a) => a.getTests(typemoq.It.isAny())).returns(() => testData);
 
             const testTreeProvider = createMockTestTreeProvider(testStoreMoq.object);
 
             testTreeProvider.refresh(testResource);
             let unchangedItem = await testTreeProvider.getTreeItem(fn);
-            expect(unchangedItem).to.not.be.equal(undefined, 'The function that will always be present, is not present.');
+            expect(unchangedItem).to.not.be.equal(
+                undefined,
+                'The function that will always be present, is not present.'
+            );
 
             testData = updatedTestData;
             testTreeProvider.refresh(testResource);
 
             unchangedItem = await testTreeProvider.getTreeItem(fn);
-            expect(unchangedItem).to.not.be.equal(undefined, 'The function that will always be present, is not present.');
-            let addedTreeItem = await testTreeProvider.getTreeItem(fn2) as TestTreeItem;
-            expect(addedTreeItem).to.not.be.equal(undefined, 'The function has been added to the tests tree but not found?');
+            expect(unchangedItem).to.not.be.equal(
+                undefined,
+                'The function that will always be present, is not present.'
+            );
+            let addedTreeItem = (await testTreeProvider.getTreeItem(fn2)) as TestTreeItem;
+            expect(addedTreeItem).to.not.be.equal(
+                undefined,
+                'The function has been added to the tests tree but not found?'
+            );
             expect(addedTreeItem.data.name).to.be.equal('test_fn2');
 
             const newName = 'test_func_two';
@@ -248,9 +293,15 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
             testTreeProvider.refresh(testResource);
 
             unchangedItem = await testTreeProvider.getTreeItem(fn);
-            expect(unchangedItem).to.not.be.equal(undefined, 'The function that will always be present, is not present.');
-            addedTreeItem = await testTreeProvider.getTreeItem(fn2) as TestTreeItem;
-            expect(addedTreeItem).to.not.be.equal(undefined, 'The function has been updated in the tests tree but in tree view?');
+            expect(unchangedItem).to.not.be.equal(
+                undefined,
+                'The function that will always be present, is not present.'
+            );
+            addedTreeItem = (await testTreeProvider.getTreeItem(fn2)) as TestTreeItem;
+            expect(addedTreeItem).to.not.be.equal(
+                undefined,
+                'The function has been updated in the tests tree but in tree view?'
+            );
             expect(addedTreeItem.data.name).to.be.equal(newName);
         });
 
@@ -265,19 +316,19 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
 
             // test's initial state is success
             testTreeProvider.refresh(testResource);
-            const treeItem = await testTreeProvider.getTreeItem(testFunction) as TestTreeItem;
+            const treeItem = (await testTreeProvider.getTreeItem(testFunction)) as TestTreeItem;
             expect(treeItem.testStatus).to.be.equal(TestStatus.Pass);
 
             // test's next state is fail
             testFunction.status = TestStatus.Fail;
             testTreeProvider.refresh(testResource);
-            let updatedTreeItem = await testTreeProvider.getTreeItem(testFunction) as TestTreeItem;
+            let updatedTreeItem = (await testTreeProvider.getTreeItem(testFunction)) as TestTreeItem;
             expect(updatedTreeItem.testStatus).to.be.equal(TestStatus.Fail);
 
             // test's next state is skip
             testFunction.status = TestStatus.Skipped;
             testTreeProvider.refresh(testResource);
-            updatedTreeItem = await testTreeProvider.getTreeItem(testFunction) as TestTreeItem;
+            updatedTreeItem = (await testTreeProvider.getTreeItem(testFunction)) as TestTreeItem;
             expect(updatedTreeItem.testStatus).to.be.equal(TestStatus.Skipped);
         });
 
@@ -295,17 +346,26 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
             testTreeProvider.refresh(testResource);
 
             let parent = (await testTreeProvider.getParent(testFunction))!;
-            expect(parent.name).to.be.equal(testSuite.name, 'Function within a test suite not returning the suite as parent.');
+            expect(parent.name).to.be.equal(
+                testSuite.name,
+                'Function within a test suite not returning the suite as parent.'
+            );
             let parentType = getTestDataItemType(parent);
             expect(parentType).to.be.equal(TestDataItemType.suite);
 
             parent = (await testTreeProvider.getParent(testSuite))!;
-            expect(parent.name).to.be.equal(testFile.name, 'Suite within a test file not returning the test file as parent.');
+            expect(parent.name).to.be.equal(
+                testFile.name,
+                'Suite within a test file not returning the test file as parent.'
+            );
             parentType = getTestDataItemType(parent);
             expect(parentType).to.be.equal(TestDataItemType.file);
 
             parent = (await testTreeProvider.getParent(outerTestFunction))!;
-            expect(parent.name).to.be.equal(testFile.name, 'Function within a test file not returning the test file as parent.');
+            expect(parent.name).to.be.equal(
+                testFile.name,
+                'Function within a test file not returning the test file as parent.'
+            );
             parentType = getTestDataItemType(parent);
             expect(parentType).to.be.equal(TestDataItemType.file);
 
@@ -341,7 +401,10 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
             expect(children.length).to.be.equal(0, 'A function should never have children.');
 
             children = await testTreeProvider.getChildren(testFile);
-            expect(children.length).to.be.equal(2, 'A file with one suite and one function should have a total of 2 children.');
+            expect(children.length).to.be.equal(
+                2,
+                'A file with one suite and one function should have a total of 2 children.'
+            );
             children.forEach((child: TestDataItem) => {
                 expect(child.name).oneOf(['test_suite', 'test_outer_fn']);
             });
@@ -602,16 +665,36 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
                 when(testStore.getTests(testWorkspaceFolder.workspaceFolder.uri)).thenReturn();
                 when(testStore.onDidChange).thenReturn(noop as any);
 
-                const testTreeProvider = createMockTestTreeProvider(instance(testStore), undefined, undefined, undefined, instance(commandManager));
+                const testTreeProvider = createMockTestTreeProvider(
+                    instance(testStore),
+                    undefined,
+                    undefined,
+                    undefined,
+                    instance(commandManager)
+                );
 
                 let tests = await testTreeProvider.getChildren(testWorkspaceFolder);
 
                 expect(tests).to.be.lengthOf(0);
-                verify(commandManager.executeCommand(Commands.Tests_Discover, testWorkspaceFolder, CommandSource.testExplorer, undefined)).once();
+                verify(
+                    commandManager.executeCommand(
+                        Commands.Tests_Discover,
+                        testWorkspaceFolder,
+                        CommandSource.testExplorer,
+                        undefined
+                    )
+                ).once();
 
                 tests = await testTreeProvider.getChildren(testWorkspaceFolder);
                 expect(tests).to.be.lengthOf(0);
-                verify(commandManager.executeCommand(Commands.Tests_Discover, testWorkspaceFolder, CommandSource.testExplorer, undefined)).once();
+                verify(
+                    commandManager.executeCommand(
+                        Commands.Tests_Discover,
+                        testWorkspaceFolder,
+                        CommandSource.testExplorer,
+                        undefined
+                    )
+                ).once();
             });
         });
         test('Expand tree item if it does not have any parent', async () => {
@@ -620,7 +703,13 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
             const testWorkspaceFolder = new TestWorkspaceFolder({ uri: Uri.file(__filename), name: '', index: 0 });
             when(testStore.getTests(testWorkspaceFolder.workspaceFolder.uri)).thenReturn();
             when(testStore.onDidChange).thenReturn(noop as any);
-            const testTreeProvider = createMockTestTreeProvider(instance(testStore), undefined, undefined, undefined, instance(commandManager));
+            const testTreeProvider = createMockTestTreeProvider(
+                instance(testStore),
+                undefined,
+                undefined,
+                undefined,
+                instance(commandManager)
+            );
 
             // No parent
             testTreeProvider.getParent = () => Promise.resolve(undefined);
@@ -646,7 +735,13 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
             const testWorkspaceFolder = new TestWorkspaceFolder({ uri: Uri.file(__filename), name: '', index: 0 });
             when(testStore.getTests(testWorkspaceFolder.workspaceFolder.uri)).thenReturn();
             when(testStore.onDidChange).thenReturn(noop as any);
-            const testTreeProvider = createMockTestTreeProvider(instance(testStore), undefined, undefined, undefined, instance(commandManager));
+            const testTreeProvider = createMockTestTreeProvider(
+                instance(testStore),
+                undefined,
+                undefined,
+                undefined,
+                instance(commandManager)
+            );
 
             // Has a workspace folder as parent.
             const parentFolder = new TestWorkspaceFolder({ name: '', index: 0, uri: Uri.file(__filename) });
@@ -674,7 +769,13 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
             const testWorkspaceFolder = new TestWorkspaceFolder({ uri: Uri.file(__filename), name: '', index: 0 });
             when(testStore.getTests(testWorkspaceFolder.workspaceFolder.uri)).thenReturn();
             when(testStore.onDidChange).thenReturn(noop as any);
-            const testTreeProvider = createMockTestTreeProvider(instance(testStore), undefined, undefined, undefined, instance(commandManager));
+            const testTreeProvider = createMockTestTreeProvider(
+                instance(testStore),
+                undefined,
+                undefined,
+                undefined,
+                instance(commandManager)
+            );
 
             // Has a parent folder
             const parentFolder: TestFolder = {
@@ -714,9 +815,13 @@ suite('Unit Tests Test Explorer TestTreeViewProvider', () => {
             const workspace = mock(WorkspaceService);
             when(workspace.onDidChangeWorkspaceFolders).thenReturn(noop as any);
             const commandManager = mock(CommandManager);
-            treeProvider = new TestTreeViewProvider(instance(store), instance(managementService),
-                instance(workspace), instance(commandManager), []);
-
+            treeProvider = new TestTreeViewProvider(
+                instance(store),
+                instance(managementService),
+                instance(workspace),
+                instance(commandManager),
+                []
+            );
         });
         test('The root folder will not be displayed if there are no tests', async () => {
             const children = treeProvider.getRootNodes();

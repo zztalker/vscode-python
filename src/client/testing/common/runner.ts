@@ -17,14 +17,21 @@ export { Options } from './types';
 
 @injectable()
 export class TestRunner implements ITestRunner {
-    constructor(@inject(IServiceContainer) private serviceContainer: IServiceContainer) { }
+    constructor(@inject(IServiceContainer) private serviceContainer: IServiceContainer) {}
     public run(testProvider: TestProvider, options: Options): Promise<string> {
         return run(this.serviceContainer, testProvider, options);
     }
 }
 
-export async function run(serviceContainer: IServiceContainer, testProvider: TestProvider, options: Options): Promise<string> {
-    const testExecutablePath = getExecutablePath(testProvider, serviceContainer.get<IConfigurationService>(IConfigurationService).getSettings(options.workspaceFolder));
+export async function run(
+    serviceContainer: IServiceContainer,
+    testProvider: TestProvider,
+    options: Options
+): Promise<string> {
+    const testExecutablePath = getExecutablePath(
+        testProvider,
+        serviceContainer.get<IConfigurationService>(IConfigurationService).getSettings(options.workspaceFolder)
+    );
     const moduleName = getTestModuleName(testProvider);
     const spawnOptions = options as SpawnOptions;
     let pythonExecutionServicePromise: Promise<IPythonExecutionService>;
@@ -43,41 +50,57 @@ export async function run(serviceContainer: IServiceContainer, testProvider: Tes
     };
 
     if (testProvider === UNITTEST_PROVIDER) {
-        promise = serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory).createActivatedEnvironment({ resource: options.workspaceFolder })
-            .then(executionService => executionService.execObservable(options.args, { ...spawnOptions }));
+        promise = serviceContainer
+            .get<IPythonExecutionFactory>(IPythonExecutionFactory)
+            .createActivatedEnvironment({ resource: options.workspaceFolder })
+            .then((executionService) => executionService.execObservable(options.args, { ...spawnOptions }));
     } else if (typeof executionInfo.moduleName === 'string' && executionInfo.moduleName.length > 0) {
-        pythonExecutionServicePromise = serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory).createActivatedEnvironment({ resource: options.workspaceFolder });
-        promise = pythonExecutionServicePromise.then(executionService => executionService.execModuleObservable(executionInfo.moduleName!, executionInfo.args, options));
+        pythonExecutionServicePromise = serviceContainer
+            .get<IPythonExecutionFactory>(IPythonExecutionFactory)
+            .createActivatedEnvironment({ resource: options.workspaceFolder });
+        promise = pythonExecutionServicePromise.then((executionService) =>
+            executionService.execModuleObservable(executionInfo.moduleName!, executionInfo.args, options)
+        );
     } else {
-        const pythonToolsExecutionService = serviceContainer.get<IPythonToolExecutionService>(IPythonToolExecutionService);
+        const pythonToolsExecutionService = serviceContainer.get<IPythonToolExecutionService>(
+            IPythonToolExecutionService
+        );
         promise = pythonToolsExecutionService.execObservable(executionInfo, spawnOptions, options.workspaceFolder);
     }
 
-    return promise.then(result => {
+    return promise.then((result) => {
         return new Promise<string>((resolve, reject) => {
             let stdOut = '';
             let stdErr = '';
-            result.out.subscribe(output => {
-                stdOut += output.out;
-                // If the test runner python module is not installed we'll have something in stderr.
-                // Hence track that separately and check at the end.
-                if (output.source === 'stderr') {
-                    stdErr += output.out;
-                }
-                if (options.outChannel) {
-                    options.outChannel.append(output.out);
-                }
-            }, reject, async () => {
-                // If the test runner python module is not installed we'll have something in stderr.
-                if (moduleName && pythonExecutionServicePromise && ErrorUtils.outputHasModuleNotInstalledError(moduleName, stdErr)) {
-                    const pythonExecutionService = await pythonExecutionServicePromise;
-                    const isInstalled = await pythonExecutionService.isModuleInstalled(moduleName);
-                    if (!isInstalled) {
-                        return reject(new ModuleNotInstalledError(moduleName));
+            result.out.subscribe(
+                (output) => {
+                    stdOut += output.out;
+                    // If the test runner python module is not installed we'll have something in stderr.
+                    // Hence track that separately and check at the end.
+                    if (output.source === 'stderr') {
+                        stdErr += output.out;
                     }
+                    if (options.outChannel) {
+                        options.outChannel.append(output.out);
+                    }
+                },
+                reject,
+                async () => {
+                    // If the test runner python module is not installed we'll have something in stderr.
+                    if (
+                        moduleName &&
+                        pythonExecutionServicePromise &&
+                        ErrorUtils.outputHasModuleNotInstalledError(moduleName, stdErr)
+                    ) {
+                        const pythonExecutionService = await pythonExecutionServicePromise;
+                        const isInstalled = await pythonExecutionService.isModuleInstalled(moduleName);
+                        if (!isInstalled) {
+                            return reject(new ModuleNotInstalledError(moduleName));
+                        }
+                    }
+                    resolve(stdOut);
                 }
-                resolve(stdOut);
-            });
+            );
         });
     });
 }

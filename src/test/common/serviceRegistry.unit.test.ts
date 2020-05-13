@@ -8,6 +8,7 @@
 import { expect } from 'chai';
 import * as typemoq from 'typemoq';
 import { IExtensionSingleActivationService } from '../../client/activation/types';
+import { ActiveResourceService } from '../../client/common/application/activeResource';
 import { ApplicationEnvironment } from '../../client/common/application/applicationEnvironment';
 import { ApplicationShell } from '../../client/common/application/applicationShell';
 import { CommandManager } from '../../client/common/application/commandManager';
@@ -16,7 +17,18 @@ import { DocumentManager } from '../../client/common/application/documentManager
 import { Extensions } from '../../client/common/application/extensions';
 import { LanguageService } from '../../client/common/application/languageService';
 import { TerminalManager } from '../../client/common/application/terminalManager';
-import { IApplicationEnvironment, IApplicationShell, ICommandManager, IDebugService, IDocumentManager, ILanguageService, ILiveShareApi, ITerminalManager, IWorkspaceService } from '../../client/common/application/types';
+import {
+    IActiveResourceService,
+    IApplicationEnvironment,
+    IApplicationShell,
+    ICommandManager,
+    IDebugService,
+    IDocumentManager,
+    ILanguageService,
+    ILiveShareApi,
+    ITerminalManager,
+    IWorkspaceService
+} from '../../client/common/application/types';
 import { WorkspaceService } from '../../client/common/application/workspace';
 import { AsyncDisposableRegistry } from '../../client/common/asyncDisposableRegistry';
 import { ConfigurationService } from '../../client/common/configuration/service';
@@ -24,14 +36,22 @@ import { CryptoUtils } from '../../client/common/crypto';
 import { EditorUtils } from '../../client/common/editor';
 import { ExperimentsManager } from '../../client/common/experiments';
 import { FeatureDeprecationManager } from '../../client/common/featureDeprecationManager';
-import { ExtensionInsidersDailyChannelRule, ExtensionInsidersOffChannelRule, ExtensionInsidersWeeklyChannelRule } from '../../client/common/insidersBuild/downloadChannelRules';
+import {
+    ExtensionInsidersDailyChannelRule,
+    ExtensionInsidersOffChannelRule,
+    ExtensionInsidersWeeklyChannelRule
+} from '../../client/common/insidersBuild/downloadChannelRules';
 import { ExtensionChannelService } from '../../client/common/insidersBuild/downloadChannelService';
 import { InsidersExtensionPrompt } from '../../client/common/insidersBuild/insidersExtensionPrompt';
 import { InsidersExtensionService } from '../../client/common/insidersBuild/insidersExtensionService';
-import { ExtensionChannel, IExtensionChannelRule, IExtensionChannelService, IInsiderExtensionPrompt } from '../../client/common/insidersBuild/types';
+import {
+    ExtensionChannel,
+    IExtensionChannelRule,
+    IExtensionChannelService,
+    IInsiderExtensionPrompt
+} from '../../client/common/insidersBuild/types';
 import { ProductInstaller } from '../../client/common/installer/productInstaller';
-import { LiveShareApi } from '../../client/common/liveshare/liveshare';
-import { Logger } from '../../client/common/logger';
+import { InterpreterPathService } from '../../client/common/interpreterPathService';
 import { BrowserService } from '../../client/common/net/browser';
 import { HttpClient } from '../../client/common/net/httpClient';
 import { NugetService } from '../../client/common/nuget/nugetService';
@@ -53,10 +73,35 @@ import { SettingsShellDetector } from '../../client/common/terminal/shellDetecto
 import { TerminalNameShellDetector } from '../../client/common/terminal/shellDetectors/terminalNameShellDetector';
 import { UserEnvironmentShellDetector } from '../../client/common/terminal/shellDetectors/userEnvironmentShellDetector';
 import { VSCEnvironmentShellDetector } from '../../client/common/terminal/shellDetectors/vscEnvironmentShellDetector';
-import { IShellDetector, ITerminalActivationCommandProvider, ITerminalActivationHandler, ITerminalActivator, ITerminalHelper, ITerminalServiceFactory, TerminalActivationProviders } from '../../client/common/terminal/types';
-import { IAsyncDisposableRegistry, IBrowserService, IConfigurationService, ICryptoUtils, ICurrentProcess, IEditorUtils, IExperimentsManager, IExtensions, IFeatureDeprecationManager, IHttpClient, IInstaller, ILogger, IPathUtils, IPersistentStateFactory, IRandom } from '../../client/common/types';
+import {
+    IShellDetector,
+    ITerminalActivationCommandProvider,
+    ITerminalActivationHandler,
+    ITerminalActivator,
+    ITerminalHelper,
+    ITerminalServiceFactory,
+    TerminalActivationProviders
+} from '../../client/common/terminal/types';
+import {
+    IAsyncDisposableRegistry,
+    IBrowserService,
+    IConfigurationService,
+    ICryptoUtils,
+    ICurrentProcess,
+    IEditorUtils,
+    IExperimentsManager,
+    IExtensions,
+    IFeatureDeprecationManager,
+    IHttpClient,
+    IInstaller,
+    IInterpreterPathService,
+    IPathUtils,
+    IPersistentStateFactory,
+    IRandom
+} from '../../client/common/types';
 import { IMultiStepInputFactory, MultiStepInputFactory } from '../../client/common/utils/multiStepInput';
 import { Random } from '../../client/common/utils/random';
+import { LiveShareApi } from '../../client/datascience/liveshare/liveshare';
 import { IServiceManager } from '../../client/ioc/types';
 import { ImportTracker } from '../../client/telemetry/importTracker';
 import { IImportTracker } from '../../client/telemetry/types';
@@ -66,10 +111,11 @@ suite('Common - Service Registry', () => {
         const serviceManager = typemoq.Mock.ofType<IServiceManager>();
 
         [
+            [IActiveResourceService, ActiveResourceService],
+            [IInterpreterPathService, InterpreterPathService],
             [IExtensions, Extensions],
             [IRandom, Random],
             [IPersistentStateFactory, PersistentStateFactory],
-            [ILogger, Logger],
             [ITerminalServiceFactory, TerminalServiceFactory],
             [IPathUtils, PathUtils],
             [IApplicationShell, ApplicationShell],
@@ -95,7 +141,11 @@ suite('Common - Service Registry', () => {
             [ITerminalHelper, TerminalHelper],
             [ITerminalActivationCommandProvider, PyEnvActivationCommandProvider, TerminalActivationProviders.pyenv],
             [ITerminalActivationCommandProvider, Bash, TerminalActivationProviders.bashCShellFish],
-            [ITerminalActivationCommandProvider, CommandPromptAndPowerShell, TerminalActivationProviders.commandPromptAndPowerShell],
+            [
+                ITerminalActivationCommandProvider,
+                CommandPromptAndPowerShell,
+                TerminalActivationProviders.commandPromptAndPowerShell
+            ],
             [ITerminalActivationCommandProvider, CondaActivationCommandProvider, TerminalActivationProviders.conda],
             [ITerminalActivationCommandProvider, PipEnvActivationCommandProvider, TerminalActivationProviders.pipenv],
             [IFeatureDeprecationManager, FeatureDeprecationManager],
@@ -112,14 +162,25 @@ suite('Common - Service Registry', () => {
             [IExtensionChannelRule, ExtensionInsidersOffChannelRule, ExtensionChannel.off],
             [IExtensionChannelRule, ExtensionInsidersDailyChannelRule, ExtensionChannel.daily],
             [IExtensionChannelRule, ExtensionInsidersWeeklyChannelRule, ExtensionChannel.weekly]
-        ].forEach(mapping => {
+        ].forEach((mapping) => {
             if (mapping.length === 2) {
                 serviceManager
-                    .setup(s => s.addSingleton(typemoq.It.isValue(mapping[0] as any), typemoq.It.is(value => mapping[1] === value)))
+                    .setup((s) =>
+                        s.addSingleton(
+                            typemoq.It.isValue(mapping[0] as any),
+                            typemoq.It.is((value) => mapping[1] === value)
+                        )
+                    )
                     .verifiable(typemoq.Times.atLeastOnce());
             } else {
                 serviceManager
-                    .setup(s => s.addSingleton(typemoq.It.isValue(mapping[0] as any), typemoq.It.isAny(), typemoq.It.isValue(mapping[2] as any)))
+                    .setup((s) =>
+                        s.addSingleton(
+                            typemoq.It.isValue(mapping[0] as any),
+                            typemoq.It.isAny(),
+                            typemoq.It.isValue(mapping[2] as any)
+                        )
+                    )
                     .callback((_, cls) => expect(cls).to.equal(mapping[1]))
                     .verifiable(typemoq.Times.once());
             }

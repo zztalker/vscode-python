@@ -23,7 +23,7 @@ export function isArray(array: any): array is any[] {
         return Array.isArray(array);
     }
 
-    if (array && typeof (array.length) === _typeof.number && array.constructor === Array) {
+    if (array && typeof array.length === _typeof.number && array.constructor === Array) {
         return true;
     }
 
@@ -34,7 +34,7 @@ export function isArray(array: any): array is any[] {
  * @returns whether the provided parameter is a JavaScript String or not.
  */
 export function isString(str: any): str is string {
-    if (typeof (str) === _typeof.string || str instanceof String) {
+    if (typeof str === _typeof.string || str instanceof String) {
         return true;
     }
 
@@ -45,7 +45,7 @@ export function isString(str: any): str is string {
  * @returns whether the provided parameter is a JavaScript Array and each element in the array is a string.
  */
 export function isStringArray(value: any): value is string[] {
-    return isArray(value) && (<any[]>value).every(elem => isString(elem));
+    return isArray(value) && (<any[]>value).every((elem) => isString(elem));
 }
 
 /**
@@ -54,11 +54,13 @@ export function isStringArray(value: any): value is string[] {
  *	`null`, an `array`, a `regexp`, nor a `date`.
  */
 export function isObject(obj: any): obj is any {
-    return typeof obj === _typeof.object
-        && obj !== null
-        && !Array.isArray(obj)
-        && !(obj instanceof RegExp)
-        && !(obj instanceof Date);
+    return (
+        typeof obj === _typeof.object &&
+        obj !== null &&
+        !Array.isArray(obj) &&
+        !(obj instanceof RegExp) &&
+        !(obj instanceof Date)
+    );
 }
 
 /**
@@ -66,7 +68,7 @@ export function isObject(obj: any): obj is any {
  * @returns whether the provided parameter is a JavaScript Number or not.
  */
 export function isNumber(obj: any): obj is number {
-    if ((typeof (obj) === _typeof.number || obj instanceof Number) && !isNaN(obj)) {
+    if ((typeof obj === _typeof.number || obj instanceof Number) && !isNaN(obj)) {
         return true;
     }
 
@@ -84,7 +86,7 @@ export function isBoolean(obj: any): obj is boolean {
  * @returns whether the provided parameter is undefined.
  */
 export function isUndefined(obj: any): boolean {
-    return typeof (obj) === _typeof.undefined;
+    return typeof obj === _typeof.undefined;
 }
 
 /**

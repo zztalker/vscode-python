@@ -44,13 +44,16 @@ declare interface String {
  * By default lines are trimmed and empty lines are removed.
  * @param {SplitLinesOptions=} splitOptions - Options used for splitting the string.
  */
-String.prototype.splitLines = function (this: string, splitOptions: { trim: boolean; removeEmptyEntries: boolean } = { removeEmptyEntries: true, trim: true }): string[] {
+String.prototype.splitLines = function (
+    this: string,
+    splitOptions: { trim: boolean; removeEmptyEntries: boolean } = { removeEmptyEntries: true, trim: true }
+): string[] {
     let lines = this.split(/\r?\n/g);
     if (splitOptions && splitOptions.trim) {
-        lines = lines.map(line => line.trim());
+        lines = lines.map((line) => line.trim());
     }
     if (splitOptions && splitOptions.removeEmptyEntries) {
-        lines = lines.filter(line => line.length > 0);
+        lines = lines.filter((line) => line.length > 0);
     }
     return lines;
 };
@@ -64,7 +67,7 @@ String.prototype.toCommandArgument = function (this: string): string {
     if (!this) {
         return this;
     }
-    return (this.indexOf(' ') >= 0 && !this.startsWith('"') && !this.endsWith('"')) ? `"${this}"` : this.toString();
+    return this.indexOf(' ') >= 0 && !this.startsWith('"') && !this.endsWith('"') ? `"${this}"` : this.toString();
 };
 
 /**
@@ -102,12 +105,12 @@ declare interface Promise<T> {
  */
 Promise.prototype.ignoreErrors = function <T>(this: Promise<T>) {
     // tslint:disable-next-line:no-empty
-    this.catch(() => { });
+    this.catch(() => {});
 };
 
 if (!String.prototype.format) {
     String.prototype.format = function (this: string) {
         const args = arguments;
-        return this.replace(/{(\d+)}/g, (match, number) => args[number] === undefined ? match : args[number]);
+        return this.replace(/{(\d+)}/g, (match, number) => (args[number] === undefined ? match : args[number]));
     };
 }

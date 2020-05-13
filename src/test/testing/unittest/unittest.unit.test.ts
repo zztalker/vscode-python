@@ -9,7 +9,12 @@ import { Uri } from 'vscode';
 import { IWorkspaceService } from '../../../client/common/application/types';
 import { WorkspaceService } from '../../../client/common/application/workspace';
 import { ConfigurationService } from '../../../client/common/configuration/service';
-import { IConfigurationService, IDisposableRegistry, IOutputChannel, IPythonSettings } from '../../../client/common/types';
+import {
+    IConfigurationService,
+    IDisposableRegistry,
+    IOutputChannel,
+    IPythonSettings
+} from '../../../client/common/types';
 import { ServiceContainer } from '../../../client/ioc/container';
 import { IServiceContainer } from '../../../client/ioc/types';
 import { ArgumentsHelper } from '../../../client/testing/common/argumentsHelper';
@@ -20,12 +25,23 @@ import { TestsStatusUpdaterService } from '../../../client/testing/common/servic
 import { TestsHelper } from '../../../client/testing/common/testUtils';
 import { TestResultResetVisitor } from '../../../client/testing/common/testVisitors/resultResetVisitor';
 import {
-    FlattenedTestFunction, FlattenedTestSuite, ITestResultsService,
-    ITestsHelper, ITestsStatusUpdaterService, TestFile, TestFolder,
-    TestFunction, Tests, TestStatus, TestSuite
+    FlattenedTestFunction,
+    FlattenedTestSuite,
+    ITestResultsService,
+    ITestsHelper,
+    ITestsStatusUpdaterService,
+    TestFile,
+    TestFolder,
+    TestFunction,
+    Tests,
+    TestStatus,
+    TestSuite
 } from '../../../client/testing/common/types';
 import {
-    IArgumentsHelper, IArgumentsService, ITestManagerRunner, TestDataItemType
+    IArgumentsHelper,
+    IArgumentsService,
+    ITestManagerRunner,
+    TestDataItemType
 } from '../../../client/testing/types';
 import { TestManager } from '../../../client/testing/unittest/main';
 import { TestManagerRunner } from '../../../client/testing/unittest/runner';
@@ -42,7 +58,6 @@ suite('Unit Tests - unittest - run failed tests', () => {
     let testManagerRunner: ITestManagerRunner;
     let tests: Tests;
     function createTestData() {
-
         const folder1 = createMockTestDataItem<TestFolder>(TestDataItemType.folder);
         const folder2 = createMockTestDataItem<TestFolder>(TestDataItemType.folder);
         const folder3 = createMockTestDataItem<TestFolder>(TestDataItemType.folder);
@@ -142,12 +157,20 @@ suite('Unit Tests - unittest - run failed tests', () => {
         when(testStorage.getTests(anything())).thenReturn(tests);
         when(workspaceService.getWorkspaceFolder(anything())).thenReturn({ name: '', index: 0, uri: workspaceFolder });
         when(serviceContainer.get<IWorkspaceService>(IWorkspaceService)).thenReturn(instance(workspaceService));
-        when(serviceContainer.get<IArgumentsHelper>(IArgumentsHelper)).thenReturn(new ArgumentsHelper(svcInstance));
-        when(serviceContainer.get<IArgumentsService>(IArgumentsService, anything())).thenReturn(new ArgumentsService(svcInstance));
+        when(serviceContainer.get<IArgumentsHelper>(IArgumentsHelper)).thenReturn(new ArgumentsHelper());
+        when(serviceContainer.get<IArgumentsService>(IArgumentsService, anything())).thenReturn(
+            new ArgumentsService(svcInstance)
+        );
         when(serviceContainer.get<ITestsHelper>(ITestsHelper)).thenReturn(instance(testsHelper));
-        when(serviceContainer.get<ITestManagerRunner>(ITestManagerRunner, anything())).thenReturn(instance(testManagerRunner));
-        when(serviceContainer.get<ITestsStatusUpdaterService>(ITestsStatusUpdaterService)).thenReturn(new TestsStatusUpdaterService(instance(testStorage)));
-        when(serviceContainer.get<ITestResultsService>(ITestResultsService)).thenReturn(new TestResultsService(new TestResultResetVisitor()));
+        when(serviceContainer.get<ITestManagerRunner>(ITestManagerRunner, anything())).thenReturn(
+            instance(testManagerRunner)
+        );
+        when(serviceContainer.get<ITestsStatusUpdaterService>(ITestsStatusUpdaterService)).thenReturn(
+            new TestsStatusUpdaterService(instance(testStorage))
+        );
+        when(serviceContainer.get<ITestResultsService>(ITestResultsService)).thenReturn(
+            new TestResultsService(new TestResultResetVisitor())
+        );
         when(serviceContainer.get<IOutputChannel>(IOutputChannel)).thenReturn(instance(mock(MockOutputChannel)));
         when(serviceContainer.get<IOutputChannel>(IOutputChannel)).thenReturn(instance(mock(MockOutputChannel)));
         when(serviceContainer.get<IDisposableRegistry>(IDisposableRegistry)).thenReturn([]);

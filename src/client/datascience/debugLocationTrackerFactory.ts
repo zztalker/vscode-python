@@ -2,7 +2,14 @@
 // Licensed under the MIT License.
 'use strict';
 import { inject, injectable } from 'inversify';
-import { DebugAdapterTracker, DebugAdapterTrackerFactory, DebugSession, Event, EventEmitter, ProviderResult } from 'vscode';
+import {
+    DebugAdapterTracker,
+    DebugAdapterTrackerFactory,
+    DebugSession,
+    Event,
+    EventEmitter,
+    ProviderResult
+} from 'vscode';
 
 import { IDebugService } from '../common/application/types';
 import { IDisposableRegistry } from '../common/types';
@@ -12,7 +19,6 @@ import { IDebugLocationTracker } from './types';
 // Hook up our IDebugLocationTracker to python debugging sessions
 @injectable()
 export class DebugLocationTrackerFactory implements IDebugLocationTracker, DebugAdapterTrackerFactory {
-
     private activeTrackers: Map<string, DebugLocationTracker> = new Map<string, DebugLocationTracker>();
     private updatedEmitter: EventEmitter<void> = new EventEmitter<void>();
 

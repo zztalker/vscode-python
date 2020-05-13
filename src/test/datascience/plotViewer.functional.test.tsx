@@ -21,14 +21,15 @@ suite('DataScience PlotViewer tests', () => {
     let plotViewerProvider: IPlotViewerProvider;
     let ioc: DataScienceIocContainer;
 
-    setup(() => {
+    setup(async () => {
         ioc = new DataScienceIocContainer();
         ioc.registerDataScienceTypes();
+        await ioc.activate();
     });
 
     function mountWebView(): ReactWrapper<any, Readonly<{}>, React.Component> {
         // Setup our webview panel
-        ioc.createWebView(() => mount(<MainPanel skipDefault={true} baseTheme={'vscode-light'} testMode={true}/>));
+        ioc.createWebView(() => mount(<MainPanel skipDefault={true} baseTheme={'vscode-light'} testMode={true} />));
 
         // Make sure the plot viewer provider and execution factory in the container is created (the extension does this on startup in the extension)
         plotViewerProvider = ioc.get<IPlotViewerProvider>(IPlotViewerProvider);
@@ -56,7 +57,6 @@ suite('DataScience PlotViewer tests', () => {
     });
 
     async function waitForPlot(wrapper: ReactWrapper<any, Readonly<{}>, React.Component>, svg: string): Promise<void> {
-
         // Get a render promise with the expected number of renders
         const renderPromise = waitForUpdate(wrapper, MainPanel, 1);
 
@@ -68,7 +68,10 @@ suite('DataScience PlotViewer tests', () => {
     }
 
     // tslint:disable-next-line:no-any
-    function runMountedTest(name: string, testFunc: (wrapper: ReactWrapper<any, Readonly<{}>, React.Component>) => Promise<void>) {
+    function runMountedTest(
+        name: string,
+        testFunc: (wrapper: ReactWrapper<any, Readonly<{}>, React.Component>) => Promise<void>
+    ) {
         test(name, async () => {
             const wrapper = mountWebView();
             try {
@@ -105,5 +108,4 @@ suite('DataScience PlotViewer tests', () => {
     runMountedTest('Export', async (_wrapper) => {
         // Export isn't runnable inside of JSDOM. So this test does nothing.
     });
-
 });

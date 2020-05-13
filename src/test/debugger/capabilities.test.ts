@@ -22,7 +22,13 @@ import { PythonDebugger } from '../../client/debugger/debugAdapter/main';
 import { PYTHON_PATH } from '../common';
 import { IS_MULTI_ROOT_TEST, TEST_DEBUGGER } from '../initialize';
 
-const fileToDebug = path.join(EXTENSION_ROOT_DIR, 'src', 'testMultiRootWkspc', 'workspace5', 'remoteDebugger-start-with-ptvsd-nowait.py');
+const fileToDebug = path.join(
+    EXTENSION_ROOT_DIR,
+    'src',
+    'testMultiRootWkspc',
+    'workspace5',
+    'remoteDebugger-start-with-ptvsd-nowait.py'
+);
 
 suite('Debugging - Capabilities', function () {
     this.timeout(30000);
@@ -38,7 +44,7 @@ suite('Debugging - Capabilities', function () {
         disposables = [];
     });
     teardown(() => {
-        disposables.forEach(disposable => {
+        disposables.forEach((disposable) => {
             try {
                 disposable.dispose!();
             } catch {
@@ -57,16 +63,16 @@ suite('Debugging - Capabilities', function () {
         }
     });
     function createRequest(cmd: string, requestArgs: any) {
-        return new class extends Message implements DebugProtocol.InitializeRequest {
+        return new (class extends Message implements DebugProtocol.InitializeRequest {
             public arguments: any;
             constructor(public command: string, args: any) {
                 super('request');
                 this.arguments = args;
             }
-        }(cmd, requestArgs);
+        })(cmd, requestArgs);
     }
     function createDebugSession() {
-        return new class extends PythonDebugger {
+        return new (class extends PythonDebugger {
             constructor() {
                 super({} as any);
             }
@@ -75,12 +81,12 @@ suite('Debugging - Capabilities', function () {
                 let initializeResponse = {
                     body: {}
                 } as DebugProtocol.InitializeResponse;
-                this.sendResponse = resp => initializeResponse = resp;
+                this.sendResponse = (resp) => (initializeResponse = resp);
 
                 this.initializeRequest(initializeResponse, { supportsRunInTerminalRequest: true, adapterID: '' });
                 return initializeResponse;
             }
-        }();
+        })();
     }
     test('Compare capabilities', async () => {
         const customDebugger = createDebugSession();
@@ -92,7 +98,10 @@ suite('Debugging - Capabilities', function () {
         const port = await getFreePort({ host, port: 3000 });
         const env = { ...process.env };
         env.PYTHONPATH = PTVSD_PATH;
-        proc = spawn(PYTHON_PATH, ['-m', 'ptvsd', '--host', 'localhost', '--wait', '--port', `${port}`, fileToDebug], { cwd: path.dirname(fileToDebug), env });
+        proc = spawn(PYTHON_PATH, ['-m', 'ptvsd', '--host', 'localhost', '--wait', '--port', `${port}`, fileToDebug], {
+            cwd: path.dirname(fileToDebug),
+            env
+        });
         await sleep(3000);
 
         const connected = createDeferred();
@@ -103,7 +112,9 @@ suite('Debugging - Capabilities', function () {
         const protocolParser = new ProtocolParser();
         protocolParser.connect(socket!);
         disposables.push(protocolParser);
-        const actualResponsePromise = new Promise<DebugProtocol.InitializeResponse>(resolve => protocolParser.once('response_initialize', resolve));
+        const actualResponsePromise = new Promise<DebugProtocol.InitializeResponse>((resolve) =>
+            protocolParser.once('response_initialize', resolve)
+        );
         protocolWriter.write(socket, initializeRequest);
         const actualResponse = await actualResponsePromise;
 
@@ -116,12 +127,12 @@ suite('Debugging - Capabilities', function () {
             logToFile: false,
             debugOptions: []
         });
-        const attached = new Promise(resolve => protocolParser.once('response_attach', resolve));
+        const attached = new Promise((resolve) => protocolParser.once('response_attach', resolve));
         protocolWriter.write(socket, attachRequest);
         await attached;
 
         const configRequest: DebugProtocol.ConfigurationDoneRequest = createRequest('configurationDone', {});
-        const configured = new Promise(resolve => protocolParser.once('response_configurationDone', resolve));
+        const configured = new Promise((resolve) => protocolParser.once('response_configurationDone', resolve));
         protocolWriter.write(socket, configRequest);
         await configured;
 

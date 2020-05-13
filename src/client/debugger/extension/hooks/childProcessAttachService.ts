@@ -26,17 +26,20 @@ export class ChildProcessAttachService implements IChildProcessAttachService {
         @inject(IApplicationShell) private readonly appShell: IApplicationShell,
         @inject(IDebugService) private readonly debugService: IDebugService,
         @inject(IWorkspaceService) private readonly workspaceService: IWorkspaceService
-    ) { }
+    ) {}
 
     @captureTelemetry(EventName.DEBUGGER_ATTACH_TO_CHILD_PROCESS)
-    public async attach(data: ChildProcessLaunchData | (AttachRequestArguments & DebugConfiguration), parentSession: DebugSession): Promise<void> {
+    public async attach(
+        data: ChildProcessLaunchData | (AttachRequestArguments & DebugConfiguration),
+        parentSession: DebugSession
+    ): Promise<void> {
         let debugConfig: AttachRequestArguments & DebugConfiguration;
         let processId: number;
-        if (data.rootStartRequest) {
+        if (this.isChildProcessLaunchData(data)) {
             processId = data.processId;
-            debugConfig = this.getAttachConfiguration(data as ChildProcessLaunchData);
+            debugConfig = this.getAttachConfiguration(data);
         } else {
-            debugConfig = data as (AttachRequestArguments & DebugConfiguration);
+            debugConfig = data;
             processId = debugConfig.subProcessId!;
         }
         const folder = this.getRelatedWorkspaceFolder(debugConfig);
@@ -65,20 +68,23 @@ export class ChildProcessAttachService implements IChildProcessAttachService {
         // As debugger doesn't necessarily know whether the process being attached to is
         // a child process or not.
         const systemVariables = new SystemVariables(undefined, config.workspaceFolder);
-        const localRoot = config.cwd && config.cwd.length > 0 ? systemVariables.resolveAny(config.cwd) : config.workspaceFolder;
+        const localRoot =
+            config.cwd && config.cwd.length > 0 ? systemVariables.resolveAny(config.cwd) : config.workspaceFolder;
         config.pathMappings = [{ remoteRoot: '.', localRoot }];
     }
-    private getRelatedWorkspaceFolder(config: AttachRequestArguments & DebugConfiguration): WorkspaceFolder | undefined {
+    private getRelatedWorkspaceFolder(
+        config: AttachRequestArguments & DebugConfiguration
+    ): WorkspaceFolder | undefined {
         const workspaceFolder = config.workspaceFolder;
         if (!this.workspaceService.hasWorkspaceFolders || !workspaceFolder) {
             return;
         }
-        return this.workspaceService.workspaceFolders!.find(ws => ws.uri.fsPath === workspaceFolder);
+        return this.workspaceService.workspaceFolders!.find((ws) => ws.uri.fsPath === workspaceFolder);
     }
     private getAttachConfiguration(data: ChildProcessLaunchData): AttachRequestArguments & DebugConfiguration {
         const args = data.rootStartRequest.arguments;
         // tslint:disable-next-line:no-any
-        const config = (JSON.parse(JSON.stringify(args)) as any) as (AttachRequestArguments & DebugConfiguration);
+        const config = (JSON.parse(JSON.stringify(args)) as any) as AttachRequestArguments & DebugConfiguration;
         // tslint:disable-next-line: no-any
         this.fixPathMappings(config as any);
         config.host = args.request === 'attach' ? args.host! : 'localhost';
@@ -86,5 +92,10 @@ export class ChildProcessAttachService implements IChildProcessAttachService {
         config.name = `Child Process ${data.processId}`;
         config.request = 'attach';
         return config;
+    }
+    private isChildProcessLaunchData(
+        data: ChildProcessLaunchData | (AttachRequestArguments & DebugConfiguration)
+    ): data is ChildProcessLaunchData {
+        return data.rootStartRequest !== undefined;
     }
 }

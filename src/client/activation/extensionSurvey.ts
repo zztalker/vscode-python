@@ -4,13 +4,13 @@
 'use strict';
 
 import { inject, injectable, optional } from 'inversify';
-import { IApplicationShell } from '../common/application/types';
+import * as querystring from 'querystring';
+import { IApplicationEnvironment, IApplicationShell } from '../common/application/types';
 import { ShowExtensionSurveyPrompt } from '../common/experimentGroups';
 import '../common/extensions';
 import { traceDecorators } from '../common/logger';
-import {
-    IBrowserService, IExperimentsManager, IPersistentStateFactory, IRandom
-} from '../common/types';
+import { IPlatformService } from '../common/platform/types';
+import { IBrowserService, IExperimentsManager, IPersistentStateFactory, IRandom } from '../common/types';
 import { Common, ExtensionSurveyBanner, LanguageService } from '../common/utils/localize';
 import { sendTelemetryEvent } from '../telemetry';
 import { EventName } from '../telemetry/constants';
@@ -33,8 +33,11 @@ export class ExtensionSurveyPrompt implements IExtensionSingleActivationService 
         @inject(IPersistentStateFactory) private persistentState: IPersistentStateFactory,
         @inject(IRandom) private random: IRandom,
         @inject(IExperimentsManager) private experiments: IExperimentsManager,
+        @inject(IApplicationEnvironment) private appEnvironment: IApplicationEnvironment,
+        @inject(IPlatformService) private platformService: IPlatformService,
         @optional() private sampleSizePerOneHundredUsers: number = 10,
-        @optional() private waitTimeToShowSurvey: number = WAIT_TIME_TO_SHOW_SURVEY) { }
+        @optional() private waitTimeToShowSurvey: number = WAIT_TIME_TO_SHOW_SURVEY
+    ) {}
 
     public async activate(): Promise<void> {
         if (!this.experiments.inExperiment(ShowExtensionSurveyPrompt.enabled)) {
@@ -50,11 +53,18 @@ export class ExtensionSurveyPrompt implements IExtensionSingleActivationService 
 
     @traceDecorators.error('Failed to check whether to display prompt for extension survey')
     public shouldShowBanner(): boolean {
-        const doNotShowSurveyAgain = this.persistentState.createGlobalPersistentState(extensionSurveyStateKeys.doNotShowAgain, false);
+        const doNotShowSurveyAgain = this.persistentState.createGlobalPersistentState(
+            extensionSurveyStateKeys.doNotShowAgain,
+            false
+        );
         if (doNotShowSurveyAgain.value) {
             return false;
         }
-        const isSurveyDisabledForTimeState = this.persistentState.createGlobalPersistentState(extensionSurveyStateKeys.disableSurveyForTime, false, timeToDisableSurveyFor);
+        const isSurveyDisabledForTimeState = this.persistentState.createGlobalPersistentState(
+            extensionSurveyStateKeys.disableSurveyForTime,
+            false,
+            timeToDisableSurveyFor
+        );
         if (isSurveyDisabledForTimeState.value) {
             return false;
         }
@@ -69,23 +79,44 @@ export class ExtensionSurveyPrompt implements IExtensionSingleActivationService 
     @traceDecorators.error('Failed to display prompt for extension survey')
     public async showSurvey() {
         const prompts = [LanguageService.bannerLabelYes(), ExtensionSurveyBanner.maybeLater(), Common.doNotShowAgain()];
-        const telemetrySelections: ['Yes', 'Maybe later', 'Do not show again'] = ['Yes', 'Maybe later', 'Do not show again'];
+        const telemetrySelections: ['Yes', 'Maybe later', 'Do not show again'] = [
+            'Yes',
+            'Maybe later',
+            'Do not show again'
+        ];
         const selection = await this.appShell.showInformationMessage(ExtensionSurveyBanner.bannerMessage(), ...prompts);
-        sendTelemetryEvent(EventName.EXTENSION_SURVEY_PROMPT, undefined, { selection: selection ? telemetrySelections[prompts.indexOf(selection)] : undefined });
+        sendTelemetryEvent(EventName.EXTENSION_SURVEY_PROMPT, undefined, {
+            selection: selection ? telemetrySelections[prompts.indexOf(selection)] : undefined
+        });
         if (!selection) {
             return;
         }
         if (selection === LanguageService.bannerLabelYes()) {
             this.launchSurvey();
             // Disable survey for a few weeks
-            await this.persistentState.createGlobalPersistentState(extensionSurveyStateKeys.disableSurveyForTime, false, timeToDisableSurveyFor).updateValue(true);
+            await this.persistentState
+                .createGlobalPersistentState(
+                    extensionSurveyStateKeys.disableSurveyForTime,
+                    false,
+                    timeToDisableSurveyFor
+                )
+                .updateValue(true);
         } else if (selection === Common.doNotShowAgain()) {
             // Never show the survey again
-            await this.persistentState.createGlobalPersistentState(extensionSurveyStateKeys.doNotShowAgain, false).updateValue(true);
+            await this.persistentState
+                .createGlobalPersistentState(extensionSurveyStateKeys.doNotShowAgain, false)
+                .updateValue(true);
         }
     }
 
     private launchSurvey() {
-        this.browserService.launch('https://aka.ms/AA5rjx5');
+        const query = querystring.stringify({
+            o: encodeURIComponent(this.platformService.osType), // platform
+            v: encodeURIComponent(this.appEnvironment.vscodeVersion),
+            e: encodeURIComponent(this.appEnvironment.packageJson.version), // extension version
+            m: encodeURIComponent(this.appEnvironment.machineId)
+        });
+        const url = `https://aka.ms/AA5rjx5?${query}`;
+        this.browserService.launch(url);
     }
 }

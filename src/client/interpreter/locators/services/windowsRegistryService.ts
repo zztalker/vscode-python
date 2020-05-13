@@ -1,10 +1,10 @@
 // tslint:disable:no-require-imports no-var-requires underscore-consistent-invocation
-import * as fs from 'fs-extra';
+
 import { inject, injectable } from 'inversify';
 import * as path from 'path';
 import { Uri } from 'vscode';
 import { traceError } from '../../../common/logger';
-import { IPlatformService, IRegistry, RegistryHive } from '../../../common/platform/types';
+import { IFileSystem, IPlatformService, IRegistry, RegistryHive } from '../../../common/platform/types';
 import { IPathUtils } from '../../../common/types';
 import { Architecture } from '../../../common/utils/platform';
 import { parsePythonVersion } from '../../../common/utils/version';
@@ -34,6 +34,7 @@ type CompanyInterpreter = {
 @injectable()
 export class WindowsRegistryService extends CacheableLocatorService {
     private readonly pathUtils: IPathUtils;
+    private readonly fs: IFileSystem;
     constructor(
         @inject(IRegistry) private registry: IRegistry,
         @inject(IPlatformService) private readonly platform: IPlatformService,
@@ -42,6 +43,7 @@ export class WindowsRegistryService extends CacheableLocatorService {
     ) {
         super('WindowsRegistryService', serviceContainer);
         this.pathUtils = serviceContainer.get<IPathUtils>(IPathUtils);
+        this.fs = serviceContainer.get<IFileSystem>(IFileSystem);
     }
     // tslint:disable-next-line:no-empty
     public dispose() {}
@@ -51,7 +53,10 @@ export class WindowsRegistryService extends CacheableLocatorService {
     private async getInterpretersFromRegistry() {
         // https://github.com/python/peps/blob/master/pep-0514.txt#L357
         const hkcuArch = this.platform.is64bit ? undefined : Architecture.x86;
-        const promises: Promise<CompanyInterpreter[]>[] = [this.getCompanies(RegistryHive.HKCU, hkcuArch), this.getCompanies(RegistryHive.HKLM, Architecture.x86)];
+        const promises: Promise<CompanyInterpreter[]>[] = [
+            this.getCompanies(RegistryHive.HKCU, hkcuArch),
+            this.getCompanies(RegistryHive.HKLM, Architecture.x86)
+        ];
         // https://github.com/Microsoft/PTVS/blob/ebfc4ca8bab234d453f15ee426af3b208f3c143c/Python/Product/Cookiecutter/Shared/Interpreters/PythonRegistrySearch.cs#L44
         if (this.platform.is64bit) {
             promises.push(this.getCompanies(RegistryHive.HKLM, Architecture.x64));
@@ -60,19 +65,19 @@ export class WindowsRegistryService extends CacheableLocatorService {
         const companies = await Promise.all<CompanyInterpreter[]>(promises);
         const companyInterpreters = await Promise.all(
             flatten(companies)
-                .filter(item => item !== undefined && item !== null)
-                .map(company => {
+                .filter((item) => item !== undefined && item !== null)
+                .map((company) => {
                     return this.getInterpretersForCompany(company.companyKey, company.hive, company.arch);
                 })
         );
 
         return (
             flatten(companyInterpreters)
-                .filter(item => item !== undefined && item !== null)
+                .filter((item) => item !== undefined && item !== null)
                 // tslint:disable-next-line:no-non-null-assertion
-                .map(item => item!)
+                .map((item) => item!)
                 .reduce<PythonInterpreter[]>((prev, current) => {
-                    if (prev.findIndex(item => item.path.toUpperCase() === current.path.toUpperCase()) === -1) {
+                    if (prev.findIndex((item) => item.path.toUpperCase() === current.path.toUpperCase()) === -1) {
                         prev.push(current);
                     }
                     return prev;
@@ -80,19 +85,28 @@ export class WindowsRegistryService extends CacheableLocatorService {
         );
     }
     private async getCompanies(hive: RegistryHive, arch?: Architecture): Promise<CompanyInterpreter[]> {
-        return this.registry.getKeys('\\Software\\Python', hive, arch).then(companyKeys =>
+        return this.registry.getKeys('\\Software\\Python', hive, arch).then((companyKeys) =>
             companyKeys
-                .filter(companyKey => CompaniesToIgnore.indexOf(this.pathUtils.basename(companyKey).toUpperCase()) === -1)
-                .map(companyKey => {
+                .filter(
+                    (companyKey) => CompaniesToIgnore.indexOf(this.pathUtils.basename(companyKey).toUpperCase()) === -1
+                )
+                .map((companyKey) => {
                     return { companyKey, hive, arch };
                 })
         );
     }
     private async getInterpretersForCompany(companyKey: string, hive: RegistryHive, arch?: Architecture) {
         const tagKeys = await this.registry.getKeys(companyKey, hive, arch);
-        return Promise.all(tagKeys.map(tagKey => this.getInreterpreterDetailsForCompany(tagKey, companyKey, hive, arch)));
+        return Promise.all(
+            tagKeys.map((tagKey) => this.getInreterpreterDetailsForCompany(tagKey, companyKey, hive, arch))
+        );
     }
-    private getInreterpreterDetailsForCompany(tagKey: string, companyKey: string, hive: RegistryHive, arch?: Architecture): Promise<PythonInterpreter | undefined | null> {
+    private getInreterpreterDetailsForCompany(
+        tagKey: string,
+        companyKey: string,
+        hive: RegistryHive,
+        arch?: Architecture
+    ): Promise<PythonInterpreter | undefined | null> {
         const key = `${tagKey}\\InstallPath`;
         type InterpreterInformation =
             | null
@@ -106,7 +120,7 @@ export class WindowsRegistryService extends CacheableLocatorService {
               };
         return this.registry
             .getValue(key, hive, arch)
-            .then(installPath => {
+            .then((installPath) => {
                 // Install path is mandatory.
                 if (!installPath) {
                     return Promise.resolve(null);
@@ -120,9 +134,17 @@ export class WindowsRegistryService extends CacheableLocatorService {
                     this.registry.getValue(tagKey, hive, arch, 'SysVersion'),
                     this.getCompanyDisplayName(companyKey, hive, arch)
                 ]).then(([installedPath, executablePath, version, companyDisplayName]) => {
-                    companyDisplayName = AnacondaCompanyNames.indexOf(companyDisplayName!) === -1 ? companyDisplayName : AnacondaCompanyName;
+                    companyDisplayName =
+                        AnacondaCompanyNames.indexOf(companyDisplayName!) === -1
+                            ? companyDisplayName
+                            : AnacondaCompanyName;
                     // tslint:disable-next-line:prefer-type-cast no-object-literal-type-assertion
-                    return { installPath: installedPath, executablePath, version, companyDisplayName } as InterpreterInformation;
+                    return {
+                        installPath: installedPath,
+                        executablePath,
+                        version,
+                        companyDisplayName
+                    } as InterpreterInformation;
                 });
             })
             .then(async (interpreterInfo?: InterpreterInformation) => {
@@ -143,7 +165,9 @@ export class WindowsRegistryService extends CacheableLocatorService {
                 if (!details) {
                     return;
                 }
-                const version = interpreterInfo.version ? this.pathUtils.basename(interpreterInfo.version) : this.pathUtils.basename(tagKey);
+                const version = interpreterInfo.version
+                    ? this.pathUtils.basename(interpreterInfo.version)
+                    : this.pathUtils.basename(tagKey);
                 this._hasInterpreters.resolve(true);
                 // tslint:disable-next-line:prefer-type-cast no-object-literal-type-assertion
                 return {
@@ -153,19 +177,24 @@ export class WindowsRegistryService extends CacheableLocatorService {
                     // Give preference to what we have retrieved from getInterpreterInformation.
                     version: details.version || parsePythonVersion(version),
                     companyDisplayName: interpreterInfo.companyDisplayName,
-                    type: this.windowsStoreInterpreter.isWindowsStoreInterpreter(executablePath) ? InterpreterType.WindowsStore : InterpreterType.Unknown
+                    type: this.windowsStoreInterpreter.isWindowsStoreInterpreter(executablePath)
+                        ? InterpreterType.WindowsStore
+                        : InterpreterType.Unknown
                 } as PythonInterpreter;
             })
-            .then(interpreter =>
+            .then((interpreter) =>
                 interpreter
-                    ? fs
-                          .pathExists(interpreter.path)
+                    ? this.fs
+                          .fileExists(interpreter.path)
                           .catch(() => false)
-                          .then(exists => (exists ? interpreter : null))
+                          .then((exists) => (exists ? interpreter : null))
                     : null
             )
-            .catch(error => {
-                traceError(`Failed to retrieve interpreter details for company ${companyKey},tag: ${tagKey}, hive: ${hive}, arch: ${arch}`, error);
+            .catch((error) => {
+                traceError(
+                    `Failed to retrieve interpreter details for company ${companyKey},tag: ${tagKey}, hive: ${hive}, arch: ${arch}`,
+                    error
+                );
                 return null;
             });
     }

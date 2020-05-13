@@ -18,19 +18,26 @@ export class TreeViewService implements IExtensionSingleActivationService, IDisp
     public get treeView(): TreeView<TestDataItem> {
         return this._treeView;
     }
-    constructor(@inject(ITestTreeViewProvider) private readonly treeViewProvider: ITestTreeViewProvider,
+    constructor(
+        @inject(ITestTreeViewProvider) private readonly treeViewProvider: ITestTreeViewProvider,
         @inject(IDisposableRegistry) disposableRegistry: IDisposableRegistry,
         @inject(IApplicationShell) private readonly appShell: IApplicationShell,
-        @inject(ICommandManager) private readonly commandManager: ICommandManager) {
+        @inject(ICommandManager) private readonly commandManager: ICommandManager
+    ) {
         disposableRegistry.push(this);
     }
     public dispose() {
-        this.disposables.forEach(d => d.dispose());
+        this.disposables.forEach((d) => d.dispose());
     }
     public async activate(): Promise<void> {
-        this._treeView = this.appShell.createTreeView('python_tests', { showCollapseAll: true, treeDataProvider: this.treeViewProvider });
+        this._treeView = this.appShell.createTreeView('python_tests', {
+            showCollapseAll: true,
+            treeDataProvider: this.treeViewProvider
+        });
         this.disposables.push(this._treeView);
-        this.disposables.push(this.commandManager.registerCommand(Commands.Test_Reveal_Test_Item, this.onRevealTestItem, this));
+        this.disposables.push(
+            this.commandManager.registerCommand(Commands.Test_Reveal_Test_Item, this.onRevealTestItem, this)
+        );
     }
     public async onRevealTestItem(testItem: TestDataItem): Promise<void> {
         await this.treeView.reveal(testItem);

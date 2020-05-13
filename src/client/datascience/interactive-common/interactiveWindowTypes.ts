@@ -2,15 +2,40 @@
 // Licensed under the MIT License.
 'use strict';
 import * as monacoEditor from 'monaco-editor/esm/vs/editor/editor.api';
+import { Uri } from 'vscode';
+import { IServerState } from '../../../datascience-ui/interactive-common/mainState';
 
-import { CssMessages, IGetCssRequest, IGetCssResponse, IGetMonacoThemeRequest } from '../messages';
+import type { KernelMessage } from '@jupyterlab/services';
+import { DebugProtocol } from 'vscode-debugprotocol';
+import {
+    CommonActionType,
+    IAddCellAction,
+    ILoadIPyWidgetClassFailureAction,
+    LoadIPyWidgetClassLoadAction,
+    NotifyIPyWidgeWidgetVersionNotSupportedAction
+} from '../../../datascience-ui/interactive-common/redux/reducers/types';
+import { Resource } from '../../common/types';
+import { PythonInterpreter } from '../../interpreter/contracts';
+import { NativeKeyboardCommandTelemetry, NativeMouseCommandTelemetry } from '../constants';
+import { WidgetScriptSource } from '../ipywidgets/types';
+import { LiveKernelModel } from '../jupyter/kernels/types';
+import { CssMessages, IGetCssRequest, IGetCssResponse, IGetMonacoThemeRequest, SharedMessages } from '../messages';
 import { IGetMonacoThemeResponse } from '../monacoMessages';
-import { ICell, IInteractiveWindowInfo, IJupyterVariable, IJupyterVariablesResponse } from '../types';
+import {
+    ICell,
+    IInteractiveWindowInfo,
+    IJupyterKernelSpec,
+    IJupyterVariable,
+    IJupyterVariablesRequest,
+    IJupyterVariablesResponse,
+    KernelSocketOptions
+} from '../types';
+import { BaseReduxActionPayload } from './types';
 
 export enum InteractiveWindowMessages {
     StartCell = 'start_cell',
     FinishCell = 'finish_cell',
-    UpdateCell = 'update_cell',
+    UpdateCellWithExecutionResults = 'UpdateCellWithExecutionResults',
     GotoCodeCell = 'gotocell_code',
     CopyCodeCell = 'copycell_code',
     NotebookExecutionActivated = 'notebook_execution_activated',
@@ -18,7 +43,6 @@ export enum InteractiveWindowMessages {
     Export = 'export_to_ipynb',
     GetAllCells = 'get_all_cells',
     ReturnAllCells = 'return_all_cells',
-    DeleteCell = 'delete_cell',
     DeleteAllCells = 'delete_all_cells',
     Undo = 'undo',
     Redo = 'redo',
@@ -28,11 +52,13 @@ export enum InteractiveWindowMessages {
     StopProgress = 'stop_progress',
     Interrupt = 'interrupt',
     SubmitNewCell = 'submit_new_cell',
-    UpdateSettings = 'update_settings',
+    SettingsUpdated = 'settings_updated',
     // Message sent to React component from extension asking it to save the notebook.
     DoSave = 'DoSave',
     SendInfo = 'send_info',
     Started = 'started',
+    ConvertUriForUseInWebViewRequest = 'ConvertUriForUseInWebViewRequest',
+    ConvertUriForUseInWebViewResponse = 'ConvertUriForUseInWebViewResponse',
     AddedSysInfo = 'added_sys_info',
     RemoteAddCode = 'remote_add_code',
     RemoteReexecuteCode = 'remote_reexecute_code',
@@ -40,9 +66,8 @@ export enum InteractiveWindowMessages {
     ShowDataViewer = 'show_data_explorer',
     GetVariablesRequest = 'get_variables_request',
     GetVariablesResponse = 'get_variables_response',
-    GetVariableValueRequest = 'get_variable_value_request',
-    GetVariableValueResponse = 'get_variable_value_response',
     VariableExplorerToggle = 'variable_explorer_toggle',
+    ForceVariableRefresh = 'force_variable_refresh',
     ProvideCompletionItemsRequest = 'provide_completion_items_request',
     CancelCompletionItemsRequest = 'cancel_completion_items_request',
     ProvideCompletionItemsResponse = 'provide_completion_items_response',
@@ -52,11 +77,10 @@ export enum InteractiveWindowMessages {
     ProvideSignatureHelpRequest = 'provide_signature_help_request',
     CancelSignatureHelpRequest = 'cancel_signature_help_request',
     ProvideSignatureHelpResponse = 'provide_signature_help_response',
-    AddCell = 'add_cell',
-    EditCell = 'edit_cell',
-    RemoveCell = 'remove_cell',
-    SwapCells = 'swap_cells',
-    InsertCell = 'insert_cell',
+    ResolveCompletionItemRequest = 'resolve_completion_item_request',
+    CancelResolveCompletionItemRequest = 'cancel_resolve_completion_item_request',
+    ResolveCompletionItemResponse = 'resolve_completion_item_response',
+    Sync = 'sync_message_used_to_broadcast_and_sync_editors',
     LoadOnigasmAssemblyRequest = 'load_onigasm_assembly_request',
     LoadOnigasmAssemblyResponse = 'load_onigasm_assembly_response',
     LoadTmLanguageRequest = 'load_tmlanguage_request',
@@ -66,12 +90,14 @@ export enum InteractiveWindowMessages {
     SavePng = 'save_png',
     StartDebugging = 'start_debugging',
     StopDebugging = 'stop_debugging',
-    GatherCodeRequest = 'gather_code',
+    GatherCode = 'gather_code',
+    GatherCodeToScript = 'gather_code_to_script',
     LoadAllCells = 'load_all_cells',
     LoadAllCellsComplete = 'load_all_cells_complete',
     ScrollToCell = 'scroll_to_cell',
-    ReExecuteCell = 'reexecute_cell',
+    ReExecuteCells = 'reexecute_cells',
     NotebookIdentity = 'identity',
+    NotebookClose = 'close',
     NotebookDirty = 'dirty',
     NotebookClean = 'clean',
     SaveAll = 'save_all',
@@ -82,36 +108,52 @@ export enum InteractiveWindowMessages {
     NotebookAddCellBelow = 'notebook_add_cell_below',
     ExecutionRendered = 'rendered_execution',
     FocusedCellEditor = 'focused_cell_editor',
+    UnfocusedCellEditor = 'unfocused_cell_editor',
     MonacoReady = 'monaco_ready',
-    ClearAllOutputs = 'clear_all_outputs'
+    ClearAllOutputs = 'clear_all_outputs',
+    SelectKernel = 'select_kernel',
+    UpdateKernel = 'update_kernel',
+    SelectJupyterServer = 'select_jupyter_server',
+    UpdateModel = 'update_model',
+    ReceivedUpdateModel = 'received_update_model',
+    OpenSettings = 'open_settings',
+    UpdateDisplayData = 'update_display_data',
+    IPyWidgetLoadSuccess = 'ipywidget_load_success',
+    IPyWidgetLoadFailure = 'ipywidget_load_failure',
+    IPyWidgetRenderFailure = 'ipywidget_render_failure',
+    IPyWidgetUnhandledKernelMessage = 'ipywidget_unhandled_kernel_message',
+    IPyWidgetWidgetVersionNotSupported = 'ipywidget_widget_version_not_supported',
+    RunByLine = 'run_by_line',
+    Step = 'step',
+    Continue = 'continue',
+    ShowContinue = 'show_continue',
+    ShowBreak = 'show_break',
+    ShowingIp = 'showing_ip'
 }
 
-export enum NativeCommandType {
-    AddToEnd = 0,
-    ArrowDown,
-    ArrowUp,
-    ChangeToCode,
-    ChangeToMarkdown,
-    CollapseInput,
-    CollapseOutput,
-    DeleteCell,
-    Save,
-    InsertAbove,
-    InsertBelow,
-    MoveCellDown,
-    MoveCellUp,
-    Redo,
-    Run,
-    RunAbove,
-    RunAll,
-    RunAndAdd,
-    RunAndMove,
-    RunBelow,
-    ToggleLineNumbers,
-    ToggleOutput,
-    ToggleVariableExplorer,
-    Undo,
-    Unfocus
+export enum IPyWidgetMessages {
+    IPyWidgets_Ready = 'IPyWidgets_Ready',
+    IPyWidgets_onRestartKernel = 'IPyWidgets_onRestartKernel',
+    IPyWidgets_onKernelChanged = 'IPyWidgets_onKernelChanged',
+    IPyWidgets_updateRequireConfig = 'IPyWidgets_updateRequireConfig',
+    /**
+     * UI sends a request to extension to determine whether we have the source for any of the widgets.
+     */
+    IPyWidgets_WidgetScriptSourceRequest = 'IPyWidgets_WidgetScriptSourceRequest',
+    /**
+     * Extension sends response to the request with yes/no.
+     */
+    IPyWidgets_WidgetScriptSourceResponse = 'IPyWidgets_WidgetScriptSourceResponse',
+    IPyWidgets_msg = 'IPyWidgets_msg',
+    IPyWidgets_binary_msg = 'IPyWidgets_binary_msg',
+    IPyWidgets_msg_handled = 'IPyWidgets_msg_handled',
+    IPyWidgets_kernelOptions = 'IPyWidgets_kernelOptions',
+    IPyWidgets_registerCommTarget = 'IPyWidgets_registerCommTarget',
+    IPyWidgets_RegisterMessageHook = 'IPyWidgets_RegisterMessageHook',
+    IPyWidgets_RemoveMessageHook = 'IPyWidgets_RemoveMessageHook',
+    IPyWidgets_MessageHookCall = 'IPyWidgets_MessageHookCall',
+    IPyWidgets_MessageHookResult = 'IPyWidgets_MessageHookResult',
+    IPyWidgets_mirror_execute = 'IPyWidgets_mirror_execute'
 }
 
 // These are the messages that will mirror'd to guest/hosts in
@@ -135,7 +177,8 @@ export enum SysInfoReason {
     Start,
     Restart,
     Interrupt,
-    New
+    New,
+    Connect
 }
 
 export interface IAddedSysInfo {
@@ -165,6 +208,10 @@ export interface ISubmitNewCell {
     id: string;
 }
 
+export interface IReExecuteCells {
+    cellIds: string[];
+}
+
 export interface IProvideCompletionItemsRequest {
     position: monacoEditor.Position;
     context: monacoEditor.languages.CompletionContext;
@@ -176,6 +223,7 @@ export interface IProvideHoverRequest {
     position: monacoEditor.Position;
     requestId: string;
     cellId: string;
+    wordAtPosition: string | undefined;
 }
 
 export interface IProvideSignatureHelpRequest {
@@ -187,6 +235,13 @@ export interface IProvideSignatureHelpRequest {
 
 export interface ICancelIntellisenseRequest {
     requestId: string;
+}
+
+export interface IResolveCompletionItemRequest {
+    position: monacoEditor.Position;
+    item: monacoEditor.languages.CompletionItem;
+    requestId: string;
+    cellId: string;
 }
 
 export interface IProvideCompletionItemsResponse {
@@ -201,6 +256,11 @@ export interface IProvideHoverResponse {
 
 export interface IProvideSignatureHelpResponse {
     signatureHelp: monacoEditor.languages.SignatureHelp;
+    requestId: string;
+}
+
+export interface IResolveCompletionItemResponse {
+    item: monacoEditor.languages.CompletionItem;
     requestId: string;
 }
 
@@ -237,7 +297,7 @@ export interface IInsertCell {
 }
 
 export interface IShowDataViewer {
-    variableName: string;
+    variable: IJupyterVariable;
     columnSize: number;
 }
 
@@ -254,7 +314,8 @@ export interface IScrollToCell {
 }
 
 export interface INotebookIdentity {
-    resource: string;
+    resource: Uri;
+    type: 'interactive' | 'native';
 }
 
 export interface ISaveAll {
@@ -262,8 +323,7 @@ export interface ISaveAll {
 }
 
 export interface INativeCommand {
-    command: NativeCommandType;
-    source: 'keyboard' | 'mouse';
+    command: NativeKeyboardCommandTelemetry | NativeMouseCommandTelemetry;
 }
 
 export interface IRenderComplete {
@@ -274,20 +334,189 @@ export interface IFocusedCellEditor {
     cellId: string;
 }
 
+export interface INotebookModelChange {
+    oldDirty: boolean;
+    newDirty: boolean;
+    source: 'undo' | 'user' | 'redo';
+}
+
+export interface INotebookModelSaved extends INotebookModelChange {
+    kind: 'save';
+}
+
+export interface INotebookModelRemoveAllChange extends INotebookModelChange {
+    kind: 'remove_all';
+    oldCells: ICell[];
+    newCellId: string;
+}
+export interface INotebookModelModifyChange extends INotebookModelChange {
+    kind: 'modify';
+    newCells: ICell[];
+    oldCells: ICell[];
+}
+
+export interface INotebookModelClearChange extends INotebookModelChange {
+    kind: 'clear';
+    oldCells: ICell[];
+}
+
+export interface INotebookModelSwapChange extends INotebookModelChange {
+    kind: 'swap';
+    firstCellId: string;
+    secondCellId: string;
+}
+
+export interface INotebookModelRemoveChange extends INotebookModelChange {
+    kind: 'remove';
+    cell: ICell;
+    index: number;
+}
+
+export interface INotebookModelInsertChange extends INotebookModelChange {
+    kind: 'insert';
+    cell: ICell;
+    index: number;
+    codeCellAboveId?: string;
+}
+
+export interface INotebookModelAddChange extends INotebookModelChange {
+    kind: 'add';
+    cell: ICell;
+    fullText: string;
+    currentText: string;
+}
+
+export interface INotebookModelChangeTypeChange extends INotebookModelChange {
+    kind: 'changeCellType';
+    cell: ICell;
+}
+
+export interface IEditorPosition {
+    /**
+     * line number (starts at 1)
+     */
+    readonly lineNumber: number;
+    /**
+     * column (the first character in a line is between column 1 and column 2)
+     */
+    readonly column: number;
+}
+
+export interface IEditorRange {
+    /**
+     * Line number on which the range starts (starts at 1).
+     */
+    readonly startLineNumber: number;
+    /**
+     * Column on which the range starts in line `startLineNumber` (starts at 1).
+     */
+    readonly startColumn: number;
+    /**
+     * Line number on which the range ends.
+     */
+    readonly endLineNumber: number;
+    /**
+     * Column on which the range ends in line `endLineNumber`.
+     */
+    readonly endColumn: number;
+}
+
+export interface IEditorContentChange {
+    /**
+     * The range that got replaced.
+     */
+    readonly range: IEditorRange;
+    /**
+     * The offset of the range that got replaced.
+     */
+    readonly rangeOffset: number;
+    /**
+     * The length of the range that got replaced.
+     */
+    readonly rangeLength: number;
+    /**
+     * The new text for the range.
+     */
+    readonly text: string;
+    /**
+     * The cursor position to be set after the change
+     */
+    readonly position: IEditorPosition;
+}
+
+export interface INotebookModelEditChange extends INotebookModelChange {
+    kind: 'edit';
+    forward: IEditorContentChange[];
+    reverse: IEditorContentChange[];
+    id: string;
+}
+
+export interface INotebookModelVersionChange extends INotebookModelChange {
+    kind: 'version';
+    interpreter: PythonInterpreter | undefined;
+    kernelSpec: IJupyterKernelSpec | LiveKernelModel | undefined;
+}
+
+export type NotebookModelChange =
+    | INotebookModelSaved
+    | INotebookModelModifyChange
+    | INotebookModelRemoveAllChange
+    | INotebookModelClearChange
+    | INotebookModelSwapChange
+    | INotebookModelRemoveChange
+    | INotebookModelInsertChange
+    | INotebookModelAddChange
+    | INotebookModelEditChange
+    | INotebookModelVersionChange
+    | INotebookModelChangeTypeChange;
+
+export interface IRunByLine {
+    cell: ICell;
+    expectedExecutionCount: number;
+}
+
 // Map all messages to specific payloads
 export class IInteractiveWindowMapping {
+    public [IPyWidgetMessages.IPyWidgets_kernelOptions]: KernelSocketOptions;
+    public [IPyWidgetMessages.IPyWidgets_WidgetScriptSourceRequest]: { moduleName: string; moduleVersion: string };
+    public [IPyWidgetMessages.IPyWidgets_WidgetScriptSourceResponse]: WidgetScriptSource;
+    public [IPyWidgetMessages.IPyWidgets_Ready]: never | undefined;
+    public [IPyWidgetMessages.IPyWidgets_onRestartKernel]: never | undefined;
+    public [IPyWidgetMessages.IPyWidgets_onKernelChanged]: never | undefined;
+    public [IPyWidgetMessages.IPyWidgets_registerCommTarget]: string;
+    // tslint:disable-next-line: no-any
+    public [IPyWidgetMessages.IPyWidgets_binary_msg]: { id: string; data: any };
+    public [IPyWidgetMessages.IPyWidgets_msg]: { id: string; data: string };
+    public [IPyWidgetMessages.IPyWidgets_msg_handled]: { id: string };
+    public [IPyWidgetMessages.IPyWidgets_RegisterMessageHook]: string;
+    public [IPyWidgetMessages.IPyWidgets_RemoveMessageHook]: { hookMsgId: string; lastHookedMsgId: string | undefined };
+    public [IPyWidgetMessages.IPyWidgets_MessageHookCall]: {
+        requestId: string;
+        parentId: string;
+        msg: KernelMessage.IIOPubMessage;
+    };
+    public [IPyWidgetMessages.IPyWidgets_MessageHookResult]: {
+        requestId: string;
+        parentId: string;
+        msgType: string;
+        result: boolean;
+    };
+    public [IPyWidgetMessages.IPyWidgets_mirror_execute]: { id: string; msg: KernelMessage.IExecuteRequestMsg };
     public [InteractiveWindowMessages.StartCell]: ICell;
+    public [InteractiveWindowMessages.ForceVariableRefresh]: never | undefined;
     public [InteractiveWindowMessages.FinishCell]: ICell;
-    public [InteractiveWindowMessages.UpdateCell]: ICell;
+    public [InteractiveWindowMessages.UpdateCellWithExecutionResults]: ICell;
     public [InteractiveWindowMessages.GotoCodeCell]: IGotoCode;
     public [InteractiveWindowMessages.CopyCodeCell]: ICopyCode;
-    public [InteractiveWindowMessages.NotebookExecutionActivated]: string;
+    public [InteractiveWindowMessages.NotebookExecutionActivated]: INotebookIdentity & { owningResource: Resource };
     public [InteractiveWindowMessages.RestartKernel]: never | undefined;
+    public [InteractiveWindowMessages.SelectKernel]: IServerState | undefined;
+    public [InteractiveWindowMessages.SelectJupyterServer]: never | undefined;
+    public [InteractiveWindowMessages.OpenSettings]: string | undefined;
     public [InteractiveWindowMessages.Export]: ICell[];
-    public [InteractiveWindowMessages.GetAllCells]: ICell;
+    public [InteractiveWindowMessages.GetAllCells]: never | undefined;
     public [InteractiveWindowMessages.ReturnAllCells]: ICell[];
-    public [InteractiveWindowMessages.DeleteCell]: never | undefined;
-    public [InteractiveWindowMessages.DeleteAllCells]: never | undefined;
+    public [InteractiveWindowMessages.DeleteAllCells]: IAddCellAction;
     public [InteractiveWindowMessages.Undo]: never | undefined;
     public [InteractiveWindowMessages.Redo]: never | undefined;
     public [InteractiveWindowMessages.ExpandAll]: never | undefined;
@@ -295,7 +524,7 @@ export class IInteractiveWindowMapping {
     public [InteractiveWindowMessages.StartProgress]: never | undefined;
     public [InteractiveWindowMessages.StopProgress]: never | undefined;
     public [InteractiveWindowMessages.Interrupt]: never | undefined;
-    public [InteractiveWindowMessages.UpdateSettings]: string;
+    public [InteractiveWindowMessages.SettingsUpdated]: string;
     public [InteractiveWindowMessages.SubmitNewCell]: ISubmitNewCell;
     public [InteractiveWindowMessages.SendInfo]: IInteractiveWindowInfo;
     public [InteractiveWindowMessages.Started]: never | undefined;
@@ -304,10 +533,8 @@ export class IInteractiveWindowMapping {
     public [InteractiveWindowMessages.RemoteReexecuteCode]: IRemoteReexecuteCode;
     public [InteractiveWindowMessages.Activate]: never | undefined;
     public [InteractiveWindowMessages.ShowDataViewer]: IShowDataViewer;
-    public [InteractiveWindowMessages.GetVariablesRequest]: number;
+    public [InteractiveWindowMessages.GetVariablesRequest]: IJupyterVariablesRequest;
     public [InteractiveWindowMessages.GetVariablesResponse]: IJupyterVariablesResponse;
-    public [InteractiveWindowMessages.GetVariableValueRequest]: IJupyterVariable;
-    public [InteractiveWindowMessages.GetVariableValueResponse]: IJupyterVariable;
     public [InteractiveWindowMessages.VariableExplorerToggle]: boolean;
     public [CssMessages.GetCssRequest]: IGetCssRequest;
     public [CssMessages.GetCssResponse]: IGetCssResponse;
@@ -322,11 +549,9 @@ export class IInteractiveWindowMapping {
     public [InteractiveWindowMessages.ProvideSignatureHelpRequest]: IProvideSignatureHelpRequest;
     public [InteractiveWindowMessages.CancelSignatureHelpRequest]: ICancelIntellisenseRequest;
     public [InteractiveWindowMessages.ProvideSignatureHelpResponse]: IProvideSignatureHelpResponse;
-    public [InteractiveWindowMessages.AddCell]: IAddCell;
-    public [InteractiveWindowMessages.EditCell]: IEditCell;
-    public [InteractiveWindowMessages.RemoveCell]: IRemoveCell;
-    public [InteractiveWindowMessages.SwapCells]: ISwapCells;
-    public [InteractiveWindowMessages.InsertCell]: IInsertCell;
+    public [InteractiveWindowMessages.ResolveCompletionItemRequest]: IResolveCompletionItemRequest;
+    public [InteractiveWindowMessages.CancelResolveCompletionItemRequest]: ICancelIntellisenseRequest;
+    public [InteractiveWindowMessages.ResolveCompletionItemResponse]: IResolveCompletionItemResponse;
     public [InteractiveWindowMessages.LoadOnigasmAssemblyRequest]: never | undefined;
     public [InteractiveWindowMessages.LoadOnigasmAssemblyResponse]: Buffer;
     public [InteractiveWindowMessages.LoadTmLanguageRequest]: never | undefined;
@@ -336,22 +561,50 @@ export class IInteractiveWindowMapping {
     public [InteractiveWindowMessages.SavePng]: string | undefined;
     public [InteractiveWindowMessages.StartDebugging]: never | undefined;
     public [InteractiveWindowMessages.StopDebugging]: never | undefined;
-    public [InteractiveWindowMessages.GatherCodeRequest]: ICell;
+    public [InteractiveWindowMessages.GatherCode]: ICell;
+    public [InteractiveWindowMessages.GatherCodeToScript]: ICell;
     public [InteractiveWindowMessages.LoadAllCells]: ILoadAllCells;
     public [InteractiveWindowMessages.LoadAllCellsComplete]: ILoadAllCells;
     public [InteractiveWindowMessages.ScrollToCell]: IScrollToCell;
-    public [InteractiveWindowMessages.ReExecuteCell]: ISubmitNewCell;
+    public [InteractiveWindowMessages.ReExecuteCells]: IReExecuteCells;
     public [InteractiveWindowMessages.NotebookIdentity]: INotebookIdentity;
+    public [InteractiveWindowMessages.NotebookClose]: INotebookIdentity;
     public [InteractiveWindowMessages.NotebookDirty]: never | undefined;
     public [InteractiveWindowMessages.NotebookClean]: never | undefined;
     public [InteractiveWindowMessages.SaveAll]: ISaveAll;
+    public [InteractiveWindowMessages.Sync]: {
+        type: InteractiveWindowMessages | SharedMessages | CommonActionType;
+        // tslint:disable-next-line: no-any
+        payload: BaseReduxActionPayload<any>;
+    };
     public [InteractiveWindowMessages.NativeCommand]: INativeCommand;
     public [InteractiveWindowMessages.VariablesComplete]: never | undefined;
     public [InteractiveWindowMessages.NotebookRunAllCells]: never | undefined;
     public [InteractiveWindowMessages.NotebookRunSelectedCell]: never | undefined;
-    public [InteractiveWindowMessages.NotebookAddCellBelow]: never | undefined;
+    public [InteractiveWindowMessages.NotebookAddCellBelow]: IAddCellAction;
+    public [InteractiveWindowMessages.DoSave]: never | undefined;
     public [InteractiveWindowMessages.ExecutionRendered]: IRenderComplete;
     public [InteractiveWindowMessages.FocusedCellEditor]: IFocusedCellEditor;
+    public [InteractiveWindowMessages.UnfocusedCellEditor]: never | undefined;
     public [InteractiveWindowMessages.MonacoReady]: never | undefined;
     public [InteractiveWindowMessages.ClearAllOutputs]: never | undefined;
+    public [InteractiveWindowMessages.UpdateKernel]: IServerState | undefined;
+    public [InteractiveWindowMessages.UpdateModel]: NotebookModelChange;
+    public [InteractiveWindowMessages.ReceivedUpdateModel]: never | undefined;
+    public [SharedMessages.UpdateSettings]: string;
+    public [SharedMessages.LocInit]: string;
+    public [InteractiveWindowMessages.UpdateDisplayData]: KernelMessage.IUpdateDisplayDataMsg;
+    public [InteractiveWindowMessages.IPyWidgetLoadSuccess]: LoadIPyWidgetClassLoadAction;
+    public [InteractiveWindowMessages.IPyWidgetLoadFailure]: ILoadIPyWidgetClassFailureAction;
+    public [InteractiveWindowMessages.IPyWidgetWidgetVersionNotSupported]: NotifyIPyWidgeWidgetVersionNotSupportedAction;
+    public [InteractiveWindowMessages.ConvertUriForUseInWebViewRequest]: Uri;
+    public [InteractiveWindowMessages.ConvertUriForUseInWebViewResponse]: { request: Uri; response: Uri };
+    public [InteractiveWindowMessages.IPyWidgetRenderFailure]: Error;
+    public [InteractiveWindowMessages.IPyWidgetUnhandledKernelMessage]: KernelMessage.IMessage;
+    public [InteractiveWindowMessages.RunByLine]: IRunByLine;
+    public [InteractiveWindowMessages.Continue]: never | undefined;
+    public [InteractiveWindowMessages.ShowBreak]: { frames: DebugProtocol.StackFrame[]; cell: ICell };
+    public [InteractiveWindowMessages.ShowContinue]: ICell;
+    public [InteractiveWindowMessages.Step]: never | undefined;
+    public [InteractiveWindowMessages.ShowingIp]: never | undefined;
 }

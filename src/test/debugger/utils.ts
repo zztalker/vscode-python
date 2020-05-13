@@ -22,7 +22,7 @@ const debuggerType = DebuggerTypeName;
  * @returns {DebugClient}
  */
 export async function createDebugAdapter(): Promise<DebugClient> {
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     const debugClient = new DebugClient(process.env.NODE_PATH || 'node', testAdapterFilePath, debuggerType);
     debugClient.defaultTimeout = DEBUGGER_TIMEOUT;
     await debugClient.start();
@@ -38,10 +38,12 @@ export async function continueDebugging(debugClient: DebugClient) {
 }
 
 export type ExpectedVariable = { type: string; name: string; value: string };
-export async function validateVariablesInFrame(debugClient: DebugClient,
+export async function validateVariablesInFrame(
+    debugClient: DebugClient,
     stackTrace: DebugProtocol.StackTraceResponse,
-    expectedVariables: ExpectedVariable[], numberOfScopes?: number) {
-
+    expectedVariables: ExpectedVariable[],
+    numberOfScopes?: number
+) {
     const frameId = stackTrace.body.stackFrames[0].id;
 
     const scopes = await debugClient.scopesRequest({ frameId });
@@ -53,7 +55,7 @@ export async function validateVariablesInFrame(debugClient: DebugClient,
     const variables = await debugClient.variablesRequest({ variablesReference });
 
     for (const expectedVariable of expectedVariables) {
-        const variable = variables.body.variables.find(item => item.name === expectedVariable.name)!;
+        const variable = variables.body.variables.find((item) => item.name === expectedVariable.name)!;
         expect(variable).to.be.not.equal('undefined', `variable '${expectedVariable.name}' is undefined`);
         expect(variable.type).to.be.equal(expectedVariable.type);
         expect(variable.value).to.be.equal(expectedVariable.value);
@@ -73,7 +75,12 @@ export function makeHttpRequest(uri: string): Promise<string> {
         });
     });
 }
-export async function hitHttpBreakpoint(debugClient: DebugClient, uri: string, file: string, line: number): Promise<[DebugProtocol.StackTraceResponse, Promise<string>]> {
+export async function hitHttpBreakpoint(
+    debugClient: DebugClient,
+    uri: string,
+    file: string,
+    line: number
+): Promise<[DebugProtocol.StackTraceResponse, Promise<string>]> {
     const breakpointLocation = { path: file, column: 1, line };
     await debugClient.setBreakpointsRequest({
         lines: [breakpointLocation.line],

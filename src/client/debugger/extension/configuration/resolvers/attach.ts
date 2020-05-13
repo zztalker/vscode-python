@@ -6,8 +6,10 @@
 import { inject, injectable } from 'inversify';
 import { CancellationToken, Uri, WorkspaceFolder } from 'vscode';
 import { IDocumentManager, IWorkspaceService } from '../../../../common/application/types';
+import { DebugAdapterNewPtvsd } from '../../../../common/experimentGroups';
 import { IPlatformService } from '../../../../common/platform/types';
-import { IConfigurationService } from '../../../../common/types';
+import { IConfigurationService, IExperimentsManager } from '../../../../common/types';
+import { Diagnostics } from '../../../../common/utils/localize';
 import { AttachRequestArguments, DebugOptions, PathMapping } from '../../../types';
 import { BaseConfigurationResolver } from './base';
 
@@ -17,27 +19,44 @@ export class AttachConfigurationResolver extends BaseConfigurationResolver<Attac
         @inject(IWorkspaceService) workspaceService: IWorkspaceService,
         @inject(IDocumentManager) documentManager: IDocumentManager,
         @inject(IPlatformService) platformService: IPlatformService,
-        @inject(IConfigurationService) configurationService: IConfigurationService
+        @inject(IConfigurationService) configurationService: IConfigurationService,
+        @inject(IExperimentsManager) private readonly experiments: IExperimentsManager
     ) {
         super(workspaceService, documentManager, platformService, configurationService);
     }
-    public async resolveDebugConfiguration(folder: WorkspaceFolder | undefined, debugConfiguration: AttachRequestArguments, _token?: CancellationToken): Promise<AttachRequestArguments | undefined> {
+    public async resolveDebugConfiguration(
+        folder: WorkspaceFolder | undefined,
+        debugConfiguration: AttachRequestArguments,
+        _token?: CancellationToken
+    ): Promise<AttachRequestArguments | undefined> {
+        if (
+            !this.experiments.inExperiment(DebugAdapterNewPtvsd.experiment) &&
+            debugConfiguration.processId !== undefined
+        ) {
+            throw Error(Diagnostics.processId());
+        }
         const workspaceFolder = this.getWorkspaceFolder(folder);
 
         await this.provideAttachDefaults(workspaceFolder, debugConfiguration as AttachRequestArguments);
 
         const dbgConfig = debugConfiguration;
         if (Array.isArray(dbgConfig.debugOptions)) {
-            dbgConfig.debugOptions = dbgConfig.debugOptions!.filter((item, pos) => dbgConfig.debugOptions!.indexOf(item) === pos);
+            dbgConfig.debugOptions = dbgConfig.debugOptions!.filter(
+                (item, pos) => dbgConfig.debugOptions!.indexOf(item) === pos
+            );
         }
         return debugConfiguration;
     }
     // tslint:disable-next-line:cyclomatic-complexity
-    protected async provideAttachDefaults(workspaceFolder: Uri | undefined, debugConfiguration: AttachRequestArguments): Promise<void> {
+    protected async provideAttachDefaults(
+        workspaceFolder: Uri | undefined,
+        debugConfiguration: AttachRequestArguments
+    ): Promise<void> {
         if (!Array.isArray(debugConfiguration.debugOptions)) {
             debugConfiguration.debugOptions = [];
         }
-        if (!debugConfiguration.host) {
+        if (!(debugConfiguration.connect || debugConfiguration.listen) && !debugConfiguration.host) {
+            // Connect and listen cannot be mixed with host property.
             debugConfiguration.host = 'localhost';
         }
         if (debugConfiguration.justMyCode === undefined) {
@@ -60,9 +79,11 @@ export class AttachConfigurationResolver extends BaseConfigurationResolver<Attac
         if (debugConfiguration.subProcess === true) {
             this.debugOption(debugOptions, DebugOptions.SubProcess);
         }
-        if (debugConfiguration.pyramid
-            && debugOptions.indexOf(DebugOptions.Jinja) === -1
-            && debugConfiguration.jinja !== false) {
+        if (
+            debugConfiguration.pyramid &&
+            debugOptions.indexOf(DebugOptions.Jinja) === -1 &&
+            debugConfiguration.jinja !== false
+        ) {
             this.debugOption(debugOptions, DebugOptions.Jinja);
         }
         if (debugConfiguration.redirectOutput || debugConfiguration.redirectOutput === undefined) {
@@ -96,7 +117,7 @@ export class AttachConfigurationResolver extends BaseConfigurationResolver<Attac
 
     private resolvePathMappings(
         pathMappings: PathMapping[],
-        host: string,
+        host?: string,
         localRoot?: string,
         remoteRoot?: string,
         workspaceFolder?: Uri
@@ -110,13 +131,8 @@ export class AttachConfigurationResolver extends BaseConfigurationResolver<Attac
         }
         // If attaching to local host, then always map local root and remote roots.
         if (this.isLocalHost(host)) {
-            pathMappings = this.fixUpPathMappings(
-                pathMappings,
-                workspaceFolder ? workspaceFolder.fsPath : ''
-            );
+            pathMappings = this.fixUpPathMappings(pathMappings, workspaceFolder ? workspaceFolder.fsPath : '');
         }
-        return pathMappings.length > 0
-                ? pathMappings
-                : undefined;
+        return pathMappings.length > 0 ? pathMappings : undefined;
     }
 }

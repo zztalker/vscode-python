@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import { inject, injectable, named } from 'inversify';
+import * as internalPython from '../../../common/process/internal/python';
 import { IServiceContainer } from '../../../ioc/types';
 import { UNITTEST_PROVIDER } from '../../common/constants';
 import { Options } from '../../common/runner';
@@ -17,8 +18,10 @@ type UnitTestDiscoveryOptions = TestDiscoveryOptions & {
 export class TestDiscoveryService implements ITestDiscoveryService {
     private readonly argsHelper: IArgumentsHelper;
     private readonly runner: ITestRunner;
-    constructor(@inject(IServiceContainer) serviceContainer: IServiceContainer,
-        @inject(ITestsParser) @named(UNITTEST_PROVIDER) private testParser: ITestsParser) {
+    constructor(
+        @inject(IServiceContainer) serviceContainer: IServiceContainer,
+        @inject(ITestsParser) @named(UNITTEST_PROVIDER) private testParser: ITestsParser
+    ) {
         this.argsHelper = serviceContainer.get<IArgumentsHelper>(IArgumentsHelper);
         this.runner = serviceContainer.get<ITestRunner>(ITestRunner);
     }
@@ -26,7 +29,9 @@ export class TestDiscoveryService implements ITestDiscoveryService {
         const pythonScript = this.getDiscoveryScript(options);
         const unitTestOptions = this.translateOptions(options);
         const runOptions: Options = {
-            args: ['-c', pythonScript],
+            // unittest needs to load modules in the workspace
+            // isolating it breaks unittest discovery
+            args: internalPython.execCode(pythonScript, false),
             cwd: options.cwd,
             workspaceFolder: options.workspaceFolder,
             token: options.token,

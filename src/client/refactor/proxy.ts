@@ -1,37 +1,34 @@
 // tslint:disable:no-any no-empty member-ordering prefer-const prefer-template no-var-self
 
 import { ChildProcess } from 'child_process';
-import * as path from 'path';
-import { Disposable, Position, Range, TextDocument, TextEditorOptions, Uri, window } from 'vscode';
+import { Disposable, Position, Range, TextDocument, TextEditorOptions, window } from 'vscode';
 import '../common/extensions';
 import { traceError } from '../common/logger';
 import { IS_WINDOWS } from '../common/platform/constants';
-import { IPythonExecutionFactory } from '../common/process/types';
-import { IPythonSettings } from '../common/types';
+import * as internalScripts from '../common/process/internal/scripts';
+import { IPythonExecutionService } from '../common/process/types';
 import { createDeferred, Deferred } from '../common/utils/async';
 import { getWindowsLineEndingCount } from '../common/utils/text';
-import { IServiceContainer } from '../ioc/types';
 
 export class RefactorProxy extends Disposable {
     private _process?: ChildProcess;
-    private _extensionDir: string;
     private _previousOutData: string = '';
     private _previousStdErrData: string = '';
     private _startedSuccessfully: boolean = false;
     private _commandResolve?: (value?: any | PromiseLike<any>) => void;
     private _commandReject!: (reason?: any) => void;
     private initialized!: Deferred<void>;
-    constructor(extensionDir: string, _pythonSettings: IPythonSettings, private workspaceRoot: string,
-        private serviceContainer: IServiceContainer) {
-        super(() => { });
-        this._extensionDir = extensionDir;
+    constructor(
+        private workspaceRoot: string,
+        private getPythonExecutionService: () => Promise<IPythonExecutionService>
+    ) {
+        super(() => {});
     }
 
     public dispose() {
         try {
             this._process!.kill();
-        } catch (ex) {
-        }
+        } catch (ex) {}
         this._process = undefined;
     }
     private getOffsetAt(document: TextDocument, position: Position): number {
@@ -48,7 +45,13 @@ export class RefactorProxy extends Disposable {
 
         return offset - winEols;
     }
-    public rename<T>(document: TextDocument, name: string, filePath: string, range: Range, options?: TextEditorOptions): Promise<T> {
+    public rename<T>(
+        document: TextDocument,
+        name: string,
+        filePath: string,
+        range: Range,
+        options?: TextEditorOptions
+    ): Promise<T> {
         if (!options) {
             options = window.activeTextEditor!.options;
         }
@@ -63,7 +66,13 @@ export class RefactorProxy extends Disposable {
 
         return this.sendCommand<T>(JSON.stringify(command));
     }
-    public extractVariable<T>(document: TextDocument, name: string, filePath: string, range: Range, options?: TextEditorOptions): Promise<T> {
+    public extractVariable<T>(
+        document: TextDocument,
+        name: string,
+        filePath: string,
+        range: Range,
+        options?: TextEditorOptions
+    ): Promise<T> {
         if (!options) {
             options = window.activeTextEditor!.options;
         }
@@ -78,12 +87,21 @@ export class RefactorProxy extends Disposable {
         };
         return this.sendCommand<T>(JSON.stringify(command));
     }
-    public extractMethod<T>(document: TextDocument, name: string, filePath: string, range: Range, options?: TextEditorOptions): Promise<T> {
+    public extractMethod<T>(
+        document: TextDocument,
+        name: string,
+        filePath: string,
+        range: Range,
+        options?: TextEditorOptions
+    ): Promise<T> {
         if (!options) {
             options = window.activeTextEditor!.options;
         }
         // Ensure last line is an empty line
-        if (!document.lineAt(document.lineCount - 1).isEmptyOrWhitespace && range.start.line === document.lineCount - 1) {
+        if (
+            !document.lineAt(document.lineCount - 1).isEmptyOrWhitespace &&
+            range.start.line === document.lineCount - 1
+        ) {
             return Promise.reject<T>('Missing blank line at the end of document (PEP8).');
         }
         const command = {
@@ -108,33 +126,38 @@ export class RefactorProxy extends Disposable {
         });
     }
     private async initialize(): Promise<void> {
-        const pythonProc = await this.serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory).create({ resource: Uri.file(this.workspaceRoot) });
+        const pythonProc = await this.getPythonExecutionService();
         this.initialized = createDeferred<void>();
-        const args = ['refactor.py', this.workspaceRoot];
-        const cwd = path.join(this._extensionDir, 'pythonFiles');
-        const result = pythonProc.execObservable(args, { cwd });
+        const [args, parse] = internalScripts.refactor(this.workspaceRoot);
+        const result = pythonProc.execObservable(args, {});
         this._process = result.proc;
-        result.out.subscribe(output => {
-            if (output.source === 'stdout') {
-                if (!this._startedSuccessfully && output.out.startsWith('STARTED')) {
-                    this._startedSuccessfully = true;
-                    return this.initialized.resolve();
+        result.out.subscribe(
+            (output) => {
+                if (output.source === 'stdout') {
+                    if (!this._startedSuccessfully && output.out.startsWith('STARTED')) {
+                        this._startedSuccessfully = true;
+                        return this.initialized.resolve();
+                    }
+                    this.onData(output.out, parse);
+                } else {
+                    this.handleStdError(output.out);
                 }
-                this.onData(output.out);
-            } else {
-                this.handleStdError(output.out);
-            }
-        }, error => this.handleError(error));
+            },
+            (error) => this.handleError(error)
+        );
 
         return this.initialized.promise;
     }
     private handleStdError(data: string) {
         // Possible there was an exception in parsing the data returned
         // So append the data then parse it
-        let dataStr = this._previousStdErrData = this._previousStdErrData + data + '';
+        let dataStr = (this._previousStdErrData = this._previousStdErrData + data + '');
         let errorResponse: { message: string; traceback: string; type: string }[];
         try {
-            errorResponse = dataStr.split(/\r?\n/g).filter(line => line.length > 0).map(resp => JSON.parse(resp));
+            errorResponse = dataStr
+                .split(/\r?\n/g)
+                .filter((line) => line.length > 0)
+                .map((resp) => JSON.parse(resp));
             this._previousStdErrData = '';
         } catch (ex) {
             traceError(ex);
@@ -163,15 +186,17 @@ export class RefactorProxy extends Disposable {
         }
         this.initialized.reject(error);
     }
-    private onData(data: string) {
-        if (!this._commandResolve) { return; }
+    private onData(data: string, parse: (out: string) => object[]) {
+        if (!this._commandResolve) {
+            return;
+        }
 
         // Possible there was an exception in parsing the data returned
         // So append the data then parse it
-        let dataStr = this._previousOutData = this._previousOutData + data + '';
+        let dataStr = (this._previousOutData = this._previousOutData + data + '');
         let response: any;
         try {
-            response = dataStr.split(/\r?\n/g).filter(line => line.length > 0).map(resp => JSON.parse(resp));
+            response = parse(dataStr);
             this._previousOutData = '';
         } catch (ex) {
             // Possible we've only received part of the data, hence don't clear previousData

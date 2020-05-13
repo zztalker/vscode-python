@@ -22,9 +22,10 @@ export class InterpreterWatcherBuilder implements IInterpreterWatcherBuilder {
      * @param {IServiceContainer} serviceContainer
      * @memberof InterpreterWatcherBuilder
      */
-    constructor(@inject(IWorkspaceService) private readonly workspaceService: IWorkspaceService,
+    constructor(
+        @inject(IWorkspaceService) private readonly workspaceService: IWorkspaceService,
         @inject(IServiceContainer) private readonly serviceContainer: IServiceContainer
-    ) { }
+    ) {}
 
     @traceDecorators.verbose('Build the workspace interpreter watcher')
     public async getWorkspaceVirtualEnvInterpreterWatcher(resource: Uri | undefined): Promise<IInterpreterWatcher> {
@@ -32,7 +33,10 @@ export class InterpreterWatcherBuilder implements IInterpreterWatcherBuilder {
         if (!this.watchersByResource.has(key)) {
             const deferred = createDeferred<IInterpreterWatcher>();
             this.watchersByResource.set(key, deferred.promise);
-            const watcher = this.serviceContainer.get<WorkspaceVirtualEnvWatcherService>(IInterpreterWatcher, WORKSPACE_VIRTUAL_ENV_SERVICE);
+            const watcher = this.serviceContainer.get<WorkspaceVirtualEnvWatcherService>(
+                IInterpreterWatcher,
+                WORKSPACE_VIRTUAL_ENV_SERVICE
+            );
             await watcher.register(resource);
             deferred.resolve(watcher);
         }

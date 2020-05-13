@@ -7,12 +7,23 @@ import { inject, injectable } from 'inversify';
 import { IServiceContainer } from '../../../ioc/types';
 import { IArgumentsHelper, IArgumentsService, TestFilter } from '../../types';
 
-const OptionsWithArguments = ['-k', '-p', '-s', '-t', '--pattern',
-    '--start-directory', '--top-level-directory'];
+const OptionsWithArguments = ['-k', '-p', '-s', '-t', '--pattern', '--start-directory', '--top-level-directory'];
 
-const OptionsWithoutArguments = ['-b', '-c', '-f', '-h', '-q', '-v',
-    '--buffer', '--catch', '--failfast', '--help', '--locals',
-    '--quiet', '--verbose'];
+const OptionsWithoutArguments = [
+    '-b',
+    '-c',
+    '-f',
+    '-h',
+    '-q',
+    '-v',
+    '--buffer',
+    '--catch',
+    '--failfast',
+    '--help',
+    '--locals',
+    '--quiet',
+    '--verbose'
+];
 
 @injectable()
 export class ArgumentsService implements IArgumentsService {
@@ -36,7 +47,7 @@ export class ArgumentsService implements IArgumentsService {
         // So if we want to run a specific test, then remove positional args.
         let removePositionalArgs = false;
         if (Array.isArray(argumentToRemoveOrFilter)) {
-            argumentToRemoveOrFilter.forEach(item => {
+            argumentToRemoveOrFilter.forEach((item) => {
                 if (OptionsWithArguments.indexOf(item) >= 0) {
                     optionsWithArgsToRemove.push(item);
                 }
@@ -50,8 +61,12 @@ export class ArgumentsService implements IArgumentsService {
 
         let filteredArgs = args.slice();
         if (removePositionalArgs) {
-            const positionalArgs = this.helper.getPositionalArguments(filteredArgs, OptionsWithArguments, OptionsWithoutArguments);
-            filteredArgs = filteredArgs.filter(item => positionalArgs.indexOf(item) === -1);
+            const positionalArgs = this.helper.getPositionalArguments(
+                filteredArgs,
+                OptionsWithArguments,
+                OptionsWithoutArguments
+            );
+            filteredArgs = filteredArgs.filter((item) => positionalArgs.indexOf(item) === -1);
         }
         return this.helper.filterArguments(filteredArgs, optionsWithArgsToRemove, optionsWithoutArgsToRemove);
     }

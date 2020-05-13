@@ -5,12 +5,8 @@
 
 import { expect, use } from 'chai';
 import * as chaiPromise from 'chai-as-promised';
-import { Uri } from 'vscode';
-import { Resource } from '../../../client/common/types';
 import { clearCache } from '../../../client/common/utils/cacheUtils';
-import {
-    cache, cacheResourceSpecificInterpreterData, makeDebounceAsyncDecorator, makeDebounceDecorator
-} from '../../../client/common/utils/decorators';
+import { cache, makeDebounceAsyncDecorator, makeDebounceDecorator } from '../../../client/common/utils/decorators';
 import { sleep } from '../../core';
 use(chaiPromise);
 
@@ -21,94 +17,6 @@ suite('Common Utils - Decorators', function () {
     // at the precise time prescribed.
     // tslint:disable-next-line: no-invalid-this
     this.retries(3);
-    suite('Cache', () => {
-        teardown(() => {
-            clearCache();
-        });
-        function createMockVSC(pythonPath: string): typeof import('vscode') {
-            return {
-                workspace: {
-                    getConfiguration: () => {
-                        return {
-                            get: () => {
-                                return pythonPath;
-                            },
-                            inspect: () => {
-                                return { globalValue: pythonPath };
-                            }
-                        };
-                    },
-                    getWorkspaceFolder: () => {
-                        return;
-                    }
-                },
-                Uri: Uri
-            } as any;
-        }
-        test('Result must be cached when using cache decorator', async () => {
-            const vsc = createMockVSC('');
-            class TestClass {
-                public invoked = false;
-                @cacheResourceSpecificInterpreterData('Something', 100000, vsc)
-                public async doSomething(_resource: Resource, a: number, b: number): Promise<number> {
-                    this.invoked = true;
-                    return a + b;
-                }
-            }
-
-            const cls = new TestClass();
-            const uri = Uri.parse('a');
-            const uri2 = Uri.parse('b');
-
-            let result = await cls.doSomething(uri, 1, 2);
-            expect(result).to.equal(3);
-            expect(cls.invoked).to.equal(true, 'Must be invoked');
-
-            cls.invoked = false;
-            let result2 = await cls.doSomething(uri2, 2, 3);
-            expect(result2).to.equal(5);
-            expect(cls.invoked).to.equal(true, 'Must be invoked');
-
-            cls.invoked = false;
-            result = await cls.doSomething(uri, 1, 2);
-            result2 = await cls.doSomething(uri2, 2, 3);
-            expect(result).to.equal(3);
-            expect(result2).to.equal(5);
-            expect(cls.invoked).to.equal(false, 'Must not be invoked');
-        });
-        test('Cache result must be cleared when cache expires', async () => {
-            const vsc = createMockVSC('');
-            class TestClass {
-                public invoked = false;
-                @cacheResourceSpecificInterpreterData('Something', 100, vsc)
-                public async doSomething(_resource: Resource, a: number, b: number): Promise<number> {
-                    this.invoked = true;
-                    return a + b;
-                }
-            }
-
-            const cls = new TestClass();
-            const uri = Uri.parse('a');
-            let result = await cls.doSomething(uri, 1, 2);
-
-            expect(result).to.equal(3);
-            expect(cls.invoked).to.equal(true, 'Must be invoked');
-
-            cls.invoked = false;
-            result = await cls.doSomething(uri, 1, 2);
-
-            expect(result).to.equal(3);
-            expect(cls.invoked).to.equal(false, 'Must not be invoked');
-
-            await sleep(110);
-
-            cls.invoked = false;
-            result = await cls.doSomething(uri, 1, 2);
-
-            expect(result).to.equal(3);
-            expect(cls.invoked).to.equal(true, 'Must be invoked');
-        });
-    });
     suite('Cache Decorator', () => {
         const oldValueOfVSC_PYTHON_UNIT_TEST = process.env.VSC_PYTHON_UNIT_TEST;
         const oldValueOfVSC_PYTHON_CI_TEST = process.env.VSC_PYTHON_CI_TEST;
@@ -159,19 +67,19 @@ suite('Common Utils - Decorators', function () {
 
     suite('Debounce', () => {
         /*
-        * Time in milliseconds (from some arbitrary point in time for current process).
-        * Don't use new Date().getTime() to calculate differences in times.
-        * Similarly setTimeout doesn't always trigger at prescribed time (accuracy isn't guaranteed).
-        * This has an accuracy of around 2-20ms.
-        * However we're dealing with tests that need accuracy of 1ms.
-        * Use API that'll give us better accuracy when dealing with elapsed times.
-        *
-        * @returns {number}
-        */
-       function getHighPrecisionTime(): number {
+         * Time in milliseconds (from some arbitrary point in time for current process).
+         * Don't use new Date().getTime() to calculate differences in times.
+         * Similarly setTimeout doesn't always trigger at prescribed time (accuracy isn't guaranteed).
+         * This has an accuracy of around 2-20ms.
+         * However we're dealing with tests that need accuracy of 1ms.
+         * Use API that'll give us better accuracy when dealing with elapsed times.
+         *
+         * @returns {number}
+         */
+        function getHighPrecisionTime(): number {
             const currentTime = process.hrtime();
             // Convert seconds to ms and nanoseconds to ms.
-            return (currentTime[0] * 1000) + (currentTime[1] / 1000_000);
+            return currentTime[0] * 1000 + currentTime[1] / 1000_000;
         }
 
         /**
@@ -193,7 +101,10 @@ suite('Common Utils - Decorators', function () {
             if (difference >= 0) {
                 return;
             }
-            expect(Math.abs(difference)).to.be.lessThan(expectedDelay * 0.05, `Actual delay  ${actualDelay}, expected delay ${expectedDelay}, not within 5% of accuracy`);
+            expect(Math.abs(difference)).to.be.lessThan(
+                expectedDelay * 0.05,
+                `Actual delay  ${actualDelay}, expected delay ${expectedDelay}, not within 5% of accuracy`
+            );
         }
         // tslint:disable-next-line: max-classes-per-file
         class Base {
@@ -258,14 +169,14 @@ suite('Common Utils - Decorators', function () {
 
             const start = getHighPrecisionTime();
             let errored = false;
-            one.run().catch(() => errored = true);
+            one.run().catch(() => (errored = true));
             await waitForCalls(one.timestamps, 1);
             const delay = one.timestamps[0] - start;
 
             assertElapsedTimeWithinRange(delay, wait);
             expect(one.calls).to.deep.equal(['run']);
             expect(one.timestamps).to.have.lengthOf(one.calls.length);
-            expect(errored).to.be.equal(false, 'Exception raised when there shouldn\'t have been any');
+            expect(errored).to.be.equal(false, "Exception raised when there shouldn't have been any");
         });
         test('Debounce: one async call', async () => {
             const wait = 100;
@@ -301,7 +212,7 @@ suite('Common Utils - Decorators', function () {
 
             const start = getHighPrecisionTime();
             let capturedEx: Error | undefined;
-            await one.run().catch(ex => capturedEx = ex);
+            await one.run().catch((ex) => (capturedEx = ex));
             await waitForCalls(one.timestamps, 1);
             const delay = one.timestamps[0] - start;
 
@@ -323,20 +234,19 @@ suite('Common Utils - Decorators', function () {
 
             const start = getHighPrecisionTime();
             let errored = false;
-            one.run().catch(() => errored = true);
-            one.run().catch(() => errored = true);
-            one.run().catch(() => errored = true);
-            one.run().catch(() => errored = true);
+            one.run().catch(() => (errored = true));
+            one.run().catch(() => (errored = true));
+            one.run().catch(() => (errored = true));
+            one.run().catch(() => (errored = true));
             await waitForCalls(one.timestamps, 1);
             const delay = one.timestamps[0] - start;
 
             assertElapsedTimeWithinRange(delay, wait);
             expect(one.calls).to.deep.equal(['run']);
             expect(one.timestamps).to.have.lengthOf(one.calls.length);
-            expect(errored).to.be.equal(false, 'Exception raised when there shouldn\'t have been any');
+            expect(errored).to.be.equal(false, "Exception raised when there shouldn't have been any");
         });
         test('Debounce: multiple async calls when awaiting on all', async function () {
-
             const wait = 100;
             // tslint:disable-next-line:max-classes-per-file
             class One extends Base {
@@ -369,17 +279,17 @@ suite('Common Utils - Decorators', function () {
 
             const start = getHighPrecisionTime();
             let errored = false;
-            one.run().catch(() => errored = true);
+            one.run().catch(() => (errored = true));
             await one.run();
-            one.run().catch(() => errored = true);
-            one.run().catch(() => errored = true);
+            one.run().catch(() => (errored = true));
+            one.run().catch(() => (errored = true));
             await waitForCalls(one.timestamps, 2);
             const delay = one.timestamps[1] - start;
 
             assertElapsedTimeWithinRange(delay, wait);
             expect(one.calls).to.deep.equal(['run', 'run']);
             expect(one.timestamps).to.have.lengthOf(one.calls.length);
-            expect(errored).to.be.equal(false, 'Exception raised when there shouldn\'t have been any');
+            expect(errored).to.be.equal(false, "Exception raised when there shouldn't have been any");
         });
         test('Debounce: multiple calls grouped', async () => {
             const wait = 100;

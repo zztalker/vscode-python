@@ -25,6 +25,7 @@ export interface IDiagnostic {
     readonly scope: DiagnosticScope;
     readonly resource: Resource;
     readonly invokeHandler: 'always' | 'default';
+    readonly shouldShowPrompt?: boolean;
 }
 
 export const IDiagnosticsService = Symbol('IDiagnosticsService');
@@ -53,6 +54,8 @@ export interface IDiagnosticCommand {
     readonly diagnostic: IDiagnostic;
     invoke(): Promise<void>;
 }
+
+export type IDiagnosticMessageOnCloseHandler = (response?: string) => void;
 
 export const IInvalidPythonPathInDebuggerService = Symbol('IInvalidPythonPathInDebuggerService');
 

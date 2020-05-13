@@ -8,8 +8,12 @@ import { ConfigurationTarget, Uri } from 'vscode';
 import { WorkspaceService } from '../../client/common/application/workspace';
 import { Product } from '../../client/common/installer/productInstaller';
 import {
-    CTagsProductPathService, DataScienceProductPathService, FormatterProductPathService, LinterProductPathService,
-    RefactoringLibraryProductPathService, TestFrameworkProductPathService
+    CTagsProductPathService,
+    DataScienceProductPathService,
+    FormatterProductPathService,
+    LinterProductPathService,
+    RefactoringLibraryProductPathService,
+    TestFrameworkProductPathService
 } from '../../client/common/installer/productPath';
 import { ProductService } from '../../client/common/installer/productService';
 import { IProductPathService, IProductService } from '../../client/common/installer/types';
@@ -59,12 +63,36 @@ suite('Linting Settings', () => {
         linterManager = new LinterManager(ioc.serviceContainer, new WorkspaceService());
         configService = ioc.serviceContainer.get<IConfigurationService>(IConfigurationService);
         ioc.serviceManager.addSingletonInstance<IProductService>(IProductService, new ProductService());
-        ioc.serviceManager.addSingleton<IProductPathService>(IProductPathService, CTagsProductPathService, ProductType.WorkspaceSymbols);
-        ioc.serviceManager.addSingleton<IProductPathService>(IProductPathService, FormatterProductPathService, ProductType.Formatter);
-        ioc.serviceManager.addSingleton<IProductPathService>(IProductPathService, LinterProductPathService, ProductType.Linter);
-        ioc.serviceManager.addSingleton<IProductPathService>(IProductPathService, TestFrameworkProductPathService, ProductType.TestFramework);
-        ioc.serviceManager.addSingleton<IProductPathService>(IProductPathService, RefactoringLibraryProductPathService, ProductType.RefactoringLibrary);
-        ioc.serviceManager.addSingleton<IProductPathService>(IProductPathService, DataScienceProductPathService, ProductType.DataScience);
+        ioc.serviceManager.addSingleton<IProductPathService>(
+            IProductPathService,
+            CTagsProductPathService,
+            ProductType.WorkspaceSymbols
+        );
+        ioc.serviceManager.addSingleton<IProductPathService>(
+            IProductPathService,
+            FormatterProductPathService,
+            ProductType.Formatter
+        );
+        ioc.serviceManager.addSingleton<IProductPathService>(
+            IProductPathService,
+            LinterProductPathService,
+            ProductType.Linter
+        );
+        ioc.serviceManager.addSingleton<IProductPathService>(
+            IProductPathService,
+            TestFrameworkProductPathService,
+            ProductType.TestFramework
+        );
+        ioc.serviceManager.addSingleton<IProductPathService>(
+            IProductPathService,
+            RefactoringLibraryProductPathService,
+            ProductType.RefactoringLibrary
+        );
+        ioc.serviceManager.addSingleton<IProductPathService>(
+            IProductPathService,
+            DataScienceProductPathService,
+            ProductType.DataScience
+        );
     }
 
     async function resetSettings(lintingEnabled = true) {

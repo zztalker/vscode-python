@@ -8,8 +8,12 @@
 import { instance, mock, verify } from 'ts-mockito';
 import { IExtensionActivationService, IExtensionSingleActivationService } from '../../client/activation/types';
 import { EnvironmentActivationService } from '../../client/interpreter/activation/service';
+import { TerminalEnvironmentActivationService } from '../../client/interpreter/activation/terminalEnvironmentActivationService';
 import { IEnvironmentActivationService } from '../../client/interpreter/activation/types';
 import { InterpreterAutoSelectionService } from '../../client/interpreter/autoSelection';
+import { InterpreterEvaluation } from '../../client/interpreter/autoSelection/interpreterSecurity/interpreterEvaluation';
+import { InterpreterSecurityService } from '../../client/interpreter/autoSelection/interpreterSecurity/interpreterSecurityService';
+import { InterpreterSecurityStorage } from '../../client/interpreter/autoSelection/interpreterSecurity/interpreterSecurityStorage';
 import { InterpreterAutoSeletionProxyService } from '../../client/interpreter/autoSelection/proxy';
 import { CachedInterpretersAutoSelectionRule } from '../../client/interpreter/autoSelection/rules/cached';
 import { CurrentPathInterpretersAutoSelectionRule } from '../../client/interpreter/autoSelection/rules/currentPath';
@@ -21,13 +25,24 @@ import {
     AutoSelectionRule,
     IInterpreterAutoSelectionRule,
     IInterpreterAutoSelectionService,
-    IInterpreterAutoSeletionProxyService
+    IInterpreterAutoSeletionProxyService,
+    IInterpreterEvaluation,
+    IInterpreterSecurityService,
+    IInterpreterSecurityStorage
 } from '../../client/interpreter/autoSelection/types';
 import { InterpreterComparer } from '../../client/interpreter/configuration/interpreterComparer';
-import { InterpreterSelector } from '../../client/interpreter/configuration/interpreterSelector';
+import { ResetInterpreterCommand } from '../../client/interpreter/configuration/interpreterSelector/commands/resetInterpreter';
+import { SetInterpreterCommand } from '../../client/interpreter/configuration/interpreterSelector/commands/setInterpreter';
+import { SetShebangInterpreterCommand } from '../../client/interpreter/configuration/interpreterSelector/commands/setShebangInterpreter';
+import { InterpreterSelector } from '../../client/interpreter/configuration/interpreterSelector/interpreterSelector';
 import { PythonPathUpdaterService } from '../../client/interpreter/configuration/pythonPathUpdaterService';
 import { PythonPathUpdaterServiceFactory } from '../../client/interpreter/configuration/pythonPathUpdaterServiceFactory';
-import { IInterpreterComparer, IInterpreterSelector, IPythonPathUpdaterServiceFactory, IPythonPathUpdaterServiceManager } from '../../client/interpreter/configuration/types';
+import {
+    IInterpreterComparer,
+    IInterpreterSelector,
+    IPythonPathUpdaterServiceFactory,
+    IPythonPathUpdaterServiceManager
+} from '../../client/interpreter/configuration/types';
 import {
     CONDA_ENV_FILE_SERVICE,
     CONDA_ENV_SERVICE,
@@ -46,7 +61,6 @@ import {
     IInterpreterWatcherBuilder,
     IKnownSearchPathsForInterpreters,
     INTERPRETER_LOCATOR_SERVICE,
-    IPipEnvService,
     IShebangCodeLensProvider,
     IVirtualEnvironmentsSearchPathProvider,
     KNOWN_PATH_SERVICE,
@@ -67,17 +81,29 @@ import { InterpreterLocatorProgressService } from '../../client/interpreter/loca
 import { CondaEnvFileService } from '../../client/interpreter/locators/services/condaEnvFileService';
 import { CondaEnvService } from '../../client/interpreter/locators/services/condaEnvService';
 import { CondaService } from '../../client/interpreter/locators/services/condaService';
-import { CurrentPathService, PythonInPathCommandProvider } from '../../client/interpreter/locators/services/currentPathService';
-import { GlobalVirtualEnvironmentsSearchPathProvider, GlobalVirtualEnvService } from '../../client/interpreter/locators/services/globalVirtualEnvService';
+import {
+    CurrentPathService,
+    PythonInPathCommandProvider
+} from '../../client/interpreter/locators/services/currentPathService';
+import {
+    GlobalVirtualEnvironmentsSearchPathProvider,
+    GlobalVirtualEnvService
+} from '../../client/interpreter/locators/services/globalVirtualEnvService';
 import { InterpreterHashProvider } from '../../client/interpreter/locators/services/hashProvider';
 import { InterpeterHashProviderFactory } from '../../client/interpreter/locators/services/hashProviderFactory';
 import { InterpreterWatcherBuilder } from '../../client/interpreter/locators/services/interpreterWatcherBuilder';
-import { KnownPathsService, KnownSearchPathsForInterpreters } from '../../client/interpreter/locators/services/KnownPathsService';
+import {
+    KnownPathsService,
+    KnownSearchPathsForInterpreters
+} from '../../client/interpreter/locators/services/KnownPathsService';
 import { PipEnvService } from '../../client/interpreter/locators/services/pipEnvService';
 import { PipEnvServiceHelper } from '../../client/interpreter/locators/services/pipEnvServiceHelper';
 import { WindowsRegistryService } from '../../client/interpreter/locators/services/windowsRegistryService';
 import { WindowsStoreInterpreter } from '../../client/interpreter/locators/services/windowsStoreInterpreter';
-import { WorkspaceVirtualEnvironmentsSearchPathProvider, WorkspaceVirtualEnvService } from '../../client/interpreter/locators/services/workspaceVirtualEnvService';
+import {
+    WorkspaceVirtualEnvironmentsSearchPathProvider,
+    WorkspaceVirtualEnvService
+} from '../../client/interpreter/locators/services/workspaceVirtualEnvService';
 import { WorkspaceVirtualEnvWatcherService } from '../../client/interpreter/locators/services/workspaceVirtualEnvWatcherService';
 import { IPipEnvServiceHelper, IPythonInPathCommandProvider } from '../../client/interpreter/locators/types';
 import { registerTypes } from '../../client/interpreter/serviceRegistry';
@@ -93,6 +119,13 @@ suite('Interpreters - Service Registry', () => {
         registerTypes(instance(serviceManager));
 
         [
+            [IExtensionSingleActivationService, SetInterpreterCommand],
+            [IExtensionSingleActivationService, ResetInterpreterCommand],
+            [IExtensionSingleActivationService, SetShebangInterpreterCommand],
+            [IExtensionSingleActivationService, InterpreterSecurityStorage],
+            [IInterpreterEvaluation, InterpreterEvaluation],
+            [IInterpreterSecurityStorage, InterpreterSecurityStorage],
+            [IInterpreterSecurityService, InterpreterSecurityService],
             [IKnownSearchPathsForInterpreters, KnownSearchPathsForInterpreters],
             [IVirtualEnvironmentsSearchPathProvider, GlobalVirtualEnvironmentsSearchPathProvider, 'global'],
             [IVirtualEnvironmentsSearchPathProvider, WorkspaceVirtualEnvironmentsSearchPathProvider, 'workspace'],
@@ -114,7 +147,6 @@ suite('Interpreters - Service Registry', () => {
             [IInterpreterLocatorService, GlobalVirtualEnvService, GLOBAL_VIRTUAL_ENV_SERVICE],
             [IInterpreterLocatorService, WorkspaceVirtualEnvService, WORKSPACE_VIRTUAL_ENV_SERVICE],
             [IInterpreterLocatorService, PipEnvService, PIPENV_SERVICE],
-            [IPipEnvService, PipEnvService],
 
             [IInterpreterLocatorService, WindowsRegistryService, WINDOWS_REGISTRY_SERVICE],
             [IInterpreterLocatorService, KnownPathsService, KNOWN_PATH_SERVICE],
@@ -135,22 +167,38 @@ suite('Interpreters - Service Registry', () => {
 
             [IInterpreterAutoSelectionRule, CurrentPathInterpretersAutoSelectionRule, AutoSelectionRule.currentPath],
             [IInterpreterAutoSelectionRule, SystemWideInterpretersAutoSelectionRule, AutoSelectionRule.systemWide],
-            [IInterpreterAutoSelectionRule, WindowsRegistryInterpretersAutoSelectionRule, AutoSelectionRule.windowsRegistry],
-            [IInterpreterAutoSelectionRule, WorkspaceVirtualEnvInterpretersAutoSelectionRule, AutoSelectionRule.workspaceVirtualEnvs],
+            [
+                IInterpreterAutoSelectionRule,
+                WindowsRegistryInterpretersAutoSelectionRule,
+                AutoSelectionRule.windowsRegistry
+            ],
+            [
+                IInterpreterAutoSelectionRule,
+                WorkspaceVirtualEnvInterpretersAutoSelectionRule,
+                AutoSelectionRule.workspaceVirtualEnvs
+            ],
             [IInterpreterAutoSelectionRule, CachedInterpretersAutoSelectionRule, AutoSelectionRule.cachedInterpreters],
             [IInterpreterAutoSelectionRule, SettingsInterpretersAutoSelectionRule, AutoSelectionRule.settings],
             [IInterpreterAutoSeletionProxyService, InterpreterAutoSeletionProxyService],
             [IInterpreterAutoSelectionService, InterpreterAutoSelectionService],
 
+            [EnvironmentActivationService, EnvironmentActivationService],
+            [TerminalEnvironmentActivationService, TerminalEnvironmentActivationService],
             [IEnvironmentActivationService, EnvironmentActivationService],
             [IExtensionActivationService, CondaInheritEnvPrompt],
 
             [WindowsStoreInterpreter, WindowsStoreInterpreter],
             [InterpreterHashProvider, InterpreterHashProvider],
             [InterpeterHashProviderFactory, InterpeterHashProviderFactory]
-        ].forEach(mapping => {
+        ].forEach((mapping) => {
             verify(serviceManager.addSingleton.apply(serviceManager, mapping as any)).once();
         });
-        verify(serviceManager.add<IInterpreterWatcher>(IInterpreterWatcher, WorkspaceVirtualEnvWatcherService, WORKSPACE_VIRTUAL_ENV_SERVICE)).once();
+        verify(
+            serviceManager.add<IInterpreterWatcher>(
+                IInterpreterWatcher,
+                WorkspaceVirtualEnvWatcherService,
+                WORKSPACE_VIRTUAL_ENV_SERVICE
+            )
+        ).once();
     });
 });

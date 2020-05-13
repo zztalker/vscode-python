@@ -23,9 +23,11 @@ const workspaceFolderToken = '${workspaceFolder}';
 
 @injectable()
 export class DjangoLaunchDebugConfigurationProvider implements IDebugConfigurationProvider {
-    constructor(@inject(IFileSystem) private fs: IFileSystem,
+    constructor(
+        @inject(IFileSystem) private fs: IFileSystem,
         @inject(IWorkspaceService) private readonly workspace: IWorkspaceService,
-        @inject(IPathUtils) private pathUtils: IPathUtils) { }
+        @inject(IPathUtils) private pathUtils: IPathUtils
+    ) {}
     public async buildConfiguration(input: MultiStepInput<DebugConfigurationState>, state: DebugConfigurationState) {
         const program = await this.getManagePyPath(state.folder);
         let manuallyEnteredAValue: boolean | undefined;
@@ -35,10 +37,7 @@ export class DjangoLaunchDebugConfigurationProvider implements IDebugConfigurati
             type: DebuggerTypeName,
             request: 'launch',
             program: program || defaultProgram,
-            args: [
-                'runserver',
-                '--noreload'
-            ],
+            args: ['runserver', '--noreload'],
             django: true
         };
         if (!program) {
@@ -46,7 +45,7 @@ export class DjangoLaunchDebugConfigurationProvider implements IDebugConfigurati
                 title: DebugConfigStrings.django.enterManagePyPath.title(),
                 value: defaultProgram,
                 prompt: DebugConfigStrings.django.enterManagePyPath.prompt(),
-                validate: value => this.validateManagePy(state.folder, defaultProgram, value)
+                validate: (value) => this.validateManagePy(state.folder, defaultProgram, value)
             });
             if (selectedProgram) {
                 manuallyEnteredAValue = true;
@@ -54,16 +53,24 @@ export class DjangoLaunchDebugConfigurationProvider implements IDebugConfigurati
             }
         }
 
-        sendTelemetryEvent(EventName.DEBUGGER_CONFIGURATION_PROMPTS, undefined, { configurationType: DebugConfigurationType.launchDjango, autoDetectedDjangoManagePyPath: !!program, manuallyEnteredAValue });
+        sendTelemetryEvent(EventName.DEBUGGER_CONFIGURATION_PROMPTS, undefined, {
+            configurationType: DebugConfigurationType.launchDjango,
+            autoDetectedDjangoManagePyPath: !!program,
+            manuallyEnteredAValue
+        });
         Object.assign(state.config, config);
     }
-    public async validateManagePy(folder: WorkspaceFolder | undefined, defaultValue: string, selected?: string): Promise<string | undefined> {
+    public async validateManagePy(
+        folder: WorkspaceFolder | undefined,
+        defaultValue: string,
+        selected?: string
+    ): Promise<string | undefined> {
         const error = DebugConfigStrings.django.enterManagePyPath.invalid();
         if (!selected || selected.trim().length === 0) {
             return error;
         }
         const resolvedPath = this.resolveVariables(selected, folder ? folder.uri : undefined);
-        if (selected !== defaultValue && !await this.fs.fileExists(resolvedPath)) {
+        if (selected !== defaultValue && !(await this.fs.fileExists(resolvedPath))) {
             return error;
         }
         if (!resolvedPath.trim().toLowerCase().endsWith('.py')) {

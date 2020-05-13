@@ -8,23 +8,34 @@ import * as path from 'path';
 import { Uri } from 'vscode';
 import { getNamesAndValues } from '../../../client/common/utils/enum';
 import {
-    getChildren, getParent, getParentFile, getParentSuite, getTestDataItemType,
-    getTestFile, getTestFolder, getTestFunction, getTestSuite
+    getChildren,
+    getParent,
+    getParentFile,
+    getParentSuite,
+    getTestDataItemType,
+    getTestFile,
+    getTestFolder,
+    getTestFunction,
+    getTestSuite
 } from '../../../client/testing/common/testUtils';
 import {
-    FlattenedTestFunction, FlattenedTestSuite, SubtestParent, TestFile,
-    TestFolder, TestFunction, Tests, TestSuite
+    FlattenedTestFunction,
+    FlattenedTestSuite,
+    SubtestParent,
+    TestFile,
+    TestFolder,
+    TestFunction,
+    Tests,
+    TestSuite
 } from '../../../client/testing/common/types';
-import {
-    TestDataItem, TestDataItemType, TestWorkspaceFolder
-} from '../../../client/testing/types';
+import { TestDataItem, TestDataItemType, TestWorkspaceFolder } from '../../../client/testing/types';
 
 // tslint:disable:prefer-template
 
 function longestCommonSubstring(strings: string[]): string {
     strings = strings.concat().sort();
     let substr = strings.shift() || '';
-    strings.forEach(str => {
+    strings.forEach((str) => {
         for (const [idx, ch] of [...substr].entries()) {
             if (str[idx] !== ch) {
                 substr = substr.substring(0, idx);
@@ -87,15 +98,15 @@ export function createMockTestDataItem<T extends TestDataItem>(
         case TestDataItemType.suite:
             return suite as T;
         case TestDataItemType.workspaceFolder:
-            return (new TestWorkspaceFolder({ uri: Uri.file(''), name: 'a', index: 0 })) as T;
+            return new TestWorkspaceFolder({ uri: Uri.file(''), name: 'a', index: 0 }) as T;
         default:
             throw new Error(`Unknown type ${type}`);
     }
 }
 
 export function createSubtestParent(funcs: TestFunction[]): SubtestParent {
-    const name = longestCommonSubstring(funcs.map(func => func.name));
-    const nameToRun = longestCommonSubstring(funcs.map(func => func.nameToRun));
+    const name = longestCommonSubstring(funcs.map((func) => func.name));
+    const nameToRun = longestCommonSubstring(funcs.map((func) => func.nameToRun));
     const subtestParent: SubtestParent = {
         name: name,
         nameToRun: nameToRun,
@@ -112,7 +123,7 @@ export function createSubtestParent(funcs: TestFunction[]): SubtestParent {
         },
         time: 0
     };
-    funcs.forEach(func => {
+    funcs.forEach((func) => {
         func.subtestParent = subtestParent;
     });
     return subtestParent;
@@ -130,13 +141,13 @@ export function createTests(
         rootTestFolders: folders.length > 0 ? [folders[0]] : [],
         testFolders: folders,
         testFiles: files,
-        testSuites: suites.map(suite => {
+        testSuites: suites.map((suite) => {
             return {
                 testSuite: suite,
                 xmlClassName: suite.xmlName
             } as any;
         }),
-        testFunctions: funcs.map(func => {
+        testFunctions: funcs.map((func) => {
             return {
                 testFunction: func,
                 xmlClassName: func.name
@@ -172,46 +183,41 @@ suite('Unit Tests - TestUtils', () => {
             const func = getTestFunction(item);
 
             switch (typeName.value) {
-                case TestDataItemType.file:
-                    {
-                        assert.equal(file, item);
-                        assert.equal(folder, undefined);
-                        assert.equal(suite, undefined);
-                        assert.equal(func, undefined);
-                        break;
-                    }
-                case TestDataItemType.folder:
-                    {
-                        assert.equal(file, undefined);
-                        assert.equal(folder, item);
-                        assert.equal(suite, undefined);
-                        assert.equal(func, undefined);
-                        break;
-                    }
-                case TestDataItemType.function:
-                    {
-                        assert.equal(file, undefined);
-                        assert.equal(folder, undefined);
-                        assert.equal(suite, undefined);
-                        assert.equal(func, item);
-                        break;
-                    }
-                case TestDataItemType.suite:
-                    {
-                        assert.equal(file, undefined);
-                        assert.equal(folder, undefined);
-                        assert.equal(suite, item);
-                        assert.equal(func, undefined);
-                        break;
-                    }
-                case TestDataItemType.workspaceFolder:
-                    {
-                        assert.equal(file, undefined);
-                        assert.equal(folder, undefined);
-                        assert.equal(suite, undefined);
-                        assert.equal(func, undefined);
-                        break;
-                    }
+                case TestDataItemType.file: {
+                    assert.equal(file, item);
+                    assert.equal(folder, undefined);
+                    assert.equal(suite, undefined);
+                    assert.equal(func, undefined);
+                    break;
+                }
+                case TestDataItemType.folder: {
+                    assert.equal(file, undefined);
+                    assert.equal(folder, item);
+                    assert.equal(suite, undefined);
+                    assert.equal(func, undefined);
+                    break;
+                }
+                case TestDataItemType.function: {
+                    assert.equal(file, undefined);
+                    assert.equal(folder, undefined);
+                    assert.equal(suite, undefined);
+                    assert.equal(func, item);
+                    break;
+                }
+                case TestDataItemType.suite: {
+                    assert.equal(file, undefined);
+                    assert.equal(folder, undefined);
+                    assert.equal(suite, item);
+                    assert.equal(func, undefined);
+                    break;
+                }
+                case TestDataItemType.workspaceFolder: {
+                    assert.equal(file, undefined);
+                    assert.equal(folder, undefined);
+                    assert.equal(suite, undefined);
+                    assert.equal(func, undefined);
+                    break;
+                }
                 default:
                     throw new Error(`Unknown type ${typeName.name},${typeName.value}`);
             }
@@ -641,12 +647,7 @@ suite('Unit Tests - TestUtils', () => {
         suite.functions.push(func4);
         suite.functions.push(func5);
         suite.functions.push(func6);
-        const tests = createTests(
-            [folder],
-            [file],
-            [suite],
-            [func1, func2, func3, func4, func5, func6]
-        );
+        const tests = createTests([folder], [file], [suite], [func1, func2, func3, func4, func5, func6]);
 
         assert.equal(getParent(tests, folder), undefined);
         assert.equal(getParent(tests, file), folder);

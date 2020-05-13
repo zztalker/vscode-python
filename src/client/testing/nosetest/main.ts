@@ -15,8 +15,11 @@ export class TestManager extends BaseTestManager {
     public get enabled() {
         return this.settings.testing.nosetestsEnabled;
     }
-    constructor(workspaceFolder: Uri, rootDirectory: string,
-        @inject(IServiceContainer) serviceContainer: IServiceContainer) {
+    constructor(
+        workspaceFolder: Uri,
+        rootDirectory: string,
+        @inject(IServiceContainer) serviceContainer: IServiceContainer
+    ) {
         super(NOSETEST_PROVIDER, Product.nosetest, workspaceFolder, rootDirectory, serviceContainer);
         this.argsService = this.serviceContainer.get<IArgumentsService>(IArgumentsService, this.testProvider);
         this.helper = this.serviceContainer.get<ITestsHelper>(ITestsHelper);
@@ -26,19 +29,32 @@ export class TestManager extends BaseTestManager {
         const args = this.settings.testing.nosetestArgs.slice(0);
         return {
             workspaceFolder: this.workspaceFolder,
-            cwd: this.rootDirectory, args,
-            token: this.testDiscoveryCancellationToken!, ignoreCache,
+            cwd: this.rootDirectory,
+            args,
+            token: this.testDiscoveryCancellationToken!,
+            ignoreCache,
             outChannel: this.outputChannel
         };
     }
-    public runTestImpl(tests: Tests, testsToRun?: TestsToRun, runFailedTests?: boolean, debug?: boolean): Promise<Tests> {
+    public runTestImpl(
+        tests: Tests,
+        testsToRun?: TestsToRun,
+        runFailedTests?: boolean,
+        debug?: boolean
+    ): Promise<Tests> {
         let args: string[];
 
         const runAllTests = this.helper.shouldRunAllTests(testsToRun);
         if (debug) {
-            args = this.argsService.filterArguments(this.settings.testing.nosetestArgs, runAllTests ? TestFilter.debugAll : TestFilter.debugSpecific);
+            args = this.argsService.filterArguments(
+                this.settings.testing.nosetestArgs,
+                runAllTests ? TestFilter.debugAll : TestFilter.debugSpecific
+            );
         } else {
-            args = this.argsService.filterArguments(this.settings.testing.nosetestArgs, runAllTests ? TestFilter.runAll : TestFilter.runSpecific);
+            args = this.argsService.filterArguments(
+                this.settings.testing.nosetestArgs,
+                runAllTests ? TestFilter.runAll : TestFilter.runSpecific
+            );
         }
 
         if (runFailedTests === true && args.indexOf('--failed') === -1) {
@@ -50,7 +66,9 @@ export class TestManager extends BaseTestManager {
         const options: TestRunOptions = {
             workspaceFolder: Uri.file(this.rootDirectory),
             cwd: this.rootDirectory,
-            tests, args, testsToRun,
+            tests,
+            args,
+            testsToRun,
             token: this.testRunnerCancellationToken!,
             outChannel: this.outputChannel,
             debug

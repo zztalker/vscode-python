@@ -3,22 +3,49 @@
 'use strict';
 import { InteractiveWindowMessages } from '../../../../client/datascience/interactive-common/interactiveWindowTypes';
 import { CellState } from '../../../../client/datascience/types';
-import { IMainState } from '../../mainState';
-import { createPostableAction } from '../postOffice';
-import { CommonReducerArg } from './types';
+import { IMainState, IServerState } from '../../mainState';
+import { postActionToExtension } from '../helpers';
+import { CommonActionType, CommonReducerArg } from './types';
 
 export namespace Kernel {
-    export function restartKernel<T>(arg: CommonReducerArg<T>): IMainState {
-        arg.queueAction(createPostableAction(InteractiveWindowMessages.RestartKernel));
+    // tslint:disable-next-line: no-any
+    export function selectKernel(
+        arg: CommonReducerArg<CommonActionType | InteractiveWindowMessages, IServerState | undefined>
+    ): IMainState {
+        postActionToExtension(arg, InteractiveWindowMessages.SelectKernel);
 
-        // Doesn't modify anything right now. Might set a busy flag or kernel state in the future
+        return arg.prevState;
+    }
+    export function selectJupyterURI(arg: CommonReducerArg): IMainState {
+        postActionToExtension(arg, InteractiveWindowMessages.SelectJupyterServer);
+
+        return arg.prevState;
+    }
+    export function restartKernel(arg: CommonReducerArg): IMainState {
+        postActionToExtension(arg, InteractiveWindowMessages.RestartKernel);
+
         return arg.prevState;
     }
 
-    export function interruptKernel<T>(arg: CommonReducerArg<T>): IMainState {
-        arg.queueAction(createPostableAction(InteractiveWindowMessages.Interrupt));
+    export function interruptKernel(arg: CommonReducerArg): IMainState {
+        postActionToExtension(arg, InteractiveWindowMessages.Interrupt);
 
-        // Doesn't modify anything right now. Might set a busy flag or kernel state in the future
+        return arg.prevState;
+    }
+
+    export function updateStatus(
+        arg: CommonReducerArg<CommonActionType | InteractiveWindowMessages, IServerState | undefined>
+    ): IMainState {
+        if (arg.payload.data) {
+            return {
+                ...arg.prevState,
+                kernel: {
+                    localizedUri: arg.payload.data.localizedUri,
+                    jupyterServerStatus: arg.payload.data.jupyterServerStatus,
+                    displayName: arg.payload.data.displayName
+                }
+            };
+        }
         return arg.prevState;
     }
 
@@ -30,11 +57,6 @@ export namespace Kernel {
                 newVMs[i] = { ...vm, hasBeenRun: false, cell: { ...vm.cell, state: CellState.finished } };
             }
         });
-
-        // Update our variables if variable window is open
-        if (arg.prevState.variablesVisible) {
-            arg.queueAction(createPostableAction(InteractiveWindowMessages.GetVariablesRequest, 0));
-        }
 
         return {
             ...arg.prevState,

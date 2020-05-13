@@ -18,8 +18,8 @@ import { isPositionInsideStringOrComment } from './providerUtilities';
 
 const DOCSTRING_PARAM_PATTERNS = [
     '\\s*:type\\s*PARAMNAME:\\s*([^\\n, ]+)', // Sphinx
-    '\\s*:param\\s*(\\w?)\\s*PARAMNAME:[^\\n]+',  // Sphinx param with type
-    '\\s*@type\\s*PARAMNAME:\\s*([^\\n, ]+)'  // Epydoc
+    '\\s*:param\\s*(\\w?)\\s*PARAMNAME:[^\\n]+', // Sphinx param with type
+    '\\s*@type\\s*PARAMNAME:\\s*([^\\n, ]+)' // Epydoc
 ];
 
 /**
@@ -33,7 +33,7 @@ function extractParamDocString(paramName: string, docString: string): string {
     // In docstring the '*' is escaped with a backslash
     paramName = paramName.replace(new RegExp('\\*', 'g'), '\\\\\\*');
 
-    DOCSTRING_PARAM_PATTERNS.forEach(pattern => {
+    DOCSTRING_PARAM_PATTERNS.forEach((pattern) => {
         if (paramDocString.length > 0) {
             return;
         }
@@ -54,13 +54,13 @@ function extractParamDocString(paramName: string, docString: string): string {
     return paramDocString.trim();
 }
 export class PythonSignatureProvider implements SignatureHelpProvider {
-    public constructor(private jediFactory: JediFactory) { }
+    public constructor(private jediFactory: JediFactory) {}
     private static parseData(data: proxy.IArgumentsResult): SignatureHelp {
         if (data && Array.isArray(data.definitions) && data.definitions.length > 0) {
             const signature = new SignatureHelp();
             signature.activeSignature = 0;
 
-            data.definitions.forEach(def => {
+            data.definitions.forEach((def) => {
                 signature.activeParameter = def.paramindex;
                 // Don't display the documentation, as vs code doesn't format the documentation.
                 // i.e. line feeds are not respected, long content is stripped.
@@ -68,7 +68,8 @@ export class PythonSignatureProvider implements SignatureHelpProvider {
                 // Some functions do not come with parameter docs
                 let label: string;
                 let documentation: string;
-                const validParamInfo = def.params && def.params.length > 0 &&  def.docstring && def.docstring.startsWith(`${def.name}(`);
+                const validParamInfo =
+                    def.params && def.params.length > 0 && def.docstring && def.docstring.startsWith(`${def.name}(`);
 
                 if (validParamInfo) {
                     const docLines = def.docstring.splitLines();
@@ -76,7 +77,7 @@ export class PythonSignatureProvider implements SignatureHelpProvider {
                     documentation = docLines.join(EOL).trim();
                 } else {
                     if (def.params && def.params.length > 0) {
-                        label = `${def.name}(${def.params.map(p => p.name).join(', ')})`;
+                        label = `${def.name}(${def.params.map((p) => p.name).join(', ')})`;
                         documentation = def.docstring;
                     } else {
                         label = def.description;
@@ -92,7 +93,7 @@ export class PythonSignatureProvider implements SignatureHelpProvider {
                 };
 
                 if (def.params && def.params.length) {
-                    sig.parameters = def.params.map(arg => {
+                    sig.parameters = def.params.map((arg) => {
                         if (arg.docstring.length === 0) {
                             arg.docstring = extractParamDocString(arg.name, def.docstring);
                         }
@@ -111,11 +112,13 @@ export class PythonSignatureProvider implements SignatureHelpProvider {
         return new SignatureHelp();
     }
     @captureTelemetry(EventName.SIGNATURE)
-    public provideSignatureHelp(document: TextDocument, position: Position, token: CancellationToken): Thenable<SignatureHelp> {
+    public provideSignatureHelp(
+        document: TextDocument,
+        position: Position,
+        token: CancellationToken
+    ): Thenable<SignatureHelp> {
         // early exit if we're in a string or comment (or in an undefined position)
-        if (position.character <= 0 ||
-            isPositionInsideStringOrComment(document, position))
-        {
+        if (position.character <= 0 || isPositionInsideStringOrComment(document, position)) {
             return Promise.resolve(new SignatureHelp());
         }
 
@@ -126,8 +129,11 @@ export class PythonSignatureProvider implements SignatureHelpProvider {
             lineIndex: position.line,
             source: document.getText()
         };
-        return this.jediFactory.getJediProxyHandler<proxy.IArgumentsResult>(document.uri).sendCommand(cmd, token).then(data => {
-            return data ? PythonSignatureProvider.parseData(data) : new SignatureHelp();
-        });
+        return this.jediFactory
+            .getJediProxyHandler<proxy.IArgumentsResult>(document.uri)
+            .sendCommand(cmd, token)
+            .then((data) => {
+                return data ? PythonSignatureProvider.parseData(data) : new SignatureHelp();
+            });
     }
 }

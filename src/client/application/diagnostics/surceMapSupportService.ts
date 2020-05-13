@@ -13,22 +13,32 @@ import { ISourceMapSupportService } from './types';
 
 @injectable()
 export class SourceMapSupportService implements ISourceMapSupportService {
-    constructor(@inject(ICommandManager) private readonly commandManager: ICommandManager,
+    constructor(
+        @inject(ICommandManager) private readonly commandManager: ICommandManager,
         @inject(IDisposableRegistry) private readonly disposables: IDisposableRegistry,
         @inject(IConfigurationService) private readonly configurationService: IConfigurationService,
-        @inject(IApplicationShell) private readonly shell: IApplicationShell) {
-
-    }
+        @inject(IApplicationShell) private readonly shell: IApplicationShell
+    ) {}
     public register(): void {
-        this.disposables.push(this.commandManager.registerCommand(Commands.Enable_SourceMap_Support, this.onEnable, this));
+        this.disposables.push(
+            this.commandManager.registerCommand(Commands.Enable_SourceMap_Support, this.onEnable, this)
+        );
     }
     public async enable(): Promise<void> {
-        await this.configurationService.updateSetting('diagnostics.sourceMapsEnabled', true, undefined, ConfigurationTarget.Global);
+        await this.configurationService.updateSetting(
+            'diagnostics.sourceMapsEnabled',
+            true,
+            undefined,
+            ConfigurationTarget.Global
+        );
         await this.commandManager.executeCommand('workbench.action.reloadWindow');
     }
     protected async onEnable(): Promise<void> {
         const enableSourceMapsAndReloadVSC = Diagnostics.enableSourceMapsAndReloadVSC();
-        const selection = await this.shell.showWarningMessage(Diagnostics.warnBeforeEnablingSourceMaps(), enableSourceMapsAndReloadVSC);
+        const selection = await this.shell.showWarningMessage(
+            Diagnostics.warnBeforeEnablingSourceMaps(),
+            enableSourceMapsAndReloadVSC
+        );
         if (selection === enableSourceMapsAndReloadVSC) {
             await this.enable();
         }

@@ -50,13 +50,17 @@ suite('Localization', () => {
         localeFiles.push(filename);
     }
 
-    test('keys', done => {
+    test('keys', (done) => {
         const val = localize.LanguageService.bannerMessage();
-        assert.equal(val, 'Can you please take 2 minutes to tell us how the Python Language Server is working for you?', 'LanguageService string doesnt match');
+        assert.equal(
+            val,
+            'Can you please take 2 minutes to tell us how the Python Language Server is working for you?',
+            'LanguageService string doesnt match'
+        );
         done();
     });
 
-    test('keys italian', done => {
+    test('keys italian', (done) => {
         // Force a config change
         setLocale('it');
 
@@ -65,7 +69,7 @@ suite('Localization', () => {
         done();
     });
 
-    test('key found for locale', done => {
+    test('key found for locale', (done) => {
         addLocale('spam', {
             'debug.selectConfigurationTitle': '???',
             'Common.gotIt': '!!!'
@@ -80,7 +84,7 @@ suite('Localization', () => {
         done();
     });
 
-    test('key not found for locale (default used)', done => {
+    test('key not found for locale (default used)', (done) => {
         addLocale('spam', {
             'debug.selectConfigurationTitle': '???'
         });
@@ -92,7 +96,7 @@ suite('Localization', () => {
         done();
     });
 
-    test('keys exist', done => {
+    test('keys exist', (done) => {
         // Read in the JSON object for the package.nls.json
         const nlsCollection = getDefaultCollection();
 

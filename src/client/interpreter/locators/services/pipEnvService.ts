@@ -5,12 +5,21 @@ import { inject, injectable } from 'inversify';
 import * as path from 'path';
 import { Uri } from 'vscode';
 import { IApplicationShell, IWorkspaceService } from '../../../common/application/types';
-import { traceError } from '../../../common/logger';
+import { traceError, traceWarning } from '../../../common/logger';
 import { IFileSystem, IPlatformService } from '../../../common/platform/types';
 import { IProcessServiceFactory } from '../../../common/process/types';
-import { IConfigurationService, ICurrentProcess, ILogger } from '../../../common/types';
+import { IConfigurationService, ICurrentProcess } from '../../../common/types';
+import { StopWatch } from '../../../common/utils/stopWatch';
 import { IServiceContainer } from '../../../ioc/types';
-import { IInterpreterHelper, InterpreterType, IPipEnvService, PythonInterpreter } from '../../contracts';
+import { sendTelemetryEvent } from '../../../telemetry';
+import { EventName } from '../../../telemetry/constants';
+import {
+    GetInterpreterLocatorOptions,
+    IInterpreterHelper,
+    InterpreterType,
+    IPipEnvService,
+    PythonInterpreter
+} from '../../contracts';
 import { IPipEnvServiceHelper } from '../types';
 import { CacheableLocatorService } from './cacheableLocatorService';
 
@@ -22,7 +31,6 @@ export class PipEnvService extends CacheableLocatorService implements IPipEnvSer
     private readonly processServiceFactory: IProcessServiceFactory;
     private readonly workspace: IWorkspaceService;
     private readonly fs: IFileSystem;
-    private readonly logger: ILogger;
     private readonly configService: IConfigurationService;
     private readonly pipEnvServiceHelper: IPipEnvServiceHelper;
 
@@ -32,13 +40,18 @@ export class PipEnvService extends CacheableLocatorService implements IPipEnvSer
         this.processServiceFactory = this.serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory);
         this.workspace = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
         this.fs = this.serviceContainer.get<IFileSystem>(IFileSystem);
-        this.logger = this.serviceContainer.get<ILogger>(ILogger);
         this.configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
         this.pipEnvServiceHelper = this.serviceContainer.get<IPipEnvServiceHelper>(IPipEnvServiceHelper);
     }
+
     // tslint:disable-next-line:no-empty
     public dispose() {}
+
     public async isRelatedPipEnvironment(dir: string, pythonPath: string): Promise<boolean> {
+        if (!this.didTriggerInterpreterSuggestions) {
+            return false;
+        }
+
         // In PipEnv, the name of the cwd is used as a prefix in the virtual env.
         if (pythonPath.indexOf(`${path.sep}${path.basename(dir)}-`) === -1) {
             return false;
@@ -48,17 +61,37 @@ export class PipEnvService extends CacheableLocatorService implements IPipEnvSer
     }
 
     public get executable(): string {
-        return this.configService.getSettings().pipenvPath;
+        return this.didTriggerInterpreterSuggestions ? this.configService.getSettings().pipenvPath : '';
+    }
+
+    public async getInterpreters(resource?: Uri, options?: GetInterpreterLocatorOptions): Promise<PythonInterpreter[]> {
+        if (!this.didTriggerInterpreterSuggestions) {
+            return [];
+        }
+
+        const stopwatch = new StopWatch();
+        const startDiscoveryTime = stopwatch.elapsedTime;
+
+        const interpreters = await super.getInterpreters(resource, options);
+
+        const discoveryDuration = stopwatch.elapsedTime - startDiscoveryTime;
+        sendTelemetryEvent(EventName.PIPENV_INTERPRETER_DISCOVERY, discoveryDuration);
+
+        return interpreters;
     }
 
     protected getInterpretersImplementation(resource?: Uri): Promise<PythonInterpreter[]> {
+        if (!this.didTriggerInterpreterSuggestions) {
+            return Promise.resolve([]);
+        }
+
         const pipenvCwd = this.getPipenvWorkingDirectory(resource);
         if (!pipenvCwd) {
             return Promise.resolve([]);
         }
 
         return this.getInterpreterFromPipenv(pipenvCwd)
-            .then(item => (item ? [item] : []))
+            .then((item) => (item ? [item] : []))
             .catch(() => []);
     }
 
@@ -127,6 +160,7 @@ export class PipEnvService extends CacheableLocatorService implements IPipEnvSer
             }
         }
     }
+
     private async checkIfPipFileExists(cwd: string): Promise<boolean> {
         const currentProcess = this.serviceContainer.get<ICurrentProcess>(ICurrentProcess);
         const pipFileName = currentProcess.env[pipEnvFileNameVariable];
@@ -163,10 +197,8 @@ export class PipEnvService extends CacheableLocatorService implements IPipEnvSer
             enviromentVariableValues[platformService.pathVariableName] =
                 currentProc.env[platformService.pathVariableName];
 
-            this.logger.logWarning('Error in invoking PipEnv', error);
-            this.logger.logWarning(
-                `Relevant Environment Variables ${JSON.stringify(enviromentVariableValues, undefined, 4)}`
-            );
+            traceWarning('Error in invoking PipEnv', error);
+            traceWarning(`Relevant Environment Variables ${JSON.stringify(enviromentVariableValues, undefined, 4)}`);
         }
     }
 }

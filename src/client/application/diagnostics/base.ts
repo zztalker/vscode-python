@@ -15,10 +15,15 @@ import { DiagnosticScope, IDiagnostic, IDiagnosticFilterService, IDiagnosticsSer
 
 @injectable()
 export abstract class BaseDiagnostic implements IDiagnostic {
-    constructor(public readonly code: DiagnosticCodes, public readonly message: string,
-        public readonly severity: DiagnosticSeverity, public readonly scope: DiagnosticScope,
+    constructor(
+        public readonly code: DiagnosticCodes,
+        public readonly message: string,
+        public readonly severity: DiagnosticSeverity,
+        public readonly scope: DiagnosticScope,
         public readonly resource: Resource,
-        public readonly invokeHandler: 'always' | 'default' = 'default') { }
+        public readonly invokeHandler: 'always' | 'default' = 'default',
+        public readonly shouldShowPrompt = true
+    ) {}
 }
 
 @injectable()
@@ -42,7 +47,7 @@ export abstract class BaseDiagnosticsService implements IDiagnosticsService, IDi
         if (diagnostics.length === 0) {
             return;
         }
-        const diagnosticsToHandle = diagnostics.filter(item => {
+        const diagnosticsToHandle = diagnostics.filter((item) => {
             if (item.invokeHandler && item.invokeHandler === 'always') {
                 return true;
             }
@@ -57,7 +62,7 @@ export abstract class BaseDiagnosticsService implements IDiagnosticsService, IDi
     }
     public async canHandle(diagnostic: IDiagnostic): Promise<boolean> {
         sendTelemetryEvent(EventName.DIAGNOSTICS_MESSAGE, undefined, { code: diagnostic.code });
-        return this.supportedDiagnosticCodes.filter(item => item === diagnostic.code).length > 0;
+        return this.supportedDiagnosticCodes.filter((item) => item === diagnostic.code).length > 0;
     }
     protected abstract onHandle(diagnostics: IDiagnostic[]): Promise<void>;
     /**
@@ -75,6 +80,8 @@ export abstract class BaseDiagnosticsService implements IDiagnosticsService, IDi
         }
         const workspace = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
         const workspaceFolder = diagnostic.resource ? workspace.getWorkspaceFolder(diagnostic.resource) : undefined;
-        return `${diagnostic.code}dbe75733-0407-4124-a1b2-ca769dc30523${workspaceFolder ? workspaceFolder.uri.fsPath : ''}`;
+        return `${diagnostic.code}dbe75733-0407-4124-a1b2-ca769dc30523${
+            workspaceFolder ? workspaceFolder.uri.fsPath : ''
+        }`;
     }
 }

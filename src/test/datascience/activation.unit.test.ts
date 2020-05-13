@@ -8,57 +8,84 @@ import { EventEmitter } from 'vscode';
 import { IExtensionSingleActivationService } from '../../client/activation/types';
 import { PythonExecutionFactory } from '../../client/common/process/pythonExecutionFactory';
 import { IPythonExecutionFactory } from '../../client/common/process/types';
+import { sleep } from '../../client/common/utils/async';
 import { Activation } from '../../client/datascience/activation';
-import { PythonDaemonModule } from '../../client/datascience/constants';
+import { JupyterDaemonModule } from '../../client/datascience/constants';
+import { ActiveEditorContextService } from '../../client/datascience/context/activeEditorContext';
 import { NativeEditor } from '../../client/datascience/interactive-ipynb/nativeEditor';
 import { NativeEditorProvider } from '../../client/datascience/interactive-ipynb/nativeEditorProvider';
-import { INotebookEditor, INotebookEditorProvider } from '../../client/datascience/types';
-import { IInterpreterService, PythonInterpreter } from '../../client/interpreter/contracts';
-import { InterpreterService } from '../../client/interpreter/interpreterService';
-import { sleep } from '../core';
-
-// tslint:disable: no-any
+import { JupyterInterpreterService } from '../../client/datascience/jupyter/interpreter/jupyterInterpreterService';
+import { KernelDaemonPreWarmer } from '../../client/datascience/kernel-launcher/kernelDaemonPreWarmer';
+import {
+    INotebookAndInteractiveWindowUsageTracker,
+    INotebookEditor,
+    INotebookEditorProvider
+} from '../../client/datascience/types';
+import { PythonInterpreter } from '../../client/interpreter/contracts';
+import { FakeClock } from '../common';
+import { createPythonInterpreter } from '../utils/interpreters';
 
 suite('Data Science - Activation', () => {
     let activator: IExtensionSingleActivationService;
-    let notebookProvider: INotebookEditorProvider;
-    let interpreterService: IInterpreterService;
+    let notebookEditorProvider: INotebookEditorProvider;
+    let jupyterInterpreterService: JupyterInterpreterService;
     let executionFactory: IPythonExecutionFactory;
     let openedEventEmitter: EventEmitter<INotebookEditor>;
-    let interpreterEventEmitter: EventEmitter<void>;
+    let interpreterEventEmitter: EventEmitter<PythonInterpreter>;
+    let contextService: ActiveEditorContextService;
+    let fakeTimer: FakeClock;
+    const interpreter = createPythonInterpreter();
 
     setup(async () => {
+        fakeTimer = new FakeClock();
         openedEventEmitter = new EventEmitter<INotebookEditor>();
-        interpreterEventEmitter = new EventEmitter<void>();
+        interpreterEventEmitter = new EventEmitter<PythonInterpreter>();
+        const tracker = mock<INotebookAndInteractiveWindowUsageTracker>();
 
-        notebookProvider = mock(NativeEditorProvider);
-        interpreterService = mock(InterpreterService);
+        notebookEditorProvider = mock(NativeEditorProvider);
+        jupyterInterpreterService = mock(JupyterInterpreterService);
         executionFactory = mock(PythonExecutionFactory);
-        when(notebookProvider.onDidOpenNotebookEditor).thenReturn(openedEventEmitter.event);
-        when(interpreterService.onDidChangeInterpreter).thenReturn(interpreterEventEmitter.event);
+        contextService = mock(ActiveEditorContextService);
+        const daemonPool = mock(KernelDaemonPreWarmer);
+        when(notebookEditorProvider.onDidOpenNotebookEditor).thenReturn(openedEventEmitter.event);
+        when(jupyterInterpreterService.onDidChangeInterpreter).thenReturn(interpreterEventEmitter.event);
         when(executionFactory.createDaemon(anything())).thenResolve();
-
-        activator = new Activation(instance(notebookProvider), instance(interpreterService), instance(executionFactory), []);
+        when(contextService.activate()).thenResolve();
+        when(daemonPool.activate(anything())).thenResolve();
+        activator = new Activation(
+            instance(notebookEditorProvider),
+            instance(jupyterInterpreterService),
+            instance(executionFactory),
+            [],
+            instance(contextService),
+            instance(daemonPool),
+            instance(tracker)
+        );
+        when(jupyterInterpreterService.getSelectedInterpreter()).thenResolve(interpreter);
+        when(jupyterInterpreterService.getSelectedInterpreter(anything())).thenResolve(interpreter);
+        when(jupyterInterpreterService.setInitialInterpreter()).thenResolve(interpreter);
         await activator.activate();
     });
-
-    async function testCreatingDaemonWhenOpeningANotebook(){
-        const notebook = mock(NativeEditor);
-        const interpreter = ({ path: 'MY_PY' } as any) as PythonInterpreter;
-
-        when(interpreterService.getActiveInterpreter(undefined)).thenResolve(interpreter);
+    teardown(() => fakeTimer.uninstall());
+    async function testCreatingDaemonWhenOpeningANotebook() {
+        fakeTimer.install();
+        const notebook: INotebookEditor = mock(NativeEditor);
 
         // Open a notebook, (fire the event).
         openedEventEmitter.fire(notebook);
 
-        // Wait for deounce to complete.
-        await sleep(1000);
+        // Wait for debounce to complete.
+        await fakeTimer.wait();
 
-        verify(interpreterService.getActiveInterpreter(undefined)).once();
-        verify(executionFactory.createDaemon(deepEqual({ daemonModule: PythonDaemonModule, pythonPath: interpreter.path }))).once();
+        verify(executionFactory.createDaemon(anything())).once();
+        verify(
+            executionFactory.createDaemon(
+                deepEqual({ daemonModule: JupyterDaemonModule, pythonPath: interpreter.path })
+            )
+        ).once();
     }
 
-    test('Create a daemon when a notebook is opened', async () => testCreatingDaemonWhenOpeningANotebook);
+    test('Create a daemon when a notebook is opened', async () => testCreatingDaemonWhenOpeningANotebook());
 
     test('Create a daemon when changing interpreter after a notebook has beeen opened', async () => {
         await testCreatingDaemonWhenOpeningANotebook();
@@ -66,20 +93,22 @@ suite('Data Science - Activation', () => {
         // Trigger changes to interpreter.
         interpreterEventEmitter.fire();
 
-        // Wait for deounce to complete.
-        await sleep(1000);
+        // Wait for debounce to complete.
+        await fakeTimer.wait();
 
-        verify(interpreterService.getActiveInterpreter(undefined)).twice();
-        verify(executionFactory.createDaemon(deepEqual({ daemonModule: PythonDaemonModule, pythonPath: 'MY_PY' }))).twice();
-    }).timeout(3_000);
+        verify(
+            executionFactory.createDaemon(
+                deepEqual({ daemonModule: JupyterDaemonModule, pythonPath: interpreter.path })
+            )
+        ).twice();
+    });
     test('Changing interpreter without opening a notebook does not result in a daemon being created', async () => {
         // Trigger changes to interpreter.
         interpreterEventEmitter.fire();
 
-        // Wait for deounce to complete.
-        await sleep(1000);
+        // Assume a debounce is required and wait.
+        await sleep(10);
 
-        verify(interpreterService.getActiveInterpreter(anything())).never();
         verify(executionFactory.createDaemon(anything())).never();
-    }).timeout(3_000);
+    });
 });

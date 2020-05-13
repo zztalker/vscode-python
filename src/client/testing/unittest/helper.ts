@@ -1,4 +1,3 @@
-
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
@@ -30,8 +29,8 @@ export class UnitTestHelper implements IUnitTestHelper {
         const testIds: string[] = [];
         if (testsToRun && testsToRun.testFolder) {
             // Get test ids of files in these folders.
-            testsToRun.testFolder.forEach(folder => {
-                tests.testFiles.forEach(f => {
+            testsToRun.testFolder.forEach((folder) => {
+                tests.testFiles.forEach((f) => {
                     if (f.fullPath.startsWith(folder.name)) {
                         testIds.push(f.nameToRun);
                     }
@@ -39,13 +38,13 @@ export class UnitTestHelper implements IUnitTestHelper {
             });
         }
         if (testsToRun && testsToRun.testFile) {
-            testIds.push(...testsToRun.testFile.map(f => f.nameToRun));
+            testIds.push(...testsToRun.testFile.map((f) => f.nameToRun));
         }
         if (testsToRun && testsToRun.testSuite) {
-            testIds.push(...testsToRun.testSuite.map(f => f.nameToRun));
+            testIds.push(...testsToRun.testSuite.map((f) => f.nameToRun));
         }
         if (testsToRun && testsToRun.testFunction) {
-            testIds.push(...testsToRun.testFunction.map(f => f.nameToRun));
+            testIds.push(...testsToRun.testFunction.map((f) => f.nameToRun));
         }
         return testIds;
     }

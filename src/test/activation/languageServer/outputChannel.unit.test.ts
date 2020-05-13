@@ -26,7 +26,7 @@ suite('Language Server Output Channel', () => {
 
     test('Create output channel if one does not exist before and return it', async () => {
         appShell
-            .setup(a => a.createOutputChannel(OutputChannelNames.languageServer()))
+            .setup((a) => a.createOutputChannel(OutputChannelNames.languageServer()))
             .returns(() => output.object)
             .verifiable(TypeMoq.Times.once());
         const channel = languageServerOutputChannel.channel;
@@ -37,7 +37,7 @@ suite('Language Server Output Channel', () => {
     test('Do not create output channel if one already exists', async () => {
         languageServerOutputChannel.output = output.object;
         appShell
-            .setup(a => a.createOutputChannel(TypeMoq.It.isAny()))
+            .setup((a) => a.createOutputChannel(TypeMoq.It.isAny()))
             .returns(() => output.object)
             .verifiable(TypeMoq.Times.never());
         const channel = languageServerOutputChannel.channel;
@@ -46,18 +46,21 @@ suite('Language Server Output Channel', () => {
     });
     test('Register Command to display output panel', async () => {
         appShell
-            .setup(a => a.createOutputChannel(TypeMoq.It.isAny()))
+            .setup((a) => a.createOutputChannel(TypeMoq.It.isAny()))
             .returns(() => output.object)
             .verifiable(TypeMoq.Times.once());
         commandManager
-            .setup(c => c.executeCommand(TypeMoq.It.isValue('setContext'),
-                TypeMoq.It.isValue('python.hasLanguageServerOutputChannel'),
-                TypeMoq.It.isValue(true)))
+            .setup((c) =>
+                c.executeCommand(
+                    TypeMoq.It.isValue('setContext'),
+                    TypeMoq.It.isValue('python.hasLanguageServerOutputChannel'),
+                    TypeMoq.It.isValue(true)
+                )
+            )
             .returns(() => Promise.resolve())
             .verifiable(TypeMoq.Times.once());
         commandManager
-            .setup(c => c.registerCommand(TypeMoq.It.isValue('python.viewLanguageServerOutput'),
-                TypeMoq.It.isAny()))
+            .setup((c) => c.registerCommand(TypeMoq.It.isValue('python.viewLanguageServerOutput'), TypeMoq.It.isAny()))
             .verifiable(TypeMoq.Times.once());
 
         // Doesn't matter how many times we access channel propery.
@@ -74,23 +77,24 @@ suite('Language Server Output Channel', () => {
     test('Display panel when invoking command python.viewLanguageServerOutput', async () => {
         let cmdCallback: Function | undefined;
         appShell
-            .setup(a => a.createOutputChannel(TypeMoq.It.isAny()))
+            .setup((a) => a.createOutputChannel(TypeMoq.It.isAny()))
             .returns(() => output.object)
             .verifiable(TypeMoq.Times.once());
         commandManager
-            .setup(c => c.executeCommand(TypeMoq.It.isValue('setContext'),
-                TypeMoq.It.isValue('python.hasLanguageServerOutputChannel'),
-                TypeMoq.It.isValue(true)))
+            .setup((c) =>
+                c.executeCommand(
+                    TypeMoq.It.isValue('setContext'),
+                    TypeMoq.It.isValue('python.hasLanguageServerOutputChannel'),
+                    TypeMoq.It.isValue(true)
+                )
+            )
             .returns(() => Promise.resolve())
             .verifiable(TypeMoq.Times.once());
         commandManager
-            .setup(c => c.registerCommand(TypeMoq.It.isValue('python.viewLanguageServerOutput'),
-                TypeMoq.It.isAny()))
-            .callback((_: string, callback: Function) => cmdCallback = callback)
+            .setup((c) => c.registerCommand(TypeMoq.It.isValue('python.viewLanguageServerOutput'), TypeMoq.It.isAny()))
+            .callback((_: string, callback: Function) => (cmdCallback = callback))
             .verifiable(TypeMoq.Times.once());
-        output
-            .setup(o => o.show(true))
-            .verifiable(TypeMoq.Times.never());
+        output.setup((o) => o.show(true)).verifiable(TypeMoq.Times.never());
         // Doesn't matter how many times we access channel propery.
         let channel = languageServerOutputChannel.channel;
         channel = languageServerOutputChannel.channel;
@@ -106,9 +110,7 @@ suite('Language Server Output Channel', () => {
 
         // Confirm panel is displayed when command handler is invoked.
         output.reset();
-        output
-            .setup(o => o.show(true))
-            .verifiable(TypeMoq.Times.once());
+        output.setup((o) => o.show(true)).verifiable(TypeMoq.Times.once());
 
         // Invoke callback.
         cmdCallback!();

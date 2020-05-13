@@ -18,19 +18,21 @@ export class Generator implements Disposable {
     public get enabled(): boolean {
         return this.pythonSettings.workspaceSymbols.enabled;
     }
-    constructor(public readonly workspaceFolder: Uri,
+    constructor(
+        public readonly workspaceFolder: Uri,
         private readonly output: OutputChannel,
         private readonly appShell: IApplicationShell,
         private readonly fs: IFileSystem,
         private readonly processServiceFactory: IProcessServiceFactory,
-        configurationService: IConfigurationService) {
+        configurationService: IConfigurationService
+    ) {
         this.disposables = [];
         this.optionsFile = path.join(EXTENSION_ROOT_DIR, 'resources', 'ctagOptions');
         this.pythonSettings = configurationService.getSettings(workspaceFolder);
     }
 
     public dispose() {
-        this.disposables.forEach(d => d.dispose());
+        this.disposables.forEach((d) => d.dispose());
     }
     public async generateWorkspaceTags(): Promise<void> {
         if (!this.pythonSettings.workspaceSymbols.enabled) {
@@ -40,7 +42,7 @@ export class Generator implements Disposable {
     }
     private buildCmdArgs(): string[] {
         const exclusions = this.pythonSettings.workspaceSymbols.exclusionPatterns;
-        const excludes = exclusions.length === 0 ? [] : exclusions.map(pattern => `--exclude=${pattern}`);
+        const excludes = exclusions.length === 0 ? [] : exclusions.map((pattern) => `--exclude=${pattern}`);
 
         return [`--options=${this.optionsFile}`, '--languages=Python'].concat(excludes);
     }
@@ -58,7 +60,7 @@ export class Generator implements Disposable {
             outputFile = path.basename(outputFile);
         }
         const outputDir = path.dirname(outputFile);
-        if (!await this.fs.directoryExists(outputDir)) {
+        if (!(await this.fs.directoryExists(outputDir))) {
             await this.fs.createDirectory(outputDir);
         }
         args.push('-o', outputFile, '.');
@@ -69,12 +71,13 @@ export class Generator implements Disposable {
                 const processService = await this.processServiceFactory.create();
                 const result = processService.execObservable(cmd, args, { cwd: source.directory });
                 let errorMsg = '';
-                result.out.subscribe(output => {
-                    if (output.source === 'stderr') {
-                        errorMsg += output.out;
-                    }
-                    this.output.append(output.out);
-                },
+                result.out.subscribe(
+                    (output) => {
+                        if (output.source === 'stderr') {
+                            errorMsg += output.out;
+                        }
+                        this.output.append(output.out);
+                    },
                     reject,
                     () => {
                         if (errorMsg.length > 0) {
@@ -82,7 +85,8 @@ export class Generator implements Disposable {
                         } else {
                             resolve();
                         }
-                    });
+                    }
+                );
             } catch (ex) {
                 reject(ex);
             }

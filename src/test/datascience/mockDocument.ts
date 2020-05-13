@@ -66,6 +66,15 @@ export class MockDocument implements TextDocument {
         this._onSave = onSave;
     }
 
+    public setContent(contents: string) {
+        this._contents = contents;
+        this._lines = this.createLines();
+    }
+
+    public addContent(contents: string) {
+        this.setContent(`${this._contents}\n${contents}`);
+    }
+
     public forceUntitled(): void {
         this._isUntitled = true;
         this._isDirty = true;
@@ -136,10 +145,11 @@ export class MockDocument implements TextDocument {
         if (!regexp) {
             // use default when custom-regexp isn't provided
             regexp = DefaultWordPattern;
-
         } else if (regExpLeadsToEndlessLoop(regexp)) {
             // use default when custom-regexp is bad
-            console.warn(`[getWordRangeAtPosition]: ignoring custom regexp '${regexp.source}' because it matches the empty string.`);
+            console.warn(
+                `[getWordRangeAtPosition]: ignoring custom regexp '${regexp.source}' because it matches the empty string.`
+            );
             regexp = DefaultWordPattern;
         }
 
@@ -181,12 +191,19 @@ export class MockDocument implements TextDocument {
     }
 
     private createTextLine(line: string, index: number, prevLine: MockLine | undefined): MockLine {
-        return new MockLine(line, index, prevLine ? prevLine.offset + prevLine.rangeIncludingLineBreak.end.character : 0);
+        return new MockLine(
+            line,
+            index,
+            prevLine ? prevLine.offset + prevLine.rangeIncludingLineBreak.end.character : 0
+        );
     }
 
     private convertToOffset(pos: Position): number {
         if (pos.line < this._lines.length) {
-            return this._lines[pos.line].offset + Math.min(this._lines[pos.line].rangeIncludingLineBreak.end.character, pos.character);
+            return (
+                this._lines[pos.line].offset +
+                Math.min(this._lines[pos.line].rangeIncludingLineBreak.end.character, pos.character)
+            );
         }
         return this._contents.length;
     }

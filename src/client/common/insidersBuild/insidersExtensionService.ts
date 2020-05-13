@@ -3,12 +3,13 @@
 
 'use strict';
 
+import '../extensions';
+
 import { inject, injectable, named } from 'inversify';
 import { IExtensionSingleActivationService } from '../../../client/activation/types';
 import { IServiceContainer } from '../../ioc/types';
 import { IApplicationEnvironment, ICommandManager } from '../application/types';
 import { Commands } from '../constants';
-import '../extensions';
 import { IExtensionBuildInstaller, INSIDERS_INSTALLER } from '../installer/types';
 import { traceDecorators } from '../logger';
 import { IDisposable, IDisposableRegistry } from '../types';
@@ -22,9 +23,11 @@ export class InsidersExtensionService implements IExtensionSingleActivationServi
         @inject(IApplicationEnvironment) private readonly appEnvironment: IApplicationEnvironment,
         @inject(ICommandManager) private readonly cmdManager: ICommandManager,
         @inject(IServiceContainer) private readonly serviceContainer: IServiceContainer,
-        @inject(IExtensionBuildInstaller) @named(INSIDERS_INSTALLER) private readonly insidersInstaller: IExtensionBuildInstaller,
+        @inject(IExtensionBuildInstaller)
+        @named(INSIDERS_INSTALLER)
+        private readonly insidersInstaller: IExtensionBuildInstaller,
         @inject(IDisposableRegistry) public readonly disposables: IDisposable[]
-    ) { }
+    ) {}
 
     public async activate() {
         this.registerCommandsAndHandlers();
@@ -32,21 +35,26 @@ export class InsidersExtensionService implements IExtensionSingleActivationServi
     }
 
     public registerCommandsAndHandlers(): void {
-        this.disposables.push(this.extensionChannelService.onDidChannelChange(channel => {
-            return this.handleChannel(channel, true);
-        }));
-        this.disposables.push(this.cmdManager.registerCommand(
-            Commands.SwitchOffInsidersChannel,
-            () => this.extensionChannelService.updateChannel('off')
-        ));
-        this.disposables.push(this.cmdManager.registerCommand(
-            Commands.SwitchToInsidersDaily,
-            () => this.extensionChannelService.updateChannel('daily')
-        ));
-        this.disposables.push(this.cmdManager.registerCommand(
-            Commands.SwitchToInsidersWeekly,
-            () => this.extensionChannelService.updateChannel('weekly')
-        ));
+        this.disposables.push(
+            this.extensionChannelService.onDidChannelChange((channel) => {
+                return this.handleChannel(channel, true);
+            })
+        );
+        this.disposables.push(
+            this.cmdManager.registerCommand(Commands.SwitchOffInsidersChannel, () =>
+                this.extensionChannelService.updateChannel('off')
+            )
+        );
+        this.disposables.push(
+            this.cmdManager.registerCommand(Commands.SwitchToInsidersDaily, () =>
+                this.extensionChannelService.updateChannel('daily')
+            )
+        );
+        this.disposables.push(
+            this.cmdManager.registerCommand(Commands.SwitchToInsidersWeekly, () =>
+                this.extensionChannelService.updateChannel('weekly')
+            )
+        );
     }
 
     public async initChannel() {
@@ -55,8 +63,7 @@ export class InsidersExtensionService implements IExtensionSingleActivationServi
 
         const alreadyHandled = await this.handleEdgeCases(channel, isDefault);
         if (!alreadyHandled) {
-            this.handleChannel(channel)
-                .ignoreErrors();
+            this.handleChannel(channel).ignoreErrors();
         }
     }
 
@@ -77,14 +84,9 @@ export class InsidersExtensionService implements IExtensionSingleActivationServi
      * Choose what to do in miscellaneous situations
      * @returns `true` if install channel is handled in these miscellaneous cases, `false` if install channel needs further handling
      */
-    public async handleEdgeCases(
-        installChannel: ExtensionChannels,
-        isDefault: boolean
-    ): Promise<boolean> {
+    public async handleEdgeCases(installChannel: ExtensionChannels, isDefault: boolean): Promise<boolean> {
         // When running UI Tests we might want to disable these prompts.
         if (process.env.UITEST_DISABLE_INSIDERS) {
-            return true;
-        } else if (await this.promptToEnrollBackToInsidersIfApplicable(installChannel, isDefault)) {
             return true;
         } else if (await this.promptToInstallInsidersIfApplicable(isDefault)) {
             return true;
@@ -96,35 +98,10 @@ export class InsidersExtensionService implements IExtensionSingleActivationServi
     }
 
     /**
-     * If previously in the Insiders Program but not now, request them enroll in the program again
-     * @returns `true` if prompt is shown, `false` otherwise
-     */
-    private async promptToEnrollBackToInsidersIfApplicable(
-        installChannel: ExtensionChannels,
-        isDefault: boolean
-    ): Promise<boolean> {
-        if (installChannel !== 'off') {
-            return false;
-        }
-        if (this.insidersPrompt.hasUserBeenAskedToOptInAgain.value) {
-            return false;
-        }
-        if (isDefault) {
-            return false;
-        }
-
-        // If install channel is explicitly set to off, it means that user has used the insiders program before
-        await this.insidersPrompt.promptToEnrollBackToInsiders();
-        return true;
-    }
-
-    /**
      * Only when using VSC insiders and if they have not been notified before (usually the first session), notify to enroll into the insiders program
      * @returns `true` if prompt is shown, `false` otherwise
      */
-    private async promptToInstallInsidersIfApplicable(
-        isDefault: boolean
-    ): Promise<boolean> {
+    private async promptToInstallInsidersIfApplicable(isDefault: boolean): Promise<boolean> {
         if (this.appEnvironment.channel !== 'insiders') {
             return false;
         }
@@ -143,9 +120,7 @@ export class InsidersExtensionService implements IExtensionSingleActivationServi
      * When install channel is not in sync with what is installed, resolve discrepency by setting channel to "off"
      * @returns `true` if channel is set to off, `false` otherwise
      */
-    private async setInsidersChannelToOffIfApplicable(
-        installChannel: ExtensionChannels
-    ): Promise<boolean> {
+    private async setInsidersChannelToOffIfApplicable(installChannel: ExtensionChannels): Promise<boolean> {
         if (installChannel === 'off') {
             return false;
         }

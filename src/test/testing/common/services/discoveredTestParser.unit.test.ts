@@ -33,13 +33,15 @@ suite('Services - Discovered test parser', () => {
             testFunctions: [],
             testSuites: []
         };
-        const discoveredTests = [{
-            root: 'path/to/testDataRoot'
-        }];
+        const discoveredTests = [
+            {
+                root: 'path/to/testDataRoot'
+            }
+        ];
         const buildChildren = sinon.stub(TestDiscoveredTestParser.prototype, 'buildChildren');
         buildChildren.callsFake(() => undefined);
         workspaceService
-            .setup(w => w.getWorkspaceFolder(typemoq.It.isAny()))
+            .setup((w) => w.getWorkspaceFolder(typemoq.It.isAny()))
             .returns(() => undefined)
             .verifiable(typemoq.Times.once());
         parser = new TestDiscoveredTestParser(workspaceService.object);
@@ -65,24 +67,40 @@ suite('Services - Discovered test parser', () => {
         const expectedTests: Tests = {
             rootTestFolders: [
                 {
-                    name: 'path/to/testDataRoot1', folders: [], time: 0,
-                    testFiles: [], resource: workspaceUri, nameToRun: 'rootId1'
+                    name: 'path/to/testDataRoot1',
+                    folders: [],
+                    time: 0,
+                    testFiles: [],
+                    resource: workspaceUri,
+                    nameToRun: 'rootId1'
                 },
                 {
-                    name: 'path/to/testDataRoot2', folders: [], time: 0,
-                    testFiles: [], resource: workspaceUri, nameToRun: 'rootId2'
+                    name: 'path/to/testDataRoot2',
+                    folders: [],
+                    time: 0,
+                    testFiles: [],
+                    resource: workspaceUri,
+                    nameToRun: 'rootId2'
                 }
             ],
             summary: { errors: 0, failures: 0, passed: 0, skipped: 0 },
             testFiles: [],
             testFolders: [
                 {
-                    name: 'path/to/testDataRoot1', folders: [], time: 0,
-                    testFiles: [], resource: workspaceUri, nameToRun: 'rootId1'
+                    name: 'path/to/testDataRoot1',
+                    folders: [],
+                    time: 0,
+                    testFiles: [],
+                    resource: workspaceUri,
+                    nameToRun: 'rootId1'
                 },
                 {
-                    name: 'path/to/testDataRoot2', folders: [], time: 0,
-                    testFiles: [], resource: workspaceUri, nameToRun: 'rootId2'
+                    name: 'path/to/testDataRoot2',
+                    folders: [],
+                    time: 0,
+                    testFiles: [],
+                    resource: workspaceUri,
+                    nameToRun: 'rootId2'
                 }
             ],
             testFunctions: [],
@@ -91,7 +109,7 @@ suite('Services - Discovered test parser', () => {
         const buildChildren = sinon.stub(TestDiscoveredTestParser.prototype, 'buildChildren');
         buildChildren.callsFake(() => undefined);
         workspaceService
-            .setup(w => w.getWorkspaceFolder(typemoq.It.isAny()))
+            .setup((w) => w.getWorkspaceFolder(typemoq.It.isAny()))
             .returns(() => workspace as any)
             .verifiable(typemoq.Times.once());
         parser = new TestDiscoveredTestParser(workspaceService.object);

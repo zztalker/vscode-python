@@ -14,7 +14,12 @@ import { IFileSystem, IPlatformService } from '../../../client/common/platform/t
 import { IProcessService, IProcessServiceFactory } from '../../../client/common/process/types';
 import { ITerminalActivationCommandProvider } from '../../../client/common/terminal/types';
 import { ICurrentProcess, IPathUtils } from '../../../client/common/types';
-import { InterpreterType, IPipEnvService } from '../../../client/interpreter/contracts';
+import {
+    IInterpreterLocatorService,
+    InterpreterType,
+    IPipEnvService,
+    PIPENV_SERVICE
+} from '../../../client/interpreter/contracts';
 import { VirtualEnvironmentManager } from '../../../client/interpreter/virtualEnvs';
 import { IServiceContainer } from '../../../client/ioc/types';
 
@@ -42,24 +47,34 @@ suite('Virtual Environment Manager', () => {
         terminalActivation = TypeMoq.Mock.ofType<ITerminalActivationCommandProvider>();
         platformService = TypeMoq.Mock.ofType<IPlatformService>();
 
-        processService.setup(p => (p as any).then).returns(() => undefined);
-        processFactory.setup(p => p.create(TypeMoq.It.isAny())).returns(() => Promise.resolve(processService.object));
-        serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IProcessServiceFactory))).returns(() => processFactory.object);
-        serviceContainer.setup(c => c.get(TypeMoq.It.isValue(ICurrentProcess))).returns(() => process.object);
-        serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IPathUtils))).returns(() => pathUtils.object);
-        serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IFileSystem))).returns(() => fs.object);
-        serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IWorkspaceService))).returns(() => workspace.object);
-        serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IPipEnvService))).returns(() => pipEnvService.object);
-        serviceContainer.setup(c => c.get(TypeMoq.It.isValue(ITerminalActivationCommandProvider), TypeMoq.It.isAny())).returns(() => terminalActivation.object);
-        serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IPlatformService), TypeMoq.It.isAny())).returns(() => platformService.object);
+        processService.setup((p) => (p as any).then).returns(() => undefined);
+        processFactory.setup((p) => p.create(TypeMoq.It.isAny())).returns(() => Promise.resolve(processService.object));
+        serviceContainer
+            .setup((c) => c.get(TypeMoq.It.isValue(IProcessServiceFactory)))
+            .returns(() => processFactory.object);
+        serviceContainer.setup((c) => c.get(TypeMoq.It.isValue(ICurrentProcess))).returns(() => process.object);
+        serviceContainer.setup((c) => c.get(TypeMoq.It.isValue(IPathUtils))).returns(() => pathUtils.object);
+        serviceContainer.setup((c) => c.get(TypeMoq.It.isValue(IFileSystem))).returns(() => fs.object);
+        serviceContainer.setup((c) => c.get(TypeMoq.It.isValue(IWorkspaceService))).returns(() => workspace.object);
+        serviceContainer
+            .setup((c) => c.get(TypeMoq.It.isValue(IInterpreterLocatorService), TypeMoq.It.isValue(PIPENV_SERVICE)))
+            .returns(() => pipEnvService.object);
+        serviceContainer
+            .setup((c) => c.get(TypeMoq.It.isValue(ITerminalActivationCommandProvider), TypeMoq.It.isAny()))
+            .returns(() => terminalActivation.object);
+        serviceContainer
+            .setup((c) => c.get(TypeMoq.It.isValue(IPlatformService), TypeMoq.It.isAny()))
+            .returns(() => platformService.object);
 
         virtualEnvMgr = new VirtualEnvironmentManager(serviceContainer.object);
     });
 
     test('Get PyEnv Root from PYENV_ROOT', async () => {
         process
-            .setup(p => p.env)
-            .returns(() => { return { PYENV_ROOT: 'yes' }; })
+            .setup((p) => p.env)
+            .returns(() => {
+                return { PYENV_ROOT: 'yes' };
+            })
             .verifiable(TypeMoq.Times.once());
 
         const pyenvRoot = await virtualEnvMgr.getPyEnvRoot();
@@ -70,11 +85,13 @@ suite('Virtual Environment Manager', () => {
 
     test('Get PyEnv Root from current PYENV_ROOT', async () => {
         process
-            .setup(p => p.env)
-            .returns(() => { return {}; })
+            .setup((p) => p.env)
+            .returns(() => {
+                return {};
+            })
             .verifiable(TypeMoq.Times.once());
         processService
-            .setup(p => p.exec(TypeMoq.It.isValue('pyenv'), TypeMoq.It.isValue(['root'])))
+            .setup((p) => p.exec(TypeMoq.It.isValue('pyenv'), TypeMoq.It.isValue(['root'])))
             .returns(() => Promise.resolve({ stdout: 'PROC' }))
             .verifiable(TypeMoq.Times.once());
 
@@ -87,15 +104,17 @@ suite('Virtual Environment Manager', () => {
 
     test('Get default PyEnv Root path', async () => {
         process
-            .setup(p => p.env)
-            .returns(() => { return {}; })
+            .setup((p) => p.env)
+            .returns(() => {
+                return {};
+            })
             .verifiable(TypeMoq.Times.once());
         processService
-            .setup(p => p.exec(TypeMoq.It.isValue('pyenv'), TypeMoq.It.isValue(['root'])))
+            .setup((p) => p.exec(TypeMoq.It.isValue('pyenv'), TypeMoq.It.isValue(['root'])))
             .returns(() => Promise.resolve({ stdout: '', stderr: 'err' }))
             .verifiable(TypeMoq.Times.once());
         pathUtils
-            .setup(p => p.home)
+            .setup((p) => p.home)
             .returns(() => 'HOME')
             .verifiable(TypeMoq.Times.once());
         const pyenvRoot = await virtualEnvMgr.getPyEnvRoot();
@@ -109,7 +128,7 @@ suite('Virtual Environment Manager', () => {
         const pythonPath = path.join('a', 'b', 'c', 'python');
         const dir = path.dirname(pythonPath);
 
-        fs.setup(f => f.fileExists(TypeMoq.It.isValue(path.join(dir, 'pyvenv.cfg'))))
+        fs.setup((f) => f.fileExists(TypeMoq.It.isValue(path.join(dir, 'pyvenv.cfg'))))
             .returns(() => Promise.resolve(true))
             .verifiable(TypeMoq.Times.once());
 
@@ -122,7 +141,7 @@ suite('Virtual Environment Manager', () => {
         const pythonPath = path.join('a', 'b', 'c', 'python');
         const dir = path.dirname(pythonPath);
 
-        fs.setup(f => f.fileExists(TypeMoq.It.isValue(path.join(dir, 'pyvenv.cfg'))))
+        fs.setup((f) => f.fileExists(TypeMoq.It.isValue(path.join(dir, 'pyvenv.cfg'))))
             .returns(() => Promise.resolve(false))
             .verifiable(TypeMoq.Times.once());
 
@@ -135,7 +154,8 @@ suite('Virtual Environment Manager', () => {
     test('Get Environment Type, detects pyenv', async () => {
         const pythonPath = path.join('py-env-root', 'b', 'c', 'python');
 
-        process.setup(p => p.env)
+        process
+            .setup((p) => p.env)
             .returns(() => {
                 return { PYENV_ROOT: path.join('py-env-root', 'b') };
             })
@@ -150,7 +170,8 @@ suite('Virtual Environment Manager', () => {
     test('Get Environment Type, does not detect pyenv incorrectly', async () => {
         const pythonPath = path.join('a', 'b', 'c', 'python');
 
-        process.setup(p => p.env)
+        process
+            .setup((p) => p.env)
             .returns(() => {
                 return { PYENV_ROOT: path.join('py-env-root', 'b') };
             })
@@ -165,16 +186,16 @@ suite('Virtual Environment Manager', () => {
     test('Get Environment Type, detects pipenv', async () => {
         const pythonPath = path.join('x', 'b', 'c', 'python');
         workspace
-            .setup(w => w.hasWorkspaceFolders)
+            .setup((w) => w.hasWorkspaceFolders)
             .returns(() => true)
             .verifiable(TypeMoq.Times.atLeastOnce());
         const ws = [{ uri: Uri.file('x') }];
         workspace
-            .setup(w => w.workspaceFolders)
+            .setup((w) => w.workspaceFolders)
             .returns(() => ws as any)
             .verifiable(TypeMoq.Times.atLeastOnce());
         pipEnvService
-            .setup(p => p.isRelatedPipEnvironment(TypeMoq.It.isAny(), TypeMoq.It.isValue(pythonPath)))
+            .setup((p) => p.isRelatedPipEnvironment(TypeMoq.It.isAny(), TypeMoq.It.isValue(pythonPath)))
             .returns(() => Promise.resolve(true))
             .verifiable(TypeMoq.Times.once());
 
@@ -188,16 +209,16 @@ suite('Virtual Environment Manager', () => {
     test('Get Environment Type, does not detect pipenv incorrectly', async () => {
         const pythonPath = path.join('x', 'b', 'c', 'python');
         workspace
-            .setup(w => w.hasWorkspaceFolders)
+            .setup((w) => w.hasWorkspaceFolders)
             .returns(() => true)
             .verifiable(TypeMoq.Times.atLeastOnce());
         const ws = [{ uri: Uri.file('x') }];
         workspace
-            .setup(w => w.workspaceFolders)
+            .setup((w) => w.workspaceFolders)
             .returns(() => ws as any)
             .verifiable(TypeMoq.Times.atLeastOnce());
         pipEnvService
-            .setup(p => p.isRelatedPipEnvironment(TypeMoq.It.isAny(), TypeMoq.It.isValue(pythonPath)))
+            .setup((p) => p.isRelatedPipEnvironment(TypeMoq.It.isAny(), TypeMoq.It.isValue(pythonPath)))
             .returns(() => Promise.resolve(false))
             .verifiable(TypeMoq.Times.once());
 
@@ -213,11 +234,13 @@ suite('Virtual Environment Manager', () => {
         test(`Get Environment Type, detects virtualenv ${testTitleSuffix}`, async () => {
             const pythonPath = path.join('x', 'b', 'c', 'python');
             terminalActivation
-                .setup(t => t.isShellSupported(TypeMoq.It.isAny()))
+                .setup((t) => t.isShellSupported(TypeMoq.It.isAny()))
                 .returns(() => true)
                 .verifiable(TypeMoq.Times.atLeastOnce());
             terminalActivation
-                .setup(t => t.getActivationCommandsForInterpreter!(TypeMoq.It.isValue(pythonPath), TypeMoq.It.isAny()))
+                .setup((t) =>
+                    t.getActivationCommandsForInterpreter!(TypeMoq.It.isValue(pythonPath), TypeMoq.It.isAny())
+                )
                 .returns(() => Promise.resolve(['1']))
                 .verifiable(TypeMoq.Times.atLeastOnce());
 
@@ -230,11 +253,13 @@ suite('Virtual Environment Manager', () => {
         test(`Get Environment Type, does not detect virtualenv incorrectly ${testTitleSuffix}`, async () => {
             const pythonPath = path.join('x', 'b', 'c', 'python');
             terminalActivation
-                .setup(t => t.isShellSupported(TypeMoq.It.isAny()))
+                .setup((t) => t.isShellSupported(TypeMoq.It.isAny()))
                 .returns(() => true)
                 .verifiable(TypeMoq.Times.atLeastOnce());
             terminalActivation
-                .setup(t => t.getActivationCommandsForInterpreter!(TypeMoq.It.isValue(pythonPath), TypeMoq.It.isAny()))
+                .setup((t) =>
+                    t.getActivationCommandsForInterpreter!(TypeMoq.It.isValue(pythonPath), TypeMoq.It.isAny())
+                )
                 .returns(() => Promise.resolve([]))
                 .verifiable(TypeMoq.Times.atLeastOnce());
 
@@ -245,11 +270,13 @@ suite('Virtual Environment Manager', () => {
 
             terminalActivation.reset();
             terminalActivation
-                .setup(t => t.isShellSupported(TypeMoq.It.isAny()))
+                .setup((t) => t.isShellSupported(TypeMoq.It.isAny()))
                 .returns(() => false)
                 .verifiable(TypeMoq.Times.atLeastOnce());
             terminalActivation
-                .setup(t => t.getActivationCommandsForInterpreter!(TypeMoq.It.isValue(pythonPath), TypeMoq.It.isAny()))
+                .setup((t) =>
+                    t.getActivationCommandsForInterpreter!(TypeMoq.It.isValue(pythonPath), TypeMoq.It.isAny())
+                )
                 .returns(() => Promise.resolve([]))
                 .verifiable(TypeMoq.Times.never());
 

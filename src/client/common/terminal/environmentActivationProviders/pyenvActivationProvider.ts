@@ -11,14 +11,16 @@ import { ITerminalActivationCommandProvider, TerminalShellType } from '../types'
 
 @injectable()
 export class PyEnvActivationCommandProvider implements ITerminalActivationCommandProvider {
-    constructor(@inject(IServiceContainer) private readonly serviceContainer: IServiceContainer) { }
+    constructor(@inject(IServiceContainer) private readonly serviceContainer: IServiceContainer) {}
 
     public isShellSupported(_targetShell: TerminalShellType): boolean {
         return true;
     }
 
     public async getActivationCommands(resource: Uri | undefined, _: TerminalShellType): Promise<string[] | undefined> {
-        const interpreter = await this.serviceContainer.get<IInterpreterService>(IInterpreterService).getActiveInterpreter(resource);
+        const interpreter = await this.serviceContainer
+            .get<IInterpreterService>(IInterpreterService)
+            .getActiveInterpreter(resource);
         if (!interpreter || interpreter.type !== InterpreterType.Pyenv || !interpreter.envName) {
             return;
         }
@@ -26,13 +28,17 @@ export class PyEnvActivationCommandProvider implements ITerminalActivationComman
         return [`pyenv shell ${interpreter.envName.toCommandArgument()}`];
     }
 
-    public async getActivationCommandsForInterpreter(pythonPath: string, _targetShell: TerminalShellType): Promise<string[] | undefined> {
-        const interpreter = await this.serviceContainer.get<IInterpreterService>(IInterpreterService).getInterpreterDetails(pythonPath);
+    public async getActivationCommandsForInterpreter(
+        pythonPath: string,
+        _targetShell: TerminalShellType
+    ): Promise<string[] | undefined> {
+        const interpreter = await this.serviceContainer
+            .get<IInterpreterService>(IInterpreterService)
+            .getInterpreterDetails(pythonPath);
         if (!interpreter || interpreter.type !== InterpreterType.Pyenv || !interpreter.envName) {
             return;
         }
 
         return [`pyenv shell ${interpreter.envName.toCommandArgument()}`];
     }
-
 }

@@ -1,14 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 'use strict';
-import {
-    CancellationToken,
-    DiagnosticCollection,
-    Disposable,
-    Event,
-    OutputChannel,
-    TextDocumentContentChangeEvent
-} from 'vscode';
+import { CancellationToken, DiagnosticCollection, Disposable, Event, Hover, OutputChannel } from 'vscode';
 import {
     Code2ProtocolConverter,
     CompletionItem,
@@ -24,7 +17,9 @@ import {
     NotificationHandler0,
     NotificationType,
     NotificationType0,
+    Position,
     Protocol2CodeConverter,
+    Range,
     RequestHandler,
     RequestHandler0,
     RequestType,
@@ -33,63 +28,93 @@ import {
     ServerOptions,
     StateChangeEvent,
     StaticFeature,
+    TextDocumentContentChangeEvent,
     TextDocumentItem,
+    TextDocumentSyncKind,
     Trace,
     VersionedTextDocumentIdentifier
 } from 'vscode-languageclient';
 
+import { LanguageServerType } from '../../client/activation/types';
 import { createDeferred, Deferred } from '../../client/common/utils/async';
+import { IntellisenseLine } from '../../client/datascience/interactive-common/intellisense/intellisenseLine';
 import { noop } from '../core';
-import { MockProtocolConverter } from './mockProtocolConverter';
+import { MockCode2ProtocolConverter } from './mockCode2ProtocolConverter';
+import { MockProtocol2CodeConverter } from './mockProtocol2CodeConverter';
 
 // tslint:disable:no-any unified-signatures
 export class MockLanguageClient extends LanguageClient {
-    private notificationPromise : Deferred<void> | undefined;
-    private contents : string;
+    private notificationPromise: Deferred<void> | undefined;
+    private contents: string;
     private versionId: number | null;
-    private converter: MockProtocolConverter;
+    private code2Protocol: MockCode2ProtocolConverter;
+    private protocol2Code: MockProtocol2CodeConverter;
+    private initResult: InitializeResult;
 
-    public constructor(name: string, serverOptions: ServerOptions, clientOptions: LanguageClientOptions, forceDebug?: boolean) {
+    public constructor(
+        name: string,
+        serverOptions: ServerOptions,
+        clientOptions: LanguageClientOptions,
+        forceDebug?: boolean
+    ) {
         (LanguageClient.prototype as any).checkVersion = noop;
         super(name, serverOptions, clientOptions, forceDebug);
         this.contents = '';
         this.versionId = 0;
-        this.converter = new MockProtocolConverter();
+        this.code2Protocol = new MockCode2ProtocolConverter();
+        this.protocol2Code = new MockProtocol2CodeConverter();
+
+        // Vary our initialize result based on the name
+        if (name === LanguageServerType.Microsoft) {
+            this.initResult = {
+                capabilities: {
+                    textDocumentSync: TextDocumentSyncKind.Incremental
+                }
+            };
+        } else {
+            this.initResult = {
+                capabilities: {
+                    textDocumentSync: TextDocumentSyncKind.Full
+                }
+            };
+        }
     }
-    public waitForNotification() : Promise<void> {
+    public waitForNotification(): Promise<void> {
         this.notificationPromise = createDeferred();
         return this.notificationPromise.promise;
     }
 
     // Returns the current contents of the document being built by the completion provider calls
-    public getDocumentContents() : string {
+    public getDocumentContents(): string {
         return this.contents;
     }
 
-    public getVersionId() : number | null {
+    public getVersionId(): number | null {
         return this.versionId;
     }
 
-    public stop(): Thenable<void> {
+    public stop(): Promise<void> {
         throw new Error('Method not implemented.');
     }
     public registerProposedFeatures(): void {
         throw new Error('Method not implemented.');
     }
     public get initializeResult(): InitializeResult | undefined {
-        throw new Error('Method not implemented.');
+        return this.initResult;
     }
-    public sendRequest<R, E, RO>(type: RequestType0<R, E, RO>, token?: CancellationToken | undefined): Thenable<R>;
-    public sendRequest<P, R, E, RO>(type: RequestType<P, R, E, RO>, params: P, token?: CancellationToken | undefined): Thenable<R>;
-    public sendRequest<R>(method: string, token?: CancellationToken | undefined): Thenable<R>;
-    public sendRequest<R>(method: string, param: any, token?: CancellationToken | undefined): Thenable<R>;
-    public sendRequest(_method: any, _param?: any, _token?: any) : Thenable<any> {
+    public sendRequest<R, E, RO>(type: RequestType0<R, E, RO>, token?: CancellationToken): Promise<R>;
+    public sendRequest<P, R, E, RO>(type: RequestType<P, R, E, RO>, params: P, token?: CancellationToken): Promise<R>;
+    public sendRequest<R>(method: string, token?: CancellationToken): Promise<R>;
+    public sendRequest<R>(method: string, param: any, token?: CancellationToken): Promise<R>;
+    public sendRequest(_method: any, _param?: any, _token?: any): Promise<any> {
         switch (_method.method) {
             case 'textDocument/completion':
                 // Just return one for each line of our contents
                 return Promise.resolve(this.getDocumentCompletions());
-                break;
 
+            case 'textDocument/hover':
+                // Just return a simple hover
+                return Promise.resolve(this.getHover());
             default:
                 break;
         }
@@ -144,10 +169,10 @@ export class MockLanguageClient extends LanguageClient {
         throw new Error('Method not implemented.');
     }
     public get protocol2CodeConverter(): Protocol2CodeConverter {
-        throw new Error('Method not implemented.');
+        return this.protocol2Code;
     }
     public get code2ProtocolConverter(): Code2ProtocolConverter {
-        return this.converter;
+        return this.code2Protocol;
     }
     public get onTelemetry(): Event<any> {
         throw new Error('Method not implemented.');
@@ -201,7 +226,7 @@ export class MockLanguageClient extends LanguageClient {
     protected handleConnectionClosed(): void {
         throw new Error('Method not implemented.');
     }
-    protected createMessageTransports(_encoding: string): Thenable<MessageTransports> {
+    protected createMessageTransports(_encoding: string): Promise<MessageTransports> {
         throw new Error('Method not implemented.');
     }
     protected registerBuiltinFeatures(): void {
@@ -209,21 +234,63 @@ export class MockLanguageClient extends LanguageClient {
     }
 
     private applyChanges(changes: TextDocumentContentChangeEvent[]) {
-        changes.forEach(c => {
-            const before = this.contents.substr(0, c.rangeOffset);
-            const after = this.contents.substr(c.rangeOffset + c.rangeLength);
-            this.contents = `${before}${c.text}${after}`;
-        });
+        if (this.initResult.capabilities.textDocumentSync === TextDocumentSyncKind.Incremental) {
+            changes.forEach((change: TextDocumentContentChangeEvent) => {
+                const c = change as { range: Range; rangeLength?: number; text: string };
+                if (c.range) {
+                    const offset = c.range ? this.getOffset(c.range.start) : 0;
+                    const before = this.contents.substr(0, offset);
+                    const after = c.rangeLength ? this.contents.substr(offset + c.rangeLength) : '';
+                    this.contents = `${before}${c.text}${after}`;
+                }
+            });
+        } else {
+            changes.forEach((c: TextDocumentContentChangeEvent) => {
+                this.contents = c.text;
+            });
+        }
     }
 
-    private getDocumentCompletions() : CompletionItem[] {
+    private getDocumentCompletions(): CompletionItem[] {
         const lines = this.contents.splitLines();
-        return lines.map(l => {
+        return lines.map((l) => {
             return {
                 label: l,
                 insertText: l,
                 sortText: l
             };
         });
+    }
+
+    private getHover(): Hover {
+        return {
+            contents: [this.contents]
+        };
+    }
+
+    private createLines(): IntellisenseLine[] {
+        const split = this.contents.splitLines({ trim: false, removeEmptyEntries: false });
+        let prevLine: IntellisenseLine | undefined;
+        return split.map((s, i) => {
+            const nextLine = this.createTextLine(s, i, prevLine);
+            prevLine = nextLine;
+            return nextLine;
+        });
+    }
+
+    private createTextLine(line: string, index: number, prevLine: IntellisenseLine | undefined): IntellisenseLine {
+        return new IntellisenseLine(
+            line,
+            index,
+            prevLine ? prevLine.offset + prevLine.rangeIncludingLineBreak.end.character : 0
+        );
+    }
+
+    private getOffset(position: Position): number {
+        const lines = this.createLines();
+        if (position.line >= 0 && position.line < lines.length) {
+            return lines[position.line].offset + position.character;
+        }
+        return 0;
     }
 }

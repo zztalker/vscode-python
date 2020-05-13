@@ -9,19 +9,22 @@ import { IAsyncDisposable } from '../../../common/types';
 import { ClassType } from '../../../ioc/types';
 import { ILiveShareHasRole, ILiveShareParticipant } from './types';
 
-export interface IRoleBasedObject extends IAsyncDisposable, ILiveShareParticipant {
-
-}
+export interface IRoleBasedObject extends IAsyncDisposable, ILiveShareParticipant {}
 
 // tslint:disable:no-any
 export class RoleBasedFactory<T extends IRoleBasedObject, CtorType extends ClassType<T>> implements ILiveShareHasRole {
-    private ctorArgs: any[];
+    private ctorArgs: ConstructorParameters<CtorType>[];
     private firstTime: boolean = true;
     private createPromise: Promise<T> | undefined;
     private sessionChangedEmitter = new vscode.EventEmitter<void>();
     private _role: vsls.Role = vsls.Role.None;
 
-    constructor(private liveShare: ILiveShareApi, private hostCtor: CtorType, private guestCtor: CtorType, ...args: any[]) {
+    constructor(
+        private liveShare: ILiveShareApi,
+        private hostCtor: CtorType,
+        private guestCtor: CtorType,
+        ...args: ConstructorParameters<CtorType>
+    ) {
         this.ctorArgs = args;
         this.createPromise = this.createBasedOnRole(); // We need to start creation immediately or one side may call before we init.
     }
@@ -44,7 +47,6 @@ export class RoleBasedFactory<T extends IRoleBasedObject, CtorType extends Class
     }
 
     private async createBasedOnRole(): Promise<T> {
-
         // Figure out our role to compute the object to create. Default is host. This
         // allows for the host object to keep existing if we suddenly start a new session.
         // For a guest, starting a new session resets the entire workspace.
@@ -80,8 +82,10 @@ export class RoleBasedFactory<T extends IRoleBasedObject, CtorType extends Class
             this.firstTime = false;
             api.onDidChangeSession((_a) => {
                 // Dispose the object if the role changes
-                const newRole = api !== null && api.session && api.session.role === vsls.Role.Guest ?
-                    vsls.Role.Guest : vsls.Role.Host;
+                const newRole =
+                    api !== null && api.session && api.session.role === vsls.Role.Guest
+                        ? vsls.Role.Guest
+                        : vsls.Role.Host;
                 if (newRole !== role) {
                     obj.dispose().ignoreErrors();
                 }

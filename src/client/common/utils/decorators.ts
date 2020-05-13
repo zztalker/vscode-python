@@ -1,7 +1,8 @@
 // tslint:disable:no-any no-require-imports no-function-expression no-invalid-this
 
-import { ProgressLocation, ProgressOptions, Uri, window } from 'vscode';
+import { ProgressLocation, ProgressOptions, window } from 'vscode';
 import '../../common/extensions';
+import { IServiceContainer } from '../../ioc/types';
 import { isTestExecution } from '../constants';
 import { traceError, traceVerbose } from '../logger';
 import { Resource } from '../types';
@@ -84,7 +85,11 @@ export function makeDebounceDecorator(wait?: number) {
 export function makeDebounceAsyncDecorator(wait?: number) {
     // tslint:disable-next-line:no-any no-function-expression
     return function (_target: any, _propertyName: string, descriptor: TypedPropertyDescriptor<AsyncVoidFunction>) {
-        type StateInformation = { started: boolean; deferred: Deferred<any> | undefined; timer: NodeJS.Timer | number | undefined };
+        type StateInformation = {
+            started: boolean;
+            deferred: Deferred<any> | undefined;
+            timer: NodeJS.Timer | number | undefined;
+        };
         const originalMethod = descriptor.value!;
         const state: StateInformation = { started: false, deferred: undefined, timer: undefined };
 
@@ -97,7 +102,8 @@ export function makeDebounceAsyncDecorator(wait?: number) {
 
             // Clear previous timer.
             const existingDeferredCompleted = existingDeferred && existingDeferred.completed;
-            const deferred = (state.deferred = !existingDeferred || existingDeferredCompleted ? createDeferred<any>() : existingDeferred);
+            const deferred = (state.deferred =
+                !existingDeferred || existingDeferredCompleted ? createDeferred<any>() : existingDeferred);
             if (state.timer) {
                 clearTimeout(state.timer as any);
             }
@@ -106,11 +112,11 @@ export function makeDebounceAsyncDecorator(wait?: number) {
                 state.started = true;
                 originalMethod
                     .apply(this)
-                    .then(r => {
+                    .then((r) => {
                         state.started = false;
                         deferred.resolve(r);
                     })
-                    .catch(ex => {
+                    .catch((ex) => {
                         state.started = false;
                         deferred.reject(ex);
                     });
@@ -121,37 +127,30 @@ export function makeDebounceAsyncDecorator(wait?: number) {
 }
 
 type VSCodeType = typeof import('vscode');
-type PromiseFunctionWithFirstArgOfResource = (...any: [Uri | undefined, ...any[]]) => Promise<any>;
 
-export function clearCachedResourceSpecificIngterpreterData(key: string, resource: Resource, vscode: VSCodeType = require('vscode')) {
-    const cacheStore = new InMemoryInterpreterSpecificCache(key, 0, [resource], vscode);
+export function clearCachedResourceSpecificIngterpreterData(
+    key: string,
+    resource: Resource,
+    serviceContainer: IServiceContainer,
+    vscode: VSCodeType = require('vscode')
+) {
+    const cacheStore = new InMemoryInterpreterSpecificCache(key, 0, [resource], serviceContainer, vscode);
     cacheStore.clear();
-}
-export function cacheResourceSpecificInterpreterData(key: string, expiryDurationMs: number, vscode: VSCodeType = require('vscode')) {
-    return function (_target: Object, _propertyName: string, descriptor: TypedPropertyDescriptor<PromiseFunctionWithFirstArgOfResource>) {
-        const originalMethod = descriptor.value!;
-        descriptor.value = async function (...args: [Uri | undefined, ...any[]]) {
-            const cacheStore = new InMemoryInterpreterSpecificCache(key, expiryDurationMs, args, vscode);
-            if (cacheStore.hasData) {
-                traceVerbose(`Cached data exists ${key}, ${args[0] ? args[0].fsPath : '<No Resource>'}`);
-                return Promise.resolve(cacheStore.data);
-            }
-            const promise = originalMethod.apply(this, args) as Promise<any>;
-            promise.then(result => (cacheStore.data = result)).ignoreErrors();
-            return promise;
-        };
-    };
 }
 
 type PromiseFunctionWithAnyArgs = (...any: any) => Promise<any>;
 const cacheStoreForMethods = getGlobalCacheStore();
 export function cache(expiryDurationMs: number) {
-    return function (target: Object, propertyName: string, descriptor: TypedPropertyDescriptor<PromiseFunctionWithAnyArgs>) {
+    return function (
+        target: Object,
+        propertyName: string,
+        descriptor: TypedPropertyDescriptor<PromiseFunctionWithAnyArgs>
+    ) {
         const originalMethod = descriptor.value!;
-        const className = ('constructor' in target && target.constructor.name) ? target.constructor.name : '';
+        const className = 'constructor' in target && target.constructor.name ? target.constructor.name : '';
         const keyPrefix = `Cache_Method_Output_${className}.${propertyName}`;
         descriptor.value = async function (...args: any) {
-            if (isTestExecution()){
+            if (isTestExecution()) {
                 return originalMethod.apply(this, args) as Promise<any>;
             }
             const key = getCacheKeyFromFunctionArgs(keyPrefix, args);
@@ -161,7 +160,11 @@ export function cache(expiryDurationMs: number) {
                 return Promise.resolve(cachedItem.data);
             }
             const promise = originalMethod.apply(this, args) as Promise<any>;
-            promise.then(result => cacheStoreForMethods.set(key, {data: result, expiry: Date.now() + expiryDurationMs})).ignoreErrors();
+            promise
+                .then((result) =>
+                    cacheStoreForMethods.set(key, { data: result, expiry: Date.now() + expiryDurationMs })
+                )
+                .ignoreErrors();
             return promise;
         };
     };
@@ -187,7 +190,7 @@ export function swallowExceptions(scopeName: string) {
 
                 // If method being wrapped returns a promise then wait and swallow errors.
                 if (result && typeof result.then === 'function' && typeof result.catch === 'function') {
-                    return (result as Promise<void>).catch(error => {
+                    return (result as Promise<void>).catch((error) => {
                         if (isTestExecution()) {
                             return;
                         }

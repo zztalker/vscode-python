@@ -14,7 +14,12 @@ export class LinterInfo implements ILinterInfo {
     private _product: Product;
     private _configFileNames: string[];
 
-    constructor(product: Product, id: LinterId, protected configService: IConfigurationService, configFileNames: string[] = []) {
+    constructor(
+        product: Product,
+        id: LinterId,
+        protected configService: IConfigurationService,
+        configFileNames: string[] = []
+    ) {
         this._product = product;
         this._id = id;
         this._configFileNames = configFileNames;
@@ -55,7 +60,7 @@ export class LinterInfo implements ILinterInfo {
     public linterArgs(resource?: Uri): string[] {
         const settings = this.configService.getSettings(resource);
         const args = (settings.linting as any)[this.argsSettingName];
-        return Array.isArray(args) ? args as string[] : [];
+        return Array.isArray(args) ? (args as string[]) : [];
     }
     public getExecutionInfo(customArgs: string[], resource?: Uri): ExecutionInfo {
         const execPath = this.pathName(resource);
@@ -72,7 +77,11 @@ export class LinterInfo implements ILinterInfo {
 }
 
 export class PylintLinterInfo extends LinterInfo {
-    constructor(configService: IConfigurationService, private readonly workspaceService: IWorkspaceService, configFileNames: string[] = []) {
+    constructor(
+        configService: IConfigurationService,
+        private readonly workspaceService: IWorkspaceService,
+        configFileNames: string[] = []
+    ) {
         super(Product.pylint, 'pylint', configService, configFileNames);
     }
     public isEnabled(resource?: Uri): boolean {
@@ -81,8 +90,15 @@ export class PylintLinterInfo extends LinterInfo {
             return enabled;
         }
         // If we're using new LS, then by default Pylint is disabled (unless the user provides a value).
-        const inspection = this.workspaceService.getConfiguration('python', resource).inspect<boolean>('linting.pylintEnabled');
-        if (!inspection || (inspection.globalValue === undefined && (inspection.workspaceFolderValue === undefined && inspection.workspaceValue === undefined))) {
+        const inspection = this.workspaceService
+            .getConfiguration('python', resource)
+            .inspect<boolean>('linting.pylintEnabled');
+        if (
+            !inspection ||
+            (inspection.globalValue === undefined &&
+                inspection.workspaceFolderValue === undefined &&
+                inspection.workspaceValue === undefined)
+        ) {
             return false;
         }
         return enabled;

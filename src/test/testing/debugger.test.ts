@@ -11,9 +11,22 @@ import { TestManagerRunner as NoseTestManagerRunner } from '../../client/testing
 import { TestManagerRunner as PytestManagerRunner } from '../../client/testing//pytest/runner';
 import { TestManagerRunner as UnitTestTestManagerRunner } from '../../client/testing//unittest/runner';
 import { ArgumentsHelper } from '../../client/testing/common/argumentsHelper';
-import { CANCELLATION_REASON, CommandSource, NOSETEST_PROVIDER, PYTEST_PROVIDER, UNITTEST_PROVIDER } from '../../client/testing/common/constants';
+import {
+    CANCELLATION_REASON,
+    CommandSource,
+    NOSETEST_PROVIDER,
+    PYTEST_PROVIDER,
+    UNITTEST_PROVIDER
+} from '../../client/testing/common/constants';
 import { TestRunner } from '../../client/testing/common/runner';
-import { ITestDebugLauncher, ITestManagerFactory, ITestMessageService, ITestRunner, IXUnitParser, TestProvider } from '../../client/testing/common/types';
+import {
+    ITestDebugLauncher,
+    ITestManagerFactory,
+    ITestMessageService,
+    ITestRunner,
+    IXUnitParser,
+    TestProvider
+} from '../../client/testing/common/types';
 import { XUnitParser } from '../../client/testing/common/xUnitParser';
 import { ArgumentsService as NoseTestArgumentsService } from '../../client/testing/nosetest/services/argsService';
 import { ArgumentsService as PyTestArgumentsService } from '../../client/testing/pytest/services/argsService';
@@ -22,42 +35,44 @@ import { IArgumentsHelper, IArgumentsService, ITestManagerRunner, IUnitTestHelpe
 import { UnitTestHelper } from '../../client/testing/unittest/helper';
 import { ArgumentsService as UnitTestArgumentsService } from '../../client/testing/unittest/services/argsService';
 import { deleteDirectory, rootWorkspaceUri, updateSetting } from '../common';
-import { initialize, initializeTest, IS_MULTI_ROOT_TEST } from './../initialize';
+import { initialize, initializeTest, IS_MULTI_ROOT_TEST, TEST_TIMEOUT } from './../initialize';
 import { MockDebugLauncher } from './mocks';
 import { UnitTestIocContainer } from './serviceRegistry';
 
 use(chaiAsPromised);
 
 const testFilesPath = path.join(__dirname, '..', '..', '..', 'src', 'test', 'pythonFiles', 'testFiles', 'debuggerTest');
-const defaultUnitTestArgs = [
-    '-v',
-    '-s',
-    '.',
-    '-p',
-    '*test*.py'
-];
+const defaultUnitTestArgs = ['-v', '-s', '.', '-p', '*test*.py'];
 
 // tslint:disable-next-line:max-func-body-length
 suite('Unit Tests - debugging', () => {
     let ioc: UnitTestIocContainer;
     const configTarget = IS_MULTI_ROOT_TEST ? ConfigurationTarget.WorkspaceFolder : ConfigurationTarget.Workspace;
-    suiteSetup(async () => {
-        // Test disvovery is where the delay is, hence give 10 seconds (as we discover tests at least twice in each test).
+    suiteSetup(async function () {
+        // tslint:disable-next-line:no-invalid-this
+        this.timeout(TEST_TIMEOUT * 2);
+        // Test discovery is where the delay is, hence give 10 seconds (as we discover tests at least twice in each test).
         await initialize();
-        await updateSetting('testing.unittestArgs', defaultUnitTestArgs, rootWorkspaceUri, configTarget);
-        await updateSetting('testing.nosetestArgs', [], rootWorkspaceUri, configTarget);
-        await updateSetting('testing.pytestArgs', [], rootWorkspaceUri, configTarget);
+        await Promise.all([
+            updateSetting('testing.unittestArgs', defaultUnitTestArgs, rootWorkspaceUri, configTarget),
+            updateSetting('testing.nosetestArgs', [], rootWorkspaceUri, configTarget),
+            updateSetting('testing.pytestArgs', [], rootWorkspaceUri, configTarget)
+        ]);
     });
-    setup(async () => {
+    setup(async function () {
+        // tslint:disable-next-line:no-invalid-this
+        this.timeout(TEST_TIMEOUT * 2); // This hook requires more timeout as we're deleting files as well
         await deleteDirectory(path.join(testFilesPath, '.cache'));
         await initializeTest();
         initializeDI();
     });
     teardown(async () => {
         await ioc.dispose();
-        await updateSetting('testing.unittestArgs', defaultUnitTestArgs, rootWorkspaceUri, configTarget);
-        await updateSetting('testing.nosetestArgs', [], rootWorkspaceUri, configTarget);
-        await updateSetting('testing.pytestArgs', [], rootWorkspaceUri, configTarget);
+        await Promise.all([
+            updateSetting('testing.unittestArgs', defaultUnitTestArgs, rootWorkspaceUri, configTarget),
+            updateSetting('testing.nosetestArgs', [], rootWorkspaceUri, configTarget),
+            updateSetting('testing.pytestArgs', [], rootWorkspaceUri, configTarget)
+        ]);
     });
 
     function initializeDI() {
@@ -75,6 +90,7 @@ suite('Unit Tests - debugging', () => {
         ioc.registerTestsHelper();
         ioc.registerTestManagers();
         ioc.registerMockUnitTestSocketServer();
+        ioc.registerInterpreterStorageTypes();
         ioc.serviceManager.add<IArgumentsHelper>(IArgumentsHelper, ArgumentsHelper);
         ioc.serviceManager.add<ITestRunner>(ITestRunner, TestRunner);
         ioc.serviceManager.add<IXUnitParser>(IXUnitParser, XUnitParser);
@@ -88,11 +104,18 @@ suite('Unit Tests - debugging', () => {
         ioc.serviceManager.addSingleton<ITestDebugLauncher>(ITestDebugLauncher, MockDebugLauncher);
         ioc.serviceManager.addSingleton<ITestMessageService>(ITestMessageService, TestMessageService, PYTEST_PROVIDER);
         ioc.serviceManager.addSingletonInstance<ICondaService>(ICondaService, instance(mock(CondaService)));
-        ioc.serviceManager.addSingletonInstance<IInterpreterService>(IInterpreterService, instance(mock(InterpreterService)));
+        ioc.serviceManager.addSingletonInstance<IInterpreterService>(
+            IInterpreterService,
+            instance(mock(InterpreterService))
+        );
     }
 
     async function testStartingDebugger(testProvider: TestProvider) {
-        const testManager = ioc.serviceContainer.get<ITestManagerFactory>(ITestManagerFactory)(testProvider, rootWorkspaceUri!, testFilesPath);
+        const testManager = ioc.serviceContainer.get<ITestManagerFactory>(ITestManagerFactory)(
+            testProvider,
+            rootWorkspaceUri!,
+            testFilesPath
+        );
         const mockDebugLauncher = ioc.serviceContainer.get<MockDebugLauncher>(ITestDebugLauncher);
         const tests = await testManager.discoverTests(CommandSource.commandPalette, true, true);
         assert.equal(tests.testFiles.length, 2, 'Incorrect number of test files');
@@ -105,8 +128,8 @@ suite('Unit Tests - debugging', () => {
 
         // This promise should never resolve nor reject.
         runningPromise
-            .then(() => deferred.reject('Debugger stopped when it shouldn\'t have'))
-            .catch(error => deferred.reject(error));
+            .then(() => deferred.reject("Debugger stopped when it shouldn't have"))
+            .catch((error) => deferred.reject(error));
 
         mockDebugLauncher.launched
             .then((launched) => {
@@ -115,7 +138,8 @@ suite('Unit Tests - debugging', () => {
                 } else {
                     deferred.reject('Debugger not launched');
                 }
-            }).catch(error => deferred.reject(error));
+            })
+            .catch((error) => deferred.reject(error));
 
         await deferred.promise;
     }
@@ -136,7 +160,11 @@ suite('Unit Tests - debugging', () => {
     });
 
     async function testStoppingDebugger(testProvider: TestProvider) {
-        const testManager = ioc.serviceContainer.get<ITestManagerFactory>(ITestManagerFactory)(testProvider, rootWorkspaceUri!, testFilesPath);
+        const testManager = ioc.serviceContainer.get<ITestManagerFactory>(ITestManagerFactory)(
+            testProvider,
+            rootWorkspaceUri!,
+            testFilesPath
+        );
         const mockDebugLauncher = ioc.serviceContainer.get<MockDebugLauncher>(ITestDebugLauncher);
         const tests = await testManager.discoverTests(CommandSource.commandPalette, true, true);
         assert.equal(tests.testFiles.length, 2, 'Incorrect number of test files');
@@ -149,9 +177,15 @@ suite('Unit Tests - debugging', () => {
         assert.isTrue(launched, 'Debugger not launched');
 
         const discoveryPromise = testManager.discoverTests(CommandSource.commandPalette, true, true, true);
-        await expect(runningPromise).to.be.rejectedWith(CANCELLATION_REASON, 'Incorrect reason for ending the debugger');
+        await expect(runningPromise).to.be.rejectedWith(
+            CANCELLATION_REASON,
+            'Incorrect reason for ending the debugger'
+        );
         await ioc.dispose(); // will cancel test discovery
-        await expect(discoveryPromise).to.be.rejectedWith(CANCELLATION_REASON, 'Incorrect reason for ending the debugger');
+        await expect(discoveryPromise).to.be.rejectedWith(
+            CANCELLATION_REASON,
+            'Incorrect reason for ending the debugger'
+        );
     }
 
     test('Debugger should stop when user invokes a test discovery (unittest)', async () => {
@@ -170,7 +204,11 @@ suite('Unit Tests - debugging', () => {
     });
 
     async function testDebuggerWhenRediscoveringTests(testProvider: TestProvider) {
-        const testManager = ioc.serviceContainer.get<ITestManagerFactory>(ITestManagerFactory)(testProvider, rootWorkspaceUri!, testFilesPath);
+        const testManager = ioc.serviceContainer.get<ITestManagerFactory>(ITestManagerFactory)(
+            testProvider,
+            rootWorkspaceUri!,
+            testFilesPath
+        );
         const mockDebugLauncher = ioc.serviceContainer.get<MockDebugLauncher>(ITestDebugLauncher);
         const tests = await testManager.discoverTests(CommandSource.commandPalette, true, true);
         assert.equal(tests.testFiles.length, 2, 'Incorrect number of test files');
@@ -189,14 +227,14 @@ suite('Unit Tests - debugging', () => {
             // tslint:disable-next-line:no-unsafe-any
             .then(() => deferred.resolve(''))
             // tslint:disable-next-line:no-unsafe-any
-            .catch(ex => deferred.reject(ex));
+            .catch((ex) => deferred.reject(ex));
 
         // This promise should never resolve nor reject.
         runningPromise
-            .then(() => 'Debugger stopped when it shouldn\'t have')
-            .catch(() => 'Debugger crashed when it shouldn\'t have')
+            .then(() => "Debugger stopped when it shouldn't have")
+            .catch(() => "Debugger crashed when it shouldn't have")
             // tslint:disable-next-line: no-floating-promises
-            .then(error => {
+            .then((error) => {
                 deferred.reject(error);
             });
 

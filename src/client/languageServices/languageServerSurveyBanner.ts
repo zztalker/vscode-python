@@ -7,10 +7,7 @@ import { inject, injectable } from 'inversify';
 import { FolderVersionPair, ILanguageServerFolderService } from '../activation/types';
 import { IApplicationShell } from '../common/application/types';
 import '../common/extensions';
-import {
-    IBrowserService, IPersistentStateFactory,
-    IPythonExtensionBanner
-} from '../common/types';
+import { IBrowserService, IPersistentStateFactory, IPythonExtensionBanner } from '../common/types';
 import * as localize from '../common/utils/localize';
 import { getRandomBetween } from '../common/utils/random';
 
@@ -37,7 +34,10 @@ export class LanguageServerSurveyBanner implements IPythonExtensionBanner {
     private maxCompletionsBeforeShow: number;
     private isInitialized: boolean = false;
     private bannerMessage: string = localize.LanguageService.bannerMessage();
-    private bannerLabels: string[] = [localize.LanguageService.bannerLabelYes(), localize.LanguageService.bannerLabelNo()];
+    private bannerLabels: string[] = [
+        localize.LanguageService.bannerLabelYes(),
+        localize.LanguageService.bannerLabelNo()
+    ];
 
     constructor(
         @inject(IApplicationShell) private appShell: IApplicationShell,
@@ -45,7 +45,8 @@ export class LanguageServerSurveyBanner implements IPythonExtensionBanner {
         @inject(IBrowserService) private browserService: IBrowserService,
         @inject(ILanguageServerFolderService) private lsService: ILanguageServerFolderService,
         showAfterMinimumEventsCount: number = 100,
-        showBeforeMaximumEventsCount: number = 500) {
+        showBeforeMaximumEventsCount: number = 500
+    ) {
         this.minCompletionsBeforeShow = showAfterMinimumEventsCount;
         this.maxCompletionsBeforeShow = showBeforeMaximumEventsCount;
         this.initialize();
@@ -79,12 +80,11 @@ export class LanguageServerSurveyBanner implements IPythonExtensionBanner {
 
         const response = await this.appShell.showInformationMessage(this.bannerMessage, ...this.bannerLabels);
         switch (response) {
-            case this.bannerLabels[LSSurveyLabelIndex.Yes]:
-                {
-                    await this.launchSurvey();
-                    await this.disable();
-                    break;
-                }
+            case this.bannerLabels[LSSurveyLabelIndex.Yes]: {
+                await this.launchSurvey();
+                await this.disable();
+                break;
+            }
             case this.bannerLabels[LSSurveyLabelIndex.No]: {
                 await this.disable();
                 break;
@@ -110,7 +110,9 @@ export class LanguageServerSurveyBanner implements IPythonExtensionBanner {
     }
 
     public async disable(): Promise<void> {
-        await this.persistentState.createGlobalPersistentState<boolean>(LSSurveyStateKeys.ShowBanner, false).updateValue(false);
+        await this.persistentState
+            .createGlobalPersistentState<boolean>(LSSurveyStateKeys.ShowBanner, false)
+            .updateValue(false);
     }
 
     public async launchSurvey(): Promise<void> {
@@ -127,7 +129,9 @@ export class LanguageServerSurveyBanner implements IPythonExtensionBanner {
     }
 
     private async getPythonLSVersion(fallback: string = 'unknown'): Promise<string> {
-        const langServiceLatestFolder: FolderVersionPair | undefined = await this.lsService.getCurrentLanguageServerDirectory();
+        const langServiceLatestFolder:
+            | FolderVersionPair
+            | undefined = await this.lsService.getCurrentLanguageServerDirectory();
         return langServiceLatestFolder ? langServiceLatestFolder.version.raw : fallback;
     }
 
@@ -137,7 +141,10 @@ export class LanguageServerSurveyBanner implements IPythonExtensionBanner {
     }
 
     private async getPythonLSLaunchThresholdCounter(): Promise<number> {
-        const state = this.persistentState.createGlobalPersistentState<number | undefined>(LSSurveyStateKeys.ShowAfterCompletionCount, undefined);
+        const state = this.persistentState.createGlobalPersistentState<number | undefined>(
+            LSSurveyStateKeys.ShowAfterCompletionCount,
+            undefined
+        );
         if (state.value === undefined) {
             await state.updateValue(getRandomBetween(this.minCompletionsBeforeShow, this.maxCompletionsBeforeShow));
         }

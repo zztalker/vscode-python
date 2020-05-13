@@ -31,6 +31,7 @@ export type SpawnOptions = ChildProcessSpawnOptions & {
     token?: CancellationToken;
     mergeStdOutErr?: boolean;
     throwOnStdErr?: boolean;
+    extraVariables?: NodeJS.ProcessEnv;
 };
 
 // tslint:disable-next-line:interface-name
@@ -64,7 +65,18 @@ export type ExecutionFactoryCreationOptions = {
     resource?: Uri;
     pythonPath?: string;
 };
-export type DaemonExecutionFactoryCreationOptions = ExecutionFactoryCreationOptions & {
+export function isDaemonPoolCreationOption(
+    options: PooledDaemonExecutionFactoryCreationOptions | DedicatedDaemonExecutionFactoryCreationOptions
+): options is PooledDaemonExecutionFactoryCreationOptions {
+    if ('dedicated' in options && options.dedicated === true) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
+// This daemon will belong to a daemon pool (i.e it goes back into a pool for re-use).
+export type PooledDaemonExecutionFactoryCreationOptions = ExecutionFactoryCreationOptions & {
     /**
      * Python file that implements the daemon.
      *
@@ -95,26 +107,59 @@ export type DaemonExecutionFactoryCreationOptions = ExecutionFactoryCreationOpti
      */
     observableDaemonCount?: number;
 };
+// This daemon will not belong to a daemon pool (i.e its a dedicated daemon and cannot be re-used).
+export type DedicatedDaemonExecutionFactoryCreationOptions = ExecutionFactoryCreationOptions & {
+    /**
+     * Python file that implements the daemon.
+     */
+    daemonModule?: string;
+    /**
+     * Typescript Daemon class (client) that maps to the Python daemon.
+     * Defaults to `PythonDaemonExecutionService`.
+     * Any other class provided must extend `PythonDaemonExecutionService`.
+     */
+    daemonClass?: Newable<IPythonDaemonExecutionService | IDisposable>;
+    /**
+     * This flag indicates it is a dedicated daemon.
+     */
+    dedicated: true;
+};
+export type DaemonExecutionFactoryCreationOptions =
+    | PooledDaemonExecutionFactoryCreationOptions
+    | DedicatedDaemonExecutionFactoryCreationOptions;
 export type ExecutionFactoryCreateWithEnvironmentOptions = {
     resource?: Uri;
-    pythonPath?: string;
     interpreter?: PythonInterpreter;
     allowEnvironmentFetchExceptions?: boolean;
+    /**
+     * Ignore running `conda run` when running code.
+     * It is known to fail in certain scenarios. Where necessary we might want to bypass this.
+     *
+     * @type {boolean}
+     */
+    bypassCondaExecution?: boolean;
 };
 export interface IPythonExecutionFactory {
     create(options: ExecutionFactoryCreationOptions): Promise<IPythonExecutionService>;
     /**
      * Creates a daemon Python Process.
-     * On windows its cheapter to create a daemon and use that than spin up Python Processes everytime.
-     * If something cannot be executed within the daemin, it will resort to using the stanard IPythonExecutionService.
+     * On windows it's cheaper to create a daemon and use that than spin up Python Processes everytime.
+     * If something cannot be executed within the daemon, it will resort to using the standard IPythonExecutionService.
      * Note: The returned execution service is always using an activated environment.
      *
      * @param {ExecutionFactoryCreationOptions} options
-     * @returns {(Promise<IPythonExecutionService & IDisposable>)}
+     * @returns {(Promise<IPythonDaemonExecutionService>)}
      * @memberof IPythonExecutionFactory
      */
-    createDaemon(options:  DaemonExecutionFactoryCreationOptions): Promise<IPythonExecutionService>;
+    createDaemon<T extends IPythonDaemonExecutionService | IDisposable>(
+        options: DaemonExecutionFactoryCreationOptions
+    ): Promise<T>;
     createActivatedEnvironment(options: ExecutionFactoryCreateWithEnvironmentOptions): Promise<IPythonExecutionService>;
+    createCondaExecutionService(
+        pythonPath: string,
+        processService?: IProcessService,
+        resource?: Uri
+    ): Promise<IPythonExecutionService | undefined>;
 }
 export type ReleaseLevel = 'alpha' | 'beta' | 'candidate' | 'final' | 'unknown';
 export type PythonVersionInfo = [number, number, number, ReleaseLevel];
@@ -132,6 +177,7 @@ export interface IPythonExecutionService {
     getInterpreterInformation(): Promise<InterpreterInfomation | undefined>;
     getExecutablePath(): Promise<string>;
     isModuleInstalled(moduleName: string): Promise<boolean>;
+    getExecutionInfo(pythonArgs?: string[]): PythonExecutionInfo;
 
     execObservable(args: string[], options: SpawnOptions): ObservableExecutionResult<string>;
     execModuleObservable(moduleName: string, args: string[], options: SpawnOptions): ObservableExecutionResult<string>;
@@ -140,6 +186,12 @@ export interface IPythonExecutionService {
     execModule(moduleName: string, args: string[], options: SpawnOptions): Promise<ExecutionResult<string>>;
 }
 
+export type PythonExecutionInfo = {
+    command: string;
+    args: string[];
+
+    python: string[];
+};
 /**
  * Identical to the PythonExecutionService, but with a `dispose` method.
  * This is a daemon process that lives on until it is disposed, hence the `IDisposable`.
@@ -149,8 +201,7 @@ export interface IPythonExecutionService {
  * @extends {IPythonExecutionService}
  * @extends {IDisposable}
  */
-export interface IPythonDaemonExecutionService extends IPythonExecutionService, IDisposable {
-}
+export interface IPythonDaemonExecutionService extends IPythonExecutionService, IDisposable {}
 
 export class StdErrError extends Error {
     constructor(message: string) {
@@ -165,6 +216,10 @@ export interface IExecutionEnvironmentVariablesService {
 export const IPythonToolExecutionService = Symbol('IPythonToolRunnerService');
 
 export interface IPythonToolExecutionService {
-    execObservable(executionInfo: ExecutionInfo, options: SpawnOptions, resource: Uri): Promise<ObservableExecutionResult<string>>;
+    execObservable(
+        executionInfo: ExecutionInfo,
+        options: SpawnOptions,
+        resource: Uri
+    ): Promise<ObservableExecutionResult<string>>;
     exec(executionInfo: ExecutionInfo, options: SpawnOptions, resource: Uri): Promise<ExecutionResult<string>>;
 }

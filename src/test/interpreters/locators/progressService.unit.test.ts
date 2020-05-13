@@ -21,7 +21,11 @@ suite('Interpreters - Locator Progress', () => {
             return Promise.resolve(true);
         }
         public locatingCallback?: (e: Promise<PythonInterpreter[]>) => any;
-        public onLocating(listener: (e: Promise<PythonInterpreter[]>) => any, _thisArgs?: any, _disposables?: Disposable[]): Disposable {
+        public onLocating(
+            listener: (e: Promise<PythonInterpreter[]>) => any,
+            _thisArgs?: any,
+            _disposables?: Disposable[]
+        ): Disposable {
             this.locatingCallback = listener;
             return { dispose: noop };
         }
@@ -41,9 +45,9 @@ suite('Interpreters - Locator Progress', () => {
         progress.register();
 
         let refreshingInvoked = false;
-        progress.onRefreshing(() => refreshingInvoked = true);
+        progress.onRefreshing(() => (refreshingInvoked = true));
         let refreshedInvoked = false;
-        progress.onRefreshed(() => refreshedInvoked = true);
+        progress.onRefreshed(() => (refreshedInvoked = true));
 
         const locatingDeferred = createDeferred<PythonInterpreter[]>();
         locator.locatingCallback!.bind(progress)(locatingDeferred.promise);
@@ -58,9 +62,9 @@ suite('Interpreters - Locator Progress', () => {
         progress.register();
 
         let refreshingInvoked = false;
-        progress.onRefreshing(() => refreshingInvoked = true);
+        progress.onRefreshing(() => (refreshingInvoked = true));
         let refreshedInvoked = false;
-        progress.onRefreshed(() => refreshedInvoked = true);
+        progress.onRefreshed(() => (refreshedInvoked = true));
 
         const locatingDeferred = createDeferred<PythonInterpreter[]>();
         locator.locatingCallback!.bind(progress)(locatingDeferred.promise);
@@ -80,9 +84,9 @@ suite('Interpreters - Locator Progress', () => {
         progress.register();
 
         let refreshingInvoked = false;
-        progress.onRefreshing(() => refreshingInvoked = true);
+        progress.onRefreshing(() => (refreshingInvoked = true));
         let refreshedInvoked = false;
-        progress.onRefreshed(() => refreshedInvoked = true);
+        progress.onRefreshed(() => (refreshedInvoked = true));
 
         const locatingDeferred1 = createDeferred<PythonInterpreter[]>();
         locator1.locatingCallback!.bind(progress)(locatingDeferred1.promise);

@@ -11,8 +11,16 @@ import { InstallationChannelManager } from '../../client/common/installer/channe
 import { IModuleInstaller } from '../../client/common/installer/types';
 import { Product } from '../../client/common/types';
 import { Architecture } from '../../client/common/utils/platform';
-import { IInterpreterAutoSelectionService, IInterpreterAutoSeletionProxyService } from '../../client/interpreter/autoSelection/types';
-import { IInterpreterLocatorService, InterpreterType, PIPENV_SERVICE, PythonInterpreter } from '../../client/interpreter/contracts';
+import {
+    IInterpreterAutoSelectionService,
+    IInterpreterAutoSeletionProxyService
+} from '../../client/interpreter/autoSelection/types';
+import {
+    IInterpreterLocatorService,
+    InterpreterType,
+    PIPENV_SERVICE,
+    PythonInterpreter
+} from '../../client/interpreter/contracts';
 import { ServiceContainer } from '../../client/ioc/container';
 import { ServiceManager } from '../../client/ioc/serviceManager';
 import { IServiceContainer } from '../../client/ioc/types';
@@ -41,9 +49,19 @@ suite('Installation - installation channels', () => {
         serviceManager = new ServiceManager(cont);
         serviceContainer = new ServiceContainer(cont);
         pipEnv = TypeMoq.Mock.ofType<IInterpreterLocatorService>();
-        serviceManager.addSingletonInstance<IInterpreterLocatorService>(IInterpreterLocatorService, pipEnv.object, PIPENV_SERVICE);
-        serviceManager.addSingleton<IInterpreterAutoSelectionService>(IInterpreterAutoSelectionService, MockAutoSelectionService);
-        serviceManager.addSingleton<IInterpreterAutoSeletionProxyService>(IInterpreterAutoSeletionProxyService, MockAutoSelectionService);
+        serviceManager.addSingletonInstance<IInterpreterLocatorService>(
+            IInterpreterLocatorService,
+            pipEnv.object,
+            PIPENV_SERVICE
+        );
+        serviceManager.addSingleton<IInterpreterAutoSelectionService>(
+            IInterpreterAutoSelectionService,
+            MockAutoSelectionService
+        );
+        serviceManager.addSingleton<IInterpreterAutoSeletionProxyService>(
+            IInterpreterAutoSeletionProxyService,
+            MockAutoSelectionService
+        );
     });
 
     test('Single channel', async () => {
@@ -77,7 +95,7 @@ suite('Installation - installation channels', () => {
             path: 'pipenv',
             type: InterpreterType.VirtualEnv
         };
-        pipEnv.setup(x => x.getInterpreters(TypeMoq.It.isAny())).returns(() => Promise.resolve([interpreter]));
+        pipEnv.setup((x) => x.getInterpreters(TypeMoq.It.isAny())).returns(() => Promise.resolve([interpreter]));
 
         const cm = new InstallationChannelManager(serviceContainer);
         const channels = await cm.getInstallationChannels();
@@ -95,14 +113,16 @@ suite('Installation - installation channels', () => {
         // tslint:disable-next-line:no-any
         let items: any[] | undefined;
         appShell
-            .setup(x => x.showQuickPick(TypeMoq.It.isAny(), TypeMoq.It.isAny()))
+            .setup((x) => x.showQuickPick(TypeMoq.It.isAny(), TypeMoq.It.isAny()))
             .callback((i: string[], _o: QuickPickOptions) => {
                 items = i;
             })
-            .returns(() => new Promise<string | undefined>((resolve, _reject) => resolve(undefined)));
+            .returns(
+                () => new Promise<string | undefined>((resolve, _reject) => resolve(undefined))
+            );
 
-        installer1.setup(x => x.displayName).returns(() => 'Name 1');
-        installer2.setup(x => x.displayName).returns(() => 'Name 2');
+        installer1.setup((x) => x.displayName).returns(() => 'Name 1');
+        installer2.setup((x) => x.displayName).returns(() => 'Name 2');
 
         const cm = new InstallationChannelManager(serviceContainer);
         await cm.getInstallationChannel(Product.pylint);
@@ -116,9 +136,11 @@ suite('Installation - installation channels', () => {
     function mockInstaller(supported: boolean, name: string, priority?: number): TypeMoq.IMock<IModuleInstaller> {
         const installer = TypeMoq.Mock.ofType<IModuleInstaller>();
         installer
-            .setup(x => x.isSupported(TypeMoq.It.isAny()))
-            .returns(() => new Promise<boolean>((resolve) => resolve(supported)));
-        installer.setup(x => x.priority).returns(() => priority ? priority : 0);
+            .setup((x) => x.isSupported(TypeMoq.It.isAny()))
+            .returns(
+                () => new Promise<boolean>((resolve) => resolve(supported))
+            );
+        installer.setup((x) => x.priority).returns(() => (priority ? priority : 0));
         serviceManager.addSingletonInstance<IModuleInstaller>(IModuleInstaller, installer.object, name);
         return installer;
     }

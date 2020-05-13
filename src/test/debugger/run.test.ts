@@ -19,10 +19,12 @@ const debuggerType = DebuggerTypeName;
 suite('Run without Debugging', () => {
     let debugClient: DebugClient;
     setup(async function () {
+        // https://github.com/microsoft/vscode-python/issues/11704
+        return this.skip();
         if (!IS_MULTI_ROOT_TEST || !TEST_DEBUGGER) {
             this.skip();
         }
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         debugClient = await createDebugAdapter();
     });
     teardown(async () => {
@@ -31,10 +33,14 @@ suite('Run without Debugging', () => {
         try {
             await debugClient.stop().catch(noop);
             // tslint:disable-next-line:no-empty
-        } catch (ex) { }
+        } catch (ex) {}
         await sleep(1000);
     });
-    function buildLaunchArgs(pythonFile: string, stopOnEntry: boolean = false, showReturnValue: boolean = true): LaunchRequestArguments {
+    function buildLaunchArgs(
+        pythonFile: string,
+        stopOnEntry: boolean = false,
+        showReturnValue: boolean = true
+    ): LaunchRequestArguments {
         // tslint:disable-next-line:no-unnecessary-local-variable
         return {
             program: path.join(debugFilesPath, pythonFile),

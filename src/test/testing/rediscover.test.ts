@@ -9,20 +9,14 @@ import { CondaService } from '../../client/interpreter/locators/services/condaSe
 import { CommandSource } from '../../client/testing/common/constants';
 import { ITestManagerFactory, TestProvider } from '../../client/testing/common/types';
 import { deleteDirectory, deleteFile, rootWorkspaceUri, updateSetting } from '../common';
-import { initialize, initializeTest, IS_MULTI_ROOT_TEST } from './../initialize';
+import { initialize, initializeTest, IS_MULTI_ROOT_TEST, TEST_TIMEOUT } from './../initialize';
 import { UnitTestIocContainer } from './serviceRegistry';
 
 const testFilesPath = path.join(__dirname, '..', '..', '..', 'src', 'test', 'pythonFiles', 'testFiles', 'debuggerTest');
 const testFile = path.join(testFilesPath, 'tests', 'test_debugger_two.py');
 const testFileWithFewTests = path.join(testFilesPath, 'tests', 'test_debugger_two.txt');
 const testFileWithMoreTests = path.join(testFilesPath, 'tests', 'test_debugger_two.updated.txt');
-const defaultUnitTestArgs = [
-    '-v',
-    '-s',
-    '.',
-    '-p',
-    '*test*.py'
-];
+const defaultUnitTestArgs = ['-v', '-s', '.', '-p', '*test*.py'];
 
 // tslint:disable-next-line:max-func-body-length
 suite('Unit Tests re-discovery', () => {
@@ -31,7 +25,9 @@ suite('Unit Tests re-discovery', () => {
     suiteSetup(async () => {
         await initialize();
     });
-    setup(async () => {
+    setup(async function () {
+        // tslint:disable-next-line:no-invalid-this
+        this.timeout(TEST_TIMEOUT * 2); // This hook requires more timeout as we're dealing with files as well
         await fs.copy(testFileWithFewTests, testFile, { overwrite: true });
         await deleteDirectory(path.join(testFilesPath, '.cache'));
         await resetSettings();
@@ -57,12 +53,20 @@ suite('Unit Tests re-discovery', () => {
         ioc.registerProcessTypes();
         ioc.registerVariableTypes();
         ioc.registerUnitTestTypes();
+        ioc.registerInterpreterStorageTypes();
         ioc.serviceManager.addSingletonInstance<ICondaService>(ICondaService, instance(mock(CondaService)));
-        ioc.serviceManager.addSingletonInstance<IInterpreterService>(IInterpreterService, instance(mock(InterpreterService)));
+        ioc.serviceManager.addSingletonInstance<IInterpreterService>(
+            IInterpreterService,
+            instance(mock(InterpreterService))
+        );
     }
 
     async function discoverUnitTests(testProvider: TestProvider) {
-        const testManager = ioc.serviceContainer.get<ITestManagerFactory>(ITestManagerFactory)(testProvider, rootWorkspaceUri!, testFilesPath);
+        const testManager = ioc.serviceContainer.get<ITestManagerFactory>(ITestManagerFactory)(
+            testProvider,
+            rootWorkspaceUri!,
+            testFilesPath
+        );
         let tests = await testManager.discoverTests(CommandSource.ui, true, true);
         assert.equal(tests.testFiles.length, 2, 'Incorrect number of test files');
         assert.equal(tests.testSuites.length, 2, 'Incorrect number of test suites');

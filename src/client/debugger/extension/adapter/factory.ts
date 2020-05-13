@@ -5,7 +5,13 @@
 
 import { inject, injectable } from 'inversify';
 import * as path from 'path';
-import { DebugAdapterDescriptor, DebugAdapterExecutable, DebugAdapterServer, DebugSession, WorkspaceFolder } from 'vscode';
+import {
+    DebugAdapterDescriptor,
+    DebugAdapterExecutable,
+    DebugAdapterServer,
+    DebugSession,
+    WorkspaceFolder
+} from 'vscode';
 import { IApplicationShell } from '../../../common/application/types';
 import { DebugAdapterNewPtvsd } from '../../../common/experimentGroups';
 import { traceVerbose } from '../../../common/logger';
@@ -14,11 +20,8 @@ import { EXTENSION_ROOT_DIR } from '../../../constants';
 import { IInterpreterService } from '../../../interpreter/contracts';
 import { sendTelemetryEvent } from '../../../telemetry';
 import { EventName } from '../../../telemetry/constants';
-import { RemoteDebugOptions } from '../../debugAdapter/types';
 import { AttachRequestArguments, LaunchRequestArguments } from '../../types';
 import { IDebugAdapterDescriptorFactory } from '../types';
-
-export const ptvsdPathStorageKey = 'PTVSD_PATH_STORAGE_KEY';
 
 @injectable()
 export class DebugAdapterDescriptorFactory implements IDebugAdapterDescriptorFactory {
@@ -27,30 +30,62 @@ export class DebugAdapterDescriptorFactory implements IDebugAdapterDescriptorFac
         @inject(IApplicationShell) private readonly appShell: IApplicationShell,
         @inject(IExperimentsManager) private readonly experimentsManager: IExperimentsManager
     ) {}
-    public async createDebugAdapterDescriptor(session: DebugSession, executable: DebugAdapterExecutable | undefined): Promise<DebugAdapterDescriptor> {
-        const configuration = session.configuration as (LaunchRequestArguments | AttachRequestArguments);
+    public async createDebugAdapterDescriptor(
+        session: DebugSession,
+        executable: DebugAdapterExecutable | undefined
+    ): Promise<DebugAdapterDescriptor> {
+        const configuration = session.configuration as LaunchRequestArguments | AttachRequestArguments;
 
         if (this.experimentsManager.inExperiment(DebugAdapterNewPtvsd.experiment)) {
+            // There are four distinct scenarios here:
+            //
+            // 1. "launch";
+            // 2. "attach" with "processId";
+            // 3. "attach" with "listen";
+            // 4. "attach" with "connect" (or legacy "host"/"port");
+            //
+            // For the first three, we want to spawn the debug adapter directly.
+            // For the last one, the adapter is already listening on the specified socket.
+            // When "debugServer" is used, the standard adapter factory takes care of it - no need to check here.
+
             if (configuration.request === 'attach') {
-                const port = configuration.port ? configuration.port : 0;
-                if (port === 0) {
-                    throw new Error('Port must be specified for request type attach');
+                if (configuration.connect !== undefined) {
+                    return new DebugAdapterServer(
+                        configuration.connect.port,
+                        configuration.connect.host ?? '127.0.0.1'
+                    );
+                } else if (configuration.port !== undefined) {
+                    return new DebugAdapterServer(configuration.port, configuration.host ?? '127.0.0.1');
+                } else if (configuration.listen === undefined && configuration.processId === undefined) {
+                    throw new Error('"request":"attach" requires either "connect", "listen", or "processId"');
                 }
-                return new DebugAdapterServer(port, configuration.host);
-            } else {
-                const pythonPath = await this.getPythonPath(configuration, session.workspaceFolder);
-                // If logToFile is set in the debug config then pass --log-dir <path-to-extension-dir> when launching the debug adapter.
+            }
+
+            const pythonPath = await this.getPythonPath(configuration, session.workspaceFolder);
+            if (pythonPath.length !== 0) {
+                if (configuration.request === 'attach' && configuration.processId !== undefined) {
+                    sendTelemetryEvent(EventName.DEBUGGER_ATTACH_TO_LOCAL_PROCESS);
+                }
+
+                // "logToFile" is not handled directly by the adapter - instead, we need to pass
+                // the corresponding CLI switch when spawning it.
                 const logArgs = configuration.logToFile ? ['--log-dir', EXTENSION_ROOT_DIR] : [];
-                const ptvsdPathToUse = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'lib', 'python', 'new_ptvsd');
-                if (pythonPath.length !== 0) {
-                    if (await this.useNewPtvsd(pythonPath)) {
-                        sendTelemetryEvent(EventName.DEBUG_ADAPTER_USING_WHEELS_PATH, undefined, { usingWheels: true });
-                        return new DebugAdapterExecutable(pythonPath, [path.join(ptvsdPathToUse, 'wheels', 'ptvsd', 'adapter'), ...logArgs]);
-                    } else {
-                        sendTelemetryEvent(EventName.DEBUG_ADAPTER_USING_WHEELS_PATH, undefined, { usingWheels: false });
-                        return new DebugAdapterExecutable(pythonPath, [path.join(ptvsdPathToUse, 'no_wheels', 'ptvsd', 'adapter'), ...logArgs]);
-                    }
+
+                if (configuration.debugAdapterPath !== undefined) {
+                    return new DebugAdapterExecutable(pythonPath, [configuration.debugAdapterPath, ...logArgs]);
                 }
+
+                const debuggerAdapterPathToUse = path.join(
+                    EXTENSION_ROOT_DIR,
+                    'pythonFiles',
+                    'lib',
+                    'python',
+                    'debugpy',
+                    'adapter'
+                );
+
+                sendTelemetryEvent(EventName.DEBUG_ADAPTER_USING_WHEELS_PATH, undefined, { usingWheels: true });
+                return new DebugAdapterExecutable(pythonPath, [debuggerAdapterPathToUse, ...logArgs]);
             }
         } else {
             this.experimentsManager.sendTelemetryIfInExperiment(DebugAdapterNewPtvsd.control);
@@ -65,31 +100,6 @@ export class DebugAdapterDescriptorFactory implements IDebugAdapterDescriptorFac
     }
 
     /**
-     * Check and return whether the user should and can use the new PTVSD wheels or not.
-     *
-     * @param {string} pythonPath Path to the python executable used to launch the Python Debug Adapter (result of `this.getPythonPath()`)
-     * @returns {Promise<boolean>} Whether the user should and can use the new PTVSD wheels or not.
-     * @memberof DebugAdapterDescriptorFactory
-     */
-    public async useNewPtvsd(pythonPath: string): Promise<boolean> {
-        const interpreterInfo = await this.interpreterService.getInterpreterDetails(pythonPath);
-        if (!interpreterInfo || !interpreterInfo.version || !interpreterInfo.version.raw.startsWith('3.7')) {
-            return false;
-        }
-
-        return true;
-    }
-
-    public getPtvsdPath(): string {
-        return path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'lib', 'python', 'new_ptvsd', 'no_wheels', 'ptvsd');
-    }
-
-    public getRemotePtvsdArgs(remoteDebugOptions: RemoteDebugOptions): string[] {
-        const waitArgs = remoteDebugOptions.waitUntilDebuggerAttaches ? ['--wait'] : [];
-        return ['--default', '--host', remoteDebugOptions.host, '--port', remoteDebugOptions.port.toString(), ...waitArgs];
-    }
-
-    /**
      * Get the python executable used to launch the Python Debug Adapter.
      * In the case of `attach` scenarios, just use the workspace interpreter, else first available one.
      * It is unlike user won't have a Python interpreter
@@ -100,7 +110,10 @@ export class DebugAdapterDescriptorFactory implements IDebugAdapterDescriptorFac
      * @returns {Promise<string>} Path to the python interpreter for this workspace.
      * @memberof DebugAdapterDescriptorFactory
      */
-    private async getPythonPath(configuration: LaunchRequestArguments | AttachRequestArguments, workspaceFolder?: WorkspaceFolder): Promise<string> {
+    private async getPythonPath(
+        configuration: LaunchRequestArguments | AttachRequestArguments,
+        workspaceFolder?: WorkspaceFolder
+    ): Promise<string> {
         if (configuration.pythonPath) {
             return configuration.pythonPath;
         }
@@ -130,7 +143,9 @@ export class DebugAdapterDescriptorFactory implements IDebugAdapterDescriptorFac
      * @memberof DebugAdapterDescriptorFactory
      */
     private async notifySelectInterpreter() {
-        // tslint:disable-next-line: messages-must-be-localized
-        await this.appShell.showErrorMessage('Please install Python or select a Python Interpreter to use the debugger.');
+        await this.appShell.showErrorMessage(
+            // tslint:disable-next-line: messages-must-be-localized
+            'Please install Python or select a Python Interpreter to use the debugger.'
+        );
     }
 }

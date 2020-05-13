@@ -27,14 +27,14 @@ suite('Http Client', () => {
         workSpaceService = TypeMoq.Mock.ofType<IWorkspaceService>();
         config = TypeMoq.Mock.ofType<WorkspaceConfiguration>();
         config
-            .setup(c => c.get(TypeMoq.It.isValue('proxy'), TypeMoq.It.isValue('')))
+            .setup((c) => c.get(TypeMoq.It.isValue('proxy'), TypeMoq.It.isValue('')))
             .returns(() => proxy)
             .verifiable(TypeMoq.Times.once());
         workSpaceService
-            .setup(w => w.getConfiguration(TypeMoq.It.isValue('http')))
+            .setup((w) => w.getConfiguration(TypeMoq.It.isValue('http')))
             .returns(() => config.object)
             .verifiable(TypeMoq.Times.once());
-        container.setup(a => a.get(TypeMoq.It.isValue(IWorkspaceService))).returns(() => workSpaceService.object);
+        container.setup((a) => a.get(TypeMoq.It.isValue(IWorkspaceService))).returns(() => workSpaceService.object);
 
         httpClient = new HttpClient(container.object);
     });
@@ -63,9 +63,10 @@ suite('Http Client', () => {
                 returnedArgs: [undefined, { statusCode: 200 }, '[{ "strictJSON" : true,, }]'],
                 strict: true
             }
-        ].forEach(async testParams => {
+        ].forEach(async (testParams) => {
             test(testParams.name, async () => {
-                const requestMock = (_uri: any, _requestOptions: any, callBackFn: Function) => callBackFn(...testParams.returnedArgs);
+                const requestMock = (_uri: any, _requestOptions: any, callBackFn: Function) =>
+                    callBackFn(...testParams.returnedArgs);
                 rewiremock.enable();
                 rewiremock('request').with(requestMock);
                 let rejected = true;
@@ -78,7 +79,10 @@ suite('Http Client', () => {
                         if (ex.message) {
                             ex = ex.message;
                         }
-                        expect(ex).to.equal(testParams.expectedErrorMessage, 'Promise rejected with the wrong error message');
+                        expect(ex).to.equal(
+                            testParams.expectedErrorMessage,
+                            'Promise rejected with the wrong error message'
+                        );
                     }
                 }
                 assert(rejected === true, 'Promise should be rejected');
@@ -87,7 +91,8 @@ suite('Http Client', () => {
 
         [
             {
-                name: 'If strict is set to false, and jsonc parsing returns error codes, then log errors and don\'t throw, return json',
+                name:
+                    "If strict is set to false, and jsonc parsing returns error codes, then log errors and don't throw, return json",
                 returnedArgs: [undefined, { statusCode: 200 }, '[{ "strictJSON" : false,, }]'],
                 strict: false,
                 expectedJSON: [{ strictJSON: false }]
@@ -104,9 +109,10 @@ suite('Http Client', () => {
                 strict: false,
                 expectedJSON: [{ strictJSON: false }]
             }
-        ].forEach(async testParams => {
+        ].forEach(async (testParams) => {
             test(testParams.name, async () => {
-                const requestMock = (_uri: any, _requestOptions: any, callBackFn: Function) => callBackFn(...testParams.returnedArgs);
+                const requestMock = (_uri: any, _requestOptions: any, callBackFn: Function) =>
+                    callBackFn(...testParams.returnedArgs);
                 rewiremock.enable();
                 rewiremock('request').with(requestMock);
                 let json;

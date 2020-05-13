@@ -16,13 +16,13 @@ export class InputFlowAction {
     public static back = new InputFlowAction();
     public static cancel = new InputFlowAction();
     public static resume = new InputFlowAction();
-    private constructor() { }
+    private constructor() {}
 }
 
 export type InputStep<T extends any> = (input: MultiStepInput<T>, state: T) => Promise<InputStep<T> | void>;
 
 export interface IQuickPickParameters<T extends QuickPickItem> {
-    title: string;
+    title?: string;
     step?: number;
     totalSteps?: number;
     canGoBack?: boolean;
@@ -30,6 +30,9 @@ export interface IQuickPickParameters<T extends QuickPickItem> {
     activeItem?: T;
     placeholder: string;
     buttons?: QuickInputButton[];
+    matchOnDescription?: boolean;
+    matchOnDetail?: boolean;
+    acceptFilterBoxTextAsSelection?: boolean;
     shouldResume?(): Promise<boolean>;
 }
 
@@ -49,19 +52,49 @@ type MultiStepInputQuickPicResponseType<T, P> = T | (P extends { buttons: (infer
 type MultiStepInputInputBoxResponseType<P> = string | (P extends { buttons: (infer I)[] } ? I : never);
 export interface IMultiStepInput<S> {
     run(start: InputStep<S>, state: S): Promise<void>;
-    showQuickPick<T extends QuickPickItem, P extends IQuickPickParameters<T>>({ title, step, totalSteps, items, activeItem, placeholder, buttons, shouldResume }: P): Promise<MultiStepInputQuickPicResponseType<T, P>>;
-    showInputBox<P extends InputBoxParameters>({ title, step, totalSteps, value, prompt, validate, buttons, shouldResume }: P): Promise<MultiStepInputInputBoxResponseType<P>>;
+    showQuickPick<T extends QuickPickItem, P extends IQuickPickParameters<T>>({
+        title,
+        step,
+        totalSteps,
+        items,
+        activeItem,
+        placeholder,
+        buttons,
+        shouldResume
+    }: P): Promise<MultiStepInputQuickPicResponseType<T, P>>;
+    showInputBox<P extends InputBoxParameters>({
+        title,
+        step,
+        totalSteps,
+        value,
+        prompt,
+        validate,
+        buttons,
+        shouldResume
+    }: P): Promise<MultiStepInputInputBoxResponseType<P>>;
 }
 
 export class MultiStepInput<S> implements IMultiStepInput<S> {
     private current?: QuickInput;
     private steps: InputStep<S>[] = [];
-    constructor(private readonly shell: IApplicationShell) { }
+    constructor(private readonly shell: IApplicationShell) {}
     public run(start: InputStep<S>, state: S) {
         return this.stepThrough(start, state);
     }
 
-    public async showQuickPick<T extends QuickPickItem, P extends IQuickPickParameters<T>>({ title, step, totalSteps, items, activeItem, placeholder, buttons, shouldResume }: P): Promise<MultiStepInputQuickPicResponseType<T, P>> {
+    public async showQuickPick<T extends QuickPickItem, P extends IQuickPickParameters<T>>({
+        title,
+        step,
+        totalSteps,
+        items,
+        activeItem,
+        placeholder,
+        buttons,
+        shouldResume,
+        matchOnDescription,
+        matchOnDetail,
+        acceptFilterBoxTextAsSelection
+    }: P): Promise<MultiStepInputQuickPicResponseType<T, P>> {
         const disposables: Disposable[] = [];
         try {
             return await new Promise<MultiStepInputQuickPicResponseType<T, P>>((resolve, reject) => {
@@ -72,29 +105,38 @@ export class MultiStepInput<S> implements IMultiStepInput<S> {
                 input.placeholder = placeholder;
                 input.ignoreFocusOut = true;
                 input.items = items;
+                input.matchOnDescription = matchOnDescription || false;
+                input.matchOnDetail = matchOnDetail || false;
                 if (activeItem) {
                     input.activeItems = [activeItem];
+                } else {
+                    input.activeItems = [];
                 }
-                input.buttons = [
-                    ...(this.steps.length > 1 ? [QuickInputButtons.Back] : []),
-                    ...(buttons || [])
-                ];
+                input.buttons = [...(this.steps.length > 1 ? [QuickInputButtons.Back] : []), ...(buttons || [])];
                 disposables.push(
-                    input.onDidTriggerButton(item => {
+                    input.onDidTriggerButton((item) => {
                         if (item === QuickInputButtons.Back) {
                             reject(InputFlowAction.back);
                         } else {
                             resolve(<any>item);
                         }
                     }),
-                    input.onDidChangeSelection(selectedItems => resolve(selectedItems[0])),
+                    input.onDidChangeSelection((selectedItems) => resolve(selectedItems[0])),
                     input.onDidHide(() => {
                         (async () => {
-                            reject(shouldResume && await shouldResume() ? InputFlowAction.resume : InputFlowAction.cancel);
-                        })()
-                            .catch(reject);
+                            reject(
+                                shouldResume && (await shouldResume()) ? InputFlowAction.resume : InputFlowAction.cancel
+                            );
+                        })().catch(reject);
                     })
                 );
+                if (acceptFilterBoxTextAsSelection) {
+                    disposables.push(
+                        input.onDidAccept(() => {
+                            resolve(<any>input.value);
+                        })
+                    );
+                }
                 if (this.current) {
                     this.current.dispose();
                 }
@@ -102,11 +144,20 @@ export class MultiStepInput<S> implements IMultiStepInput<S> {
                 this.current.show();
             });
         } finally {
-            disposables.forEach(d => d.dispose());
+            disposables.forEach((d) => d.dispose());
         }
     }
 
-    public async showInputBox<P extends InputBoxParameters>({ title, step, totalSteps, value, prompt, validate, buttons, shouldResume }: P): Promise<MultiStepInputInputBoxResponseType<P>> {
+    public async showInputBox<P extends InputBoxParameters>({
+        title,
+        step,
+        totalSteps,
+        value,
+        prompt,
+        validate,
+        buttons,
+        shouldResume
+    }: P): Promise<MultiStepInputInputBoxResponseType<P>> {
         const disposables: Disposable[] = [];
         try {
             return await new Promise<MultiStepInputInputBoxResponseType<P>>((resolve, reject) => {
@@ -117,13 +168,10 @@ export class MultiStepInput<S> implements IMultiStepInput<S> {
                 input.value = value || '';
                 input.prompt = prompt;
                 input.ignoreFocusOut = true;
-                input.buttons = [
-                    ...(this.steps.length > 1 ? [QuickInputButtons.Back] : []),
-                    ...(buttons || [])
-                ];
+                input.buttons = [...(this.steps.length > 1 ? [QuickInputButtons.Back] : []), ...(buttons || [])];
                 let validating = validate('');
                 disposables.push(
-                    input.onDidTriggerButton(item => {
+                    input.onDidTriggerButton((item) => {
                         if (item === QuickInputButtons.Back) {
                             reject(InputFlowAction.back);
                         } else {
@@ -140,7 +188,7 @@ export class MultiStepInput<S> implements IMultiStepInput<S> {
                         input.enabled = true;
                         input.busy = false;
                     }),
-                    input.onDidChangeValue(async text => {
+                    input.onDidChangeValue(async (text) => {
                         const current = validate(text);
                         validating = current;
                         const validationMessage = await current;
@@ -150,9 +198,10 @@ export class MultiStepInput<S> implements IMultiStepInput<S> {
                     }),
                     input.onDidHide(() => {
                         (async () => {
-                            reject(shouldResume && await shouldResume() ? InputFlowAction.resume : InputFlowAction.cancel);
-                        })()
-                            .catch(reject);
+                            reject(
+                                shouldResume && (await shouldResume()) ? InputFlowAction.resume : InputFlowAction.cancel
+                            );
+                        })().catch(reject);
                     })
                 );
                 if (this.current) {
@@ -162,7 +211,7 @@ export class MultiStepInput<S> implements IMultiStepInput<S> {
                 this.current.show();
             });
         } finally {
-            disposables.forEach(d => d.dispose());
+            disposables.forEach((d) => d.dispose());
         }
     }
 
@@ -200,7 +249,7 @@ export interface IMultiStepInputFactory {
 }
 @injectable()
 export class MultiStepInputFactory {
-    constructor(@inject(IApplicationShell) private readonly shell: IApplicationShell) { }
+    constructor(@inject(IApplicationShell) private readonly shell: IApplicationShell) {}
     public create<S>(): IMultiStepInput<S> {
         return new MultiStepInput<S>(this.shell);
     }

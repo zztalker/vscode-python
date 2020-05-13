@@ -12,23 +12,36 @@ export class LanguageItemInfo {
     constructor(
         public tooltip: vscode.MarkdownString,
         public detail: string,
-        public signature: vscode.MarkdownString) { }
+        public signature: vscode.MarkdownString
+    ) {}
 }
 
 export interface IItemInfoSource {
-    getItemInfoFromText(documentUri: vscode.Uri, fileName: string,
-        range: vscode.Range, sourceText: string,
-        token: vscode.CancellationToken): Promise<LanguageItemInfo[] | undefined>;
-    getItemInfoFromDocument(document: vscode.TextDocument, position: vscode.Position,
-        token: vscode.CancellationToken): Promise<LanguageItemInfo[] | undefined>;
+    getItemInfoFromText(
+        documentUri: vscode.Uri,
+        fileName: string,
+        range: vscode.Range,
+        sourceText: string,
+        token: vscode.CancellationToken
+    ): Promise<LanguageItemInfo[] | undefined>;
+    getItemInfoFromDocument(
+        document: vscode.TextDocument,
+        position: vscode.Position,
+        token: vscode.CancellationToken
+    ): Promise<LanguageItemInfo[] | undefined>;
 }
 
 export class ItemInfoSource implements IItemInfoSource {
     private textConverter = new RestTextConverter();
-    constructor(private jediFactory: JediFactory) { }
+    constructor(private jediFactory: JediFactory) {}
 
-    public async getItemInfoFromText(documentUri: vscode.Uri, fileName: string, range: vscode.Range, sourceText: string, token: vscode.CancellationToken)
-        : Promise<LanguageItemInfo[] | undefined> {
+    public async getItemInfoFromText(
+        documentUri: vscode.Uri,
+        fileName: string,
+        range: vscode.Range,
+        sourceText: string,
+        token: vscode.CancellationToken
+    ): Promise<LanguageItemInfo[] | undefined> {
         const result = await this.getHoverResultFromTextRange(documentUri, fileName, range, sourceText, token);
         if (!result || !result.items.length) {
             return;
@@ -36,8 +49,11 @@ export class ItemInfoSource implements IItemInfoSource {
         return this.getItemInfoFromHoverResult(result, '');
     }
 
-    public async getItemInfoFromDocument(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken)
-        : Promise<LanguageItemInfo[] | undefined> {
+    public async getItemInfoFromDocument(
+        document: vscode.TextDocument,
+        position: vscode.Position,
+        token: vscode.CancellationToken
+    ): Promise<LanguageItemInfo[] | undefined> {
         const range = document.getWordRangeAtPosition(position);
         if (!range || range.isEmpty) {
             return;
@@ -50,8 +66,11 @@ export class ItemInfoSource implements IItemInfoSource {
         return this.getItemInfoFromHoverResult(result, word);
     }
 
-    private async getHoverResultFromDocument(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken)
-        : Promise<proxy.IHoverResult | undefined> {
+    private async getHoverResultFromDocument(
+        document: vscode.TextDocument,
+        position: vscode.Position,
+        token: vscode.CancellationToken
+    ): Promise<proxy.IHoverResult | undefined> {
         if (position.character <= 0 || document.lineAt(position.line).text.match(/^\s*\/\//)) {
             return;
         }
@@ -62,8 +81,11 @@ export class ItemInfoSource implements IItemInfoSource {
         return this.getHoverResultFromDocumentRange(document, range, token);
     }
 
-    private async getHoverResultFromDocumentRange(document: vscode.TextDocument, range: vscode.Range, token: vscode.CancellationToken)
-        : Promise<proxy.IHoverResult | undefined> {
+    private async getHoverResultFromDocumentRange(
+        document: vscode.TextDocument,
+        range: vscode.Range,
+        token: vscode.CancellationToken
+    ): Promise<proxy.IHoverResult | undefined> {
         const cmd: proxy.ICommand = {
             command: proxy.CommandType.Hover,
             fileName: document.fileName,
@@ -76,8 +98,13 @@ export class ItemInfoSource implements IItemInfoSource {
         return this.jediFactory.getJediProxyHandler<proxy.IHoverResult>(document.uri).sendCommand(cmd, token);
     }
 
-    private async getHoverResultFromTextRange(documentUri: vscode.Uri, fileName: string, range: vscode.Range, sourceText: string, token: vscode.CancellationToken)
-        : Promise<proxy.IHoverResult | undefined> {
+    private async getHoverResultFromTextRange(
+        documentUri: vscode.Uri,
+        fileName: string,
+        range: vscode.Range,
+        sourceText: string,
+        token: vscode.CancellationToken
+    ): Promise<proxy.IHoverResult | undefined> {
         const cmd: proxy.ICommand = {
             command: proxy.CommandType.Hover,
             fileName: fileName,
@@ -91,7 +118,7 @@ export class ItemInfoSource implements IItemInfoSource {
     private getItemInfoFromHoverResult(data: proxy.IHoverResult, currentWord: string): LanguageItemInfo[] {
         const infos: LanguageItemInfo[] = [];
 
-        data.items.forEach(item => {
+        data.items.forEach((item) => {
             const signature = this.getSignature(item, currentWord);
             let tooltip = new vscode.MarkdownString();
             if (item.docstring) {
@@ -100,12 +127,18 @@ export class ItemInfoSource implements IItemInfoSource {
                 // If the docstring starts with the signature, then remove those lines from the docstring.
                 if (lines.length > 0 && item.signature.indexOf(lines[0]) === 0) {
                     lines.shift();
-                    const endIndex = lines.findIndex(line => item.signature.endsWith(line));
+                    const endIndex = lines.findIndex((line) => item.signature.endsWith(line));
                     if (endIndex >= 0) {
                         lines = lines.filter((_line, index) => index > endIndex);
                     }
                 }
-                if (lines.length > 0 && currentWord.length > 0 && item.signature.startsWith(currentWord) && lines[0].startsWith(currentWord) && lines[0].endsWith(')')) {
+                if (
+                    lines.length > 0 &&
+                    currentWord.length > 0 &&
+                    item.signature.startsWith(currentWord) &&
+                    lines[0].startsWith(currentWord) &&
+                    lines[0].endsWith(')')
+                ) {
                     lines.shift();
                 }
 
@@ -130,10 +163,9 @@ export class ItemInfoSource implements IItemInfoSource {
                 return;
             }
 
-            if (item.text) { // Most probably variable type
-                const code = currentWord && currentWord.length > 0
-                    ? `${currentWord}: ${item.text}`
-                    : item.text;
+            if (item.text) {
+                // Most probably variable type
+                const code = currentWord && currentWord.length > 0 ? `${currentWord}: ${item.text}` : item.text;
                 tooltip.appendMarkdown(['```python', code, '```', ''].join(EOL));
                 infos.push(new LanguageItemInfo(tooltip, '', new vscode.MarkdownString()));
             }

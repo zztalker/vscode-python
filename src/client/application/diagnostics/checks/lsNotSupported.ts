@@ -60,7 +60,10 @@ export class LSNotSupportedDiagnosticService extends BaseDiagnosticsService {
         const options = [
             {
                 prompt: 'More Info',
-                command: commandFactory.createCommand(diagnostic, { type: 'launch', options: 'https://aka.ms/pythonlsrequirements' })
+                command: commandFactory.createCommand(diagnostic, {
+                    type: 'launch',
+                    options: 'https://aka.ms/pythonlsrequirements'
+                })
             },
             {
                 prompt: 'Do not show again',

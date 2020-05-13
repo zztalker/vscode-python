@@ -7,13 +7,13 @@
 
 import { assert, expect } from 'chai';
 import * as path from 'path';
+import * as sinon from 'sinon';
 import * as TypeMoq from 'typemoq';
 // tslint:disable-next-line:no-require-imports
 import untildify = require('untildify');
 import { WorkspaceConfiguration } from 'vscode';
-import {
-    PythonSettings
-} from '../../../client/common/configSettings';
+import { LanguageServerType } from '../../../client/activation/types';
+import { PythonSettings } from '../../../client/common/configSettings';
 import {
     IAnalysisSettings,
     IAutoCompleteSettings,
@@ -27,6 +27,7 @@ import {
     IWorkspaceSymbolSettings
 } from '../../../client/common/types';
 import { noop } from '../../../client/common/utils/misc';
+import * as EnvFileTelemetry from '../../../client/telemetry/envFileTelemetry';
 import { MockAutoSelectionService } from '../../mocks/autoSelector';
 
 // tslint:disable-next-line:max-func-body-length
@@ -36,78 +37,91 @@ suite('Python Settings', async () => {
         public update(pythonSettings: WorkspaceConfiguration) {
             return super.update(pythonSettings);
         }
-        protected initialize() { noop(); }
+        protected initialize() {
+            noop();
+        }
     }
     let config: TypeMoq.IMock<WorkspaceConfiguration>;
     let expected: CustomPythonSettings;
     let settings: CustomPythonSettings;
     setup(() => {
+        sinon.stub(EnvFileTelemetry, 'sendSettingTelemetry').returns();
         config = TypeMoq.Mock.ofType<WorkspaceConfiguration>(undefined, TypeMoq.MockBehavior.Strict);
         expected = new CustomPythonSettings(undefined, new MockAutoSelectionService());
         settings = new CustomPythonSettings(undefined, new MockAutoSelectionService());
+        expected.defaultInterpreterPath = 'python';
+    });
+
+    teardown(() => {
+        sinon.restore();
     });
 
     function initializeConfig(sourceSettings: PythonSettings) {
         // string settings
-        for (const name of ['pythonPath', 'venvPath', 'condaPath', 'pipenvPath', 'envFile', 'poetryPath', 'insidersChannel']) {
-            config.setup(c => c.get<string>(name))
+        for (const name of [
+            'pythonPath',
+            'venvPath',
+            'condaPath',
+            'pipenvPath',
+            'envFile',
+            'poetryPath',
+            'insidersChannel',
+            'defaultInterpreterPath'
+        ]) {
+            config
+                .setup((c) => c.get<string>(name))
                 // tslint:disable-next-line:no-any
                 .returns(() => (sourceSettings as any)[name]);
         }
         if (sourceSettings.jediEnabled) {
-            config.setup(c => c.get<string>('jediPath'))
-                .returns(() => sourceSettings.jediPath);
+            config.setup((c) => c.get<string>('jediPath')).returns(() => sourceSettings.jediPath);
         }
         for (const name of ['venvFolders']) {
-            config.setup(c => c.get<string[]>(name))
+            config
+                .setup((c) => c.get<string[]>(name))
                 // tslint:disable-next-line:no-any
                 .returns(() => (sourceSettings as any)[name]);
         }
 
         // boolean settings
         for (const name of ['downloadLanguageServer', 'jediEnabled', 'autoUpdateLanguageServer']) {
-            config.setup(c => c.get<boolean>(name, true))
+            config
+                .setup((c) => c.get<boolean>(name, true))
                 // tslint:disable-next-line:no-any
                 .returns(() => (sourceSettings as any)[name]);
         }
         for (const name of ['disableInstallationCheck', 'globalModuleInstallation']) {
-            config.setup(c => c.get<boolean>(name))
+            config
+                .setup((c) => c.get<boolean>(name))
                 // tslint:disable-next-line:no-any
                 .returns(() => (sourceSettings as any)[name]);
         }
 
         // number settings
         if (sourceSettings.jediEnabled) {
-            config.setup(c => c.get<number>('jediMemoryLimit'))
-                .returns(() => sourceSettings.jediMemoryLimit);
+            config.setup((c) => c.get<number>('jediMemoryLimit')).returns(() => sourceSettings.jediMemoryLimit);
         }
+
+        // Language server type settings
+        config.setup((c) => c.get<LanguageServerType>('languageServer')).returns(() => sourceSettings.languageServer);
 
         // "any" settings
         // tslint:disable-next-line:no-any
-        config.setup(c => c.get<any[]>('devOptions'))
-            .returns(() => sourceSettings.devOptions);
+        config.setup((c) => c.get<any[]>('devOptions')).returns(() => sourceSettings.devOptions);
 
         // complex settings
-        config.setup(c => c.get<ILintingSettings>('linting'))
-            .returns(() => sourceSettings.linting);
-        config.setup(c => c.get<IAnalysisSettings>('analysis'))
-            .returns(() => sourceSettings.analysis);
-        config.setup(c => c.get<ISortImportSettings>('sortImports'))
-            .returns(() => sourceSettings.sortImports);
-        config.setup(c => c.get<IFormattingSettings>('formatting'))
-            .returns(() => sourceSettings.formatting);
-        config.setup(c => c.get<IAutoCompleteSettings>('autoComplete'))
-            .returns(() => sourceSettings.autoComplete);
-        config.setup(c => c.get<IWorkspaceSymbolSettings>('workspaceSymbols'))
+        config.setup((c) => c.get<ILintingSettings>('linting')).returns(() => sourceSettings.linting);
+        config.setup((c) => c.get<IAnalysisSettings>('analysis')).returns(() => sourceSettings.analysis);
+        config.setup((c) => c.get<ISortImportSettings>('sortImports')).returns(() => sourceSettings.sortImports);
+        config.setup((c) => c.get<IFormattingSettings>('formatting')).returns(() => sourceSettings.formatting);
+        config.setup((c) => c.get<IAutoCompleteSettings>('autoComplete')).returns(() => sourceSettings.autoComplete);
+        config
+            .setup((c) => c.get<IWorkspaceSymbolSettings>('workspaceSymbols'))
             .returns(() => sourceSettings.workspaceSymbols);
-        config.setup(c => c.get<ITestingSettings>('testing'))
-            .returns(() => sourceSettings.testing);
-        config.setup(c => c.get<ITerminalSettings>('terminal'))
-            .returns(() => sourceSettings.terminal);
-        config.setup(c => c.get<IDataScienceSettings>('dataScience'))
-            .returns(() => sourceSettings.datascience);
-        config.setup(c => c.get<IExperiments>('experiments'))
-            .returns(() => sourceSettings.experiments);
+        config.setup((c) => c.get<ITestingSettings>('testing')).returns(() => sourceSettings.testing);
+        config.setup((c) => c.get<ITerminalSettings>('terminal')).returns(() => sourceSettings.terminal);
+        config.setup((c) => c.get<IDataScienceSettings>('dataScience')).returns(() => sourceSettings.datascience);
+        config.setup((c) => c.get<IExperiments>('experiments')).returns(() => sourceSettings.experiments);
     }
 
     function testIfValueIsUpdated(settingName: string, value: any) {
@@ -124,19 +138,30 @@ suite('Python Settings', async () => {
     }
 
     suite('String settings', async () => {
-        ['pythonPath', 'venvPath', 'condaPath', 'pipenvPath', 'envFile', 'poetryPath', 'insidersChannel'].forEach(async settingName => {
+        [
+            'pythonPath',
+            'venvPath',
+            'condaPath',
+            'pipenvPath',
+            'envFile',
+            'poetryPath',
+            'insidersChannel',
+            'defaultInterpreterPath'
+        ].forEach(async (settingName) => {
             testIfValueIsUpdated(settingName, 'stringValue');
         });
     });
 
     suite('Boolean settings', async () => {
-        ['downloadLanguageServer', 'jediEnabled', 'autoUpdateLanguageServer', 'globalModuleInstallation'].forEach(async settingName => {
-            testIfValueIsUpdated(settingName, true);
-        });
+        ['downloadLanguageServer', 'jediEnabled', 'autoUpdateLanguageServer', 'globalModuleInstallation'].forEach(
+            async (settingName) => {
+                testIfValueIsUpdated(settingName, true);
+            }
+        );
     });
 
     suite('Number settings', async () => {
-        ['jediMemoryLimit'].forEach(async settingName => {
+        ['jediMemoryLimit'].forEach(async (settingName) => {
             testIfValueIsUpdated(settingName, 1001);
         });
     });
@@ -145,7 +170,8 @@ suite('Python Settings', async () => {
         expected.pythonPath = 'python3';
         expected.condaPath = 'spam';
         initializeConfig(expected);
-        config.setup(c => c.get<string>('condaPath'))
+        config
+            .setup((c) => c.get<string>('condaPath'))
             .returns(() => expected.condaPath)
             .verifiable(TypeMoq.Times.once());
 
@@ -159,7 +185,8 @@ suite('Python Settings', async () => {
         expected.pythonPath = 'python3';
         expected.condaPath = path.join('~', 'anaconda3', 'bin', 'conda');
         initializeConfig(expected);
-        config.setup(c => c.get<string>('condaPath'))
+        config
+            .setup((c) => c.get<string>('condaPath'))
             .returns(() => expected.condaPath)
             .verifiable(TypeMoq.Times.once());
 
@@ -173,10 +200,13 @@ suite('Python Settings', async () => {
         expected.pythonPath = 'python3';
         // tslint:disable-next-line:no-any
         expected.experiments = {
-            enabled
+            enabled,
+            optInto: [],
+            optOutFrom: []
         };
         initializeConfig(expected);
-        config.setup(c => c.get<IExperiments>('experiments'))
+        config
+            .setup((c) => c.get<IExperiments>('experiments'))
             .returns(() => expected.experiments)
             .verifiable(TypeMoq.Times.once());
 
@@ -196,14 +226,18 @@ suite('Python Settings', async () => {
         expected.pythonPath = 'python3';
         // tslint:disable-next-line:no-any
         expected.formatting = {
-            autopep8Args: ['1', '2'], autopep8Path: 'one',
-            blackArgs: ['3', '4'], blackPath: 'two',
-            yapfArgs: ['5', '6'], yapfPath: 'three',
+            autopep8Args: ['1', '2'],
+            autopep8Path: 'one',
+            blackArgs: ['3', '4'],
+            blackPath: 'two',
+            yapfArgs: ['5', '6'],
+            yapfPath: 'three',
             provider: ''
         };
         expected.formatting.blackPath = 'spam';
         initializeConfig(expected);
-        config.setup(c => c.get<IFormattingSettings>('formatting'))
+        config
+            .setup((c) => c.get<IFormattingSettings>('formatting'))
             .returns(() => expected.formatting)
             .verifiable(TypeMoq.Times.once());
 
@@ -219,14 +253,18 @@ suite('Python Settings', async () => {
         expected.pythonPath = 'python3';
         // tslint:disable-next-line:no-any
         expected.formatting = {
-            autopep8Args: [], autopep8Path: path.join('~', 'one'),
-            blackArgs: [], blackPath: path.join('~', 'two'),
-            yapfArgs: [], yapfPath: path.join('~', 'three'),
+            autopep8Args: [],
+            autopep8Path: path.join('~', 'one'),
+            blackArgs: [],
+            blackPath: path.join('~', 'two'),
+            yapfArgs: [],
+            yapfPath: path.join('~', 'three'),
             provider: ''
         };
         expected.formatting.blackPath = 'spam';
         initializeConfig(expected);
-        config.setup(c => c.get<IFormattingSettings>('formatting'))
+        config
+            .setup((c) => c.get<IFormattingSettings>('formatting'))
             .returns(() => expected.formatting)
             .verifiable(TypeMoq.Times.once());
 
@@ -243,6 +281,7 @@ suite('Python Settings', async () => {
         }
         config.verifyAll();
     });
+
     test('File env variables remain in settings', () => {
         expected.datascience = {
             allowImportFromNotebook: true,
@@ -251,7 +290,7 @@ suite('Python Settings', async () => {
             enabled: true,
             jupyterServerURI: 'local',
             // tslint:disable-next-line: no-invalid-template-strings
-            notebookFileRoot: '${FileDirname}',
+            notebookFileRoot: '${fileDirname}',
             changeDirOnImportExport: true,
             useDefaultConfigForJupyter: true,
             jupyterInterruptTimeout: 10000,
@@ -260,6 +299,7 @@ suite('Python Settings', async () => {
             collapseCellInputCodeByDefault: true,
             allowInput: true,
             maxOutputSize: 400,
+            enableScrollingForCellOutputs: true,
             errorBackgroundColor: '#FFFFFF',
             sendSelectionToInteractiveWindow: false,
             variableExplorerExclude: 'module;function;builtin_function_or_method',
@@ -267,15 +307,21 @@ suite('Python Settings', async () => {
             markdownRegularExpression: '',
             enablePlotViewer: true,
             runStartupCommands: '',
-            debugJustMyCode: true
+            debugJustMyCode: true,
+            variableQueries: [],
+            jupyterCommandLineArguments: [],
+            widgetScriptSources: []
         };
         expected.pythonPath = 'python3';
         // tslint:disable-next-line:no-any
         expected.experiments = {
-            enabled: false
+            enabled: false,
+            optInto: [],
+            optOutFrom: []
         };
         initializeConfig(expected);
-        config.setup(c => c.get<IExperiments>('experiments'))
+        config
+            .setup((c) => c.get<IExperiments>('experiments'))
             .returns(() => expected.experiments)
             .verifiable(TypeMoq.Times.once());
 

@@ -1,9 +1,6 @@
 import { inject, injectable } from 'inversify';
 import { IFileSystem } from '../../common/platform/types';
-import {
-    FlattenedTestFunction, IXUnitParser,
-    TestFunction, TestResult, Tests, TestStatus, TestSummary
-} from './types';
+import { FlattenedTestFunction, IXUnitParser, TestFunction, TestResult, Tests, TestStatus, TestSummary } from './types';
 
 type TestSuiteResult = {
     $: {
@@ -42,21 +39,18 @@ type TestCaseResult = {
 // tslint:disable-next-line:no-any
 function getSafeInt(value: string, defaultValue: any = 0): number {
     const num = parseInt(value, 10);
-    if (isNaN(num)) { return defaultValue; }
+    if (isNaN(num)) {
+        return defaultValue;
+    }
     return num;
 }
 
 @injectable()
 export class XUnitParser implements IXUnitParser {
-    constructor(
-        @inject(IFileSystem) private readonly fs: IFileSystem
-    ) { }
+    constructor(@inject(IFileSystem) private readonly fs: IFileSystem) {}
 
     // Update "tests" with the results parsed from the given file.
-    public async updateResultsFromXmlLogFile(
-        tests: Tests,
-        outputXmlFile: string
-    ) {
+    public async updateResultsFromXmlLogFile(tests: Tests, outputXmlFile: string) {
         const data = await this.fs.readFile(outputXmlFile);
 
         const parserResult = await parseXML(data);
@@ -87,7 +81,7 @@ async function parseXML(data: string): Promise<any> {
 // tslint:disable-next-line:no-any
 function getJunitResults(parserResult: any): TestSuiteResult | undefined {
     // This is the newer JUnit XML format (e.g. pytest 5.1 and later).
-    const fullResults = parserResult as { testsuites: { testsuite: TestSuiteResult[] }};
+    const fullResults = parserResult as { testsuites: { testsuite: TestSuiteResult[] } };
     if (!fullResults.testsuites) {
         return (parserResult as { testsuite: TestSuiteResult }).testsuite;
     }
@@ -106,10 +100,7 @@ function getJunitResults(parserResult: any): TestSuiteResult | undefined {
 }
 
 // Update "tests" with the given results.
-function updateTests(
-    tests: Tests,
-    testSuiteResult: TestSuiteResult
-) {
+function updateTests(tests: Tests, testSuiteResult: TestSuiteResult) {
     updateSummary(tests.summary, testSuiteResult);
 
     if (!Array.isArray(testSuiteResult.testcase)) {
@@ -119,11 +110,7 @@ function updateTests(
     // Update the results for each test.
     // Previously unknown tests are ignored.
     testSuiteResult.testcase.forEach((testcase: TestCaseResult) => {
-        const testFunc = findTestFunction(
-            tests.testFunctions,
-            testcase.$.classname,
-            testcase.$.name
-        );
+        const testFunc = findTestFunction(tests.testFunctions, testcase.$.classname, testcase.$.name);
         if (testFunc) {
             updateResultInfo(testFunc, testcase);
             updateResultStatus(testFunc, testcase);
@@ -137,7 +124,7 @@ function updateTests(
             //     fn.parentTestSuite && fn.parentTestSuite.name === testcase.$.classname);
 
             // Look for failed file test
-            const fileTest = testcase.$.file && tests.testFiles.find(file => file.nameToRun === testcase.$.file);
+            const fileTest = testcase.$.file && tests.testFiles.find((file) => file.nameToRun === testcase.$.file);
             if (fileTest && testcase.error) {
                 updateResultStatus(fileTest, testcase);
             }
@@ -146,10 +133,7 @@ function updateTests(
 }
 
 // Update the summary with the information in the given results.
-function updateSummary(
-    summary: TestSummary,
-    testSuiteResult: TestSuiteResult
-) {
+function updateSummary(summary: TestSummary, testSuiteResult: TestSuiteResult) {
     summary.errors = getSafeInt(testSuiteResult.$.errors);
     summary.failures = getSafeInt(testSuiteResult.$.failures);
     summary.skipped = getSafeInt(testSuiteResult.$.skips ? testSuiteResult.$.skips : testSuiteResult.$.skip);
@@ -162,31 +146,21 @@ function findTestFunction(
     className: string,
     funcName: string
 ): TestFunction | undefined {
-    const xmlClassName = className
-        .replace(/\(\)/g, '')
-        .replace(/\.\./g, '.')
-        .replace(/\.\./g, '.')
-        .replace(/\.+$/, '');
-    const flattened = candidates.find(fn => fn.xmlClassName === xmlClassName && fn.testFunction.name === funcName);
+    const xmlClassName = className.replace(/\(\)/g, '').replace(/\.\./g, '.').replace(/\.\./g, '.').replace(/\.+$/, '');
+    const flattened = candidates.find((fn) => fn.xmlClassName === xmlClassName && fn.testFunction.name === funcName);
     if (!flattened) {
         return;
     }
     return flattened.testFunction;
 }
 
-function updateResultInfo(
-    result: TestResult,
-    testCase: TestCaseResult
-) {
+function updateResultInfo(result: TestResult, testCase: TestCaseResult) {
     result.file = testCase.$.file;
     result.line = getSafeInt(testCase.$.line, null);
     result.time = parseFloat(testCase.$.time);
 }
 
-function updateResultStatus(
-    result: TestResult,
-    testCase: TestCaseResult
-) {
+function updateResultStatus(result: TestResult, testCase: TestCaseResult) {
     if (testCase.error) {
         result.status = TestStatus.Error;
         result.passed = false;

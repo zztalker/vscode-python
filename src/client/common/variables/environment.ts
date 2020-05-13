@@ -1,35 +1,39 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-import * as fs from 'fs-extra';
 import { inject, injectable } from 'inversify';
 import * as path from 'path';
 import { sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
+import { IFileSystem } from '../platform/types';
 import { IPathUtils } from '../types';
 import { EnvironmentVariables, IEnvironmentVariablesService } from './types';
 
 @injectable()
 export class EnvironmentVariablesService implements IEnvironmentVariablesService {
-    private readonly pathVariable: 'PATH' | 'Path';
-    constructor(@inject(IPathUtils) pathUtils: IPathUtils) {
-        this.pathVariable = pathUtils.getPathVariableName();
-    }
-    public async parseFile(filePath?: string, baseVars?: EnvironmentVariables): Promise<EnvironmentVariables | undefined> {
-        if (!filePath || !await fs.pathExists(filePath)) {
+    private _pathVariable?: 'Path' | 'PATH';
+    constructor(
+        // We only use a small portion of either of these interfaces.
+        @inject(IPathUtils) private readonly pathUtils: IPathUtils,
+        @inject(IFileSystem) private readonly fs: IFileSystem
+    ) {}
+
+    public async parseFile(
+        filePath?: string,
+        baseVars?: EnvironmentVariables
+    ): Promise<EnvironmentVariables | undefined> {
+        if (!filePath || !(await this.fs.fileExists(filePath))) {
             return;
         }
-        if (!fs.lstatSync(filePath).isFile()) {
-            return;
-        }
-        return parseEnvFile(await fs.readFile(filePath), baseVars);
+        return parseEnvFile(await this.fs.readFile(filePath), baseVars);
     }
+
     public mergeVariables(source: EnvironmentVariables, target: EnvironmentVariables) {
         if (!target) {
             return;
         }
         const settingsNotToMerge = ['PYTHONPATH', this.pathVariable];
-        Object.keys(source).forEach(setting => {
+        Object.keys(source).forEach((setting) => {
             if (settingsNotToMerge.indexOf(setting) >= 0) {
                 return;
             }
@@ -38,16 +42,30 @@ export class EnvironmentVariablesService implements IEnvironmentVariablesService
             }
         });
     }
+
     public appendPythonPath(vars: EnvironmentVariables, ...pythonPaths: string[]) {
         return this.appendPaths(vars, 'PYTHONPATH', ...pythonPaths);
     }
+
     public appendPath(vars: EnvironmentVariables, ...paths: string[]) {
         return this.appendPaths(vars, this.pathVariable, ...paths);
     }
-    private appendPaths(vars: EnvironmentVariables, variableName: 'PATH' | 'Path' | 'PYTHONPATH', ...pathsToAppend: string[]) {
+
+    private get pathVariable(): 'Path' | 'PATH' {
+        if (!this._pathVariable) {
+            this._pathVariable = this.pathUtils.getPathVariableName();
+        }
+        return this._pathVariable!;
+    }
+
+    private appendPaths(
+        vars: EnvironmentVariables,
+        variableName: 'PATH' | 'Path' | 'PYTHONPATH',
+        ...pathsToAppend: string[]
+    ) {
         const valueToAppend = pathsToAppend
-            .filter(item => typeof item === 'string' && item.trim().length > 0)
-            .map(item => item.trim())
+            .filter((item) => typeof item === 'string' && item.trim().length > 0)
+            .map((item) => item.trim())
             .join(path.delimiter);
         if (valueToAppend.length === 0) {
             return vars;
@@ -63,19 +81,19 @@ export class EnvironmentVariablesService implements IEnvironmentVariablesService
     }
 }
 
-export function parseEnvFile(
-    lines: string | Buffer,
-    baseVars?: EnvironmentVariables
-): EnvironmentVariables {
+export function parseEnvFile(lines: string | Buffer, baseVars?: EnvironmentVariables): EnvironmentVariables {
     const globalVars = baseVars ? baseVars : {};
-    const vars : EnvironmentVariables = {};
-    lines.toString().split('\n').forEach((line, _idx) => {
-        const [name, value] = parseEnvLine(line);
-        if (name === '') {
-            return;
-        }
-        vars[name] = substituteEnvVars(value, vars, globalVars);
-    });
+    const vars: EnvironmentVariables = {};
+    lines
+        .toString()
+        .split('\n')
+        .forEach((line, _idx) => {
+            const [name, value] = parseEnvLine(line);
+            if (name === '') {
+                return;
+            }
+            vars[name] = substituteEnvVars(value, vars, globalVars);
+        });
     return vars;
 }
 
@@ -92,7 +110,7 @@ function parseEnvLine(line: string): [string, string] {
     const name = match[1];
     let value = match[2];
     if (value && value !== '') {
-        if (value[0] === '\'' && value[value.length - 1] === '\'') {
+        if (value[0] === "'" && value[value.length - 1] === "'") {
             value = value.substring(1, value.length - 1);
             value = value.replace(/\\n/gm, '\n');
         } else if (value[0] === '"' && value[value.length - 1] === '"') {

@@ -31,7 +31,7 @@ export class MockDocumentManager implements IDocumentManager {
     public textDocuments: TextDocument[] = [];
     public activeTextEditor: TextEditor | undefined;
     public visibleTextEditors: TextEditor[] = [];
-    public didChangeEmitter = new EventEmitter<TextEditor>();
+    public didChangeActiveTextEditorEmitter = new EventEmitter<TextEditor>();
     private didOpenEmitter = new EventEmitter<TextDocument>();
     private didChangeVisibleEmitter = new EventEmitter<TextEditor[]>();
     private didChangeTextEditorSelectionEmitter = new EventEmitter<TextEditorSelectionChangeEvent>();
@@ -40,8 +40,8 @@ export class MockDocumentManager implements IDocumentManager {
     private didCloseEmitter = new EventEmitter<TextDocument>();
     private didSaveEmitter = new EventEmitter<TextDocument>();
     private didChangeTextDocumentEmitter = new EventEmitter<TextDocumentChangeEvent>();
-    public get onDidChangeActiveTextEditor(): Event<TextEditor> {
-        return this.didChangeEmitter.event;
+    public get onDidChangeActiveTextEditor(): Event<TextEditor | undefined> {
+        return this.didChangeActiveTextEditorEmitter.event;
     }
     public get onDidChangeTextDocument(): Event<TextDocumentChangeEvent> {
         return this.didChangeTextDocumentEmitter.event;
@@ -67,12 +67,17 @@ export class MockDocumentManager implements IDocumentManager {
     public get onDidSaveTextDocument(): Event<TextDocument> {
         return this.didSaveEmitter.event;
     }
-    public showTextDocument(_document: TextDocument, _column?: ViewColumn, _preserveFocus?: boolean): Thenable<TextEditor>;
+    public showTextDocument(
+        _document: TextDocument,
+        _column?: ViewColumn,
+        _preserveFocus?: boolean
+    ): Thenable<TextEditor>;
     public showTextDocument(_document: TextDocument | Uri, _options?: TextDocumentShowOptions): Thenable<TextEditor>;
     public showTextDocument(document: any, _column?: any, _preserveFocus?: any): Thenable<TextEditor> {
         this.visibleTextEditors.push(document);
         const mockEditor = new MockEditor(this, this.lastDocument as MockDocument);
         this.activeTextEditor = mockEditor;
+        this.didChangeActiveTextEditorEmitter.fire(this.activeTextEditor);
         return Promise.resolve(mockEditor);
     }
     public openTextDocument(_fileName: string | Uri): Thenable<TextDocument>;
@@ -89,14 +94,20 @@ export class MockDocumentManager implements IDocumentManager {
     }
 
     public addDocument(code: string, file: string) {
-        const mockDoc = new MockDocument(code, file, this.saveDocument);
-        this.textDocuments.push(mockDoc);
+        let existing = this.textDocuments.find((d) => d.uri.fsPath === file) as MockDocument;
+        if (existing) {
+            existing.setContent(code);
+        } else {
+            existing = new MockDocument(code, file, this.saveDocument);
+            this.textDocuments.push(existing);
+        }
+        return existing;
     }
 
     public changeDocument(file: string, changes: { range: Range; newText: string }[]) {
-        const doc = this.textDocuments.find(d => d.uri.fsPath === Uri.file(file).fsPath) as MockDocument;
+        const doc = this.textDocuments.find((d) => d.uri.fsPath === Uri.file(file).fsPath) as MockDocument;
         if (doc) {
-            const contentChanges = changes.map(c => {
+            const contentChanges = changes.map((c) => {
                 const startOffset = doc.offsetAt(c.range.start);
                 const endOffset = doc.offsetAt(c.range.end);
                 return {
@@ -131,5 +142,5 @@ export class MockDocumentManager implements IDocumentManager {
         // Create a new document with the contents of the doc passed in
         this.addDocument(doc.getText(), path.join(EXTENSION_ROOT_DIR, 'baz.py'));
         return Promise.resolve(true);
-    }
+    };
 }

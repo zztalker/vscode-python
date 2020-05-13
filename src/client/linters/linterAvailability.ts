@@ -24,7 +24,7 @@ export class AvailableLinterActivator implements IAvailableLinterActivator {
         @inject(IWorkspaceService) private workspaceService: IWorkspaceService,
         @inject(IConfigurationService) private configService: IConfigurationService,
         @inject(IPersistentStateFactory) private persistentStateFactory: IPersistentStateFactory
-    ) { }
+    ) {}
 
     /**
      * Check if it is possible to enable an otherwise-unconfigured linter in
@@ -49,7 +49,6 @@ export class AvailableLinterActivator implements IAvailableLinterActivator {
 
         // Is the linter available in the current workspace?
         if (await this.isLinterAvailable(linterInfo, resource)) {
-
             // great, it is - ask the user if they'd like to enable it.
             return this.promptToConfigureAvailableLinter(linterInfo);
         }
@@ -65,19 +64,24 @@ export class AvailableLinterActivator implements IAvailableLinterActivator {
      * @returns true if the user requested a configuration change, false otherwise.
      */
     public async promptToConfigureAvailableLinter(linterInfo: ILinterInfo): Promise<boolean> {
-        const notificationPromptEnabled = this.persistentStateFactory.createWorkspacePersistentState(doNotDisplayPromptStateKey, true);
+        const notificationPromptEnabled = this.persistentStateFactory.createWorkspacePersistentState(
+            doNotDisplayPromptStateKey,
+            true
+        );
         if (!notificationPromptEnabled.value) {
             return false;
         }
-        const optButtons = [
-            Linters.enableLinter().format(linterInfo.id),
-            Common.notNow(),
-            Common.doNotShowAgain()
-        ];
+        const optButtons = [Linters.enableLinter().format(linterInfo.id), Common.notNow(), Common.doNotShowAgain()];
 
         const telemetrySelections: ['enable', 'ignore', 'disablePrompt'] = ['enable', 'ignore', 'disablePrompt'];
-        const pick = await this.appShell.showInformationMessage(Linters.enablePylint().format(linterInfo.id), ...optButtons);
-        sendTelemetryEvent(EventName.CONFIGURE_AVAILABLE_LINTER_PROMPT, undefined, { tool: linterInfo.id, action: pick ? telemetrySelections[optButtons.indexOf(pick)] : undefined });
+        const pick = await this.appShell.showInformationMessage(
+            Linters.enablePylint().format(linterInfo.id),
+            ...optButtons
+        );
+        sendTelemetryEvent(EventName.CONFIGURE_AVAILABLE_LINTER_PROMPT, undefined, {
+            tool: linterInfo.id,
+            action: pick ? telemetrySelections[optButtons.indexOf(pick)] : undefined
+        });
         if (pick === optButtons[0]) {
             await linterInfo.enableAsync(true);
             return true;
@@ -98,11 +102,12 @@ export class AvailableLinterActivator implements IAvailableLinterActivator {
         if (!this.workspaceService.hasWorkspaceFolders) {
             return false;
         }
-        const workspaceFolder = this.workspaceService.getWorkspaceFolder(resource) || this.workspaceService.workspaceFolders![0];
+        const workspaceFolder =
+            this.workspaceService.getWorkspaceFolder(resource) || this.workspaceService.workspaceFolders![0];
         let isAvailable = false;
         for (const configName of linterInfo.configFileNames) {
             const configPath = path.join(workspaceFolder.uri.fsPath, configName);
-            isAvailable = isAvailable || await this.fs.fileExists(configPath);
+            isAvailable = isAvailable || (await this.fs.fileExists(configPath));
         }
         return isAvailable;
     }
@@ -118,7 +123,9 @@ export class AvailableLinterActivator implements IAvailableLinterActivator {
     public isLinterUsingDefaultConfiguration(linterInfo: ILinterInfo, resource?: Uri): boolean {
         const ws = this.workspaceService.getConfiguration('python.linting', resource);
         const pe = ws!.inspect(linterInfo.enabledSettingName);
-        return (pe!.globalValue === undefined && pe!.workspaceValue === undefined && pe!.workspaceFolderValue === undefined);
+        return (
+            pe!.globalValue === undefined && pe!.workspaceValue === undefined && pe!.workspaceFolderValue === undefined
+        );
     }
 
     /**

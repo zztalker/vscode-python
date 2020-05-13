@@ -14,8 +14,13 @@ import { CommandSource } from '../common/constants';
 import { getChildren, getParent, getTestDataItemType } from '../common/testUtils';
 import { ITestCollectionStorageService, Tests, TestStatus } from '../common/types';
 import {
-    ITestDataItemResource, ITestManagementService, ITestTreeViewProvider,
-    TestDataItem, TestDataItemType, TestWorkspaceFolder, WorkspaceTestStatus
+    ITestDataItemResource,
+    ITestManagementService,
+    ITestTreeViewProvider,
+    TestDataItem,
+    TestDataItemType,
+    TestWorkspaceFolder,
+    WorkspaceTestStatus
 } from '../types';
 import { TestTreeItem } from './testTreeViewItem';
 
@@ -40,7 +45,7 @@ export class TestTreeViewProvider implements ITestTreeViewProvider, ITestDataIte
         disposableRegistry.push(this);
         this.testsAreBeingDiscovered = new Map<string, boolean>();
         this.disposables.push(this.testService.onDidStatusChange(this.onTestStatusChanged, this));
-        this.testStore.onDidChange(e => this._onDidChangeTreeData.fire(e.data), this, this.disposables);
+        this.testStore.onDidChange((e) => this._onDidChangeTreeData.fire(e.data), this, this.disposables);
         this.workspace.onDidChangeWorkspaceFolders(() => this._onDidChangeTreeData.fire(), this, this.disposables);
 
         if (Array.isArray(workspace.workspaceFolders) && workspace.workspaceFolders.length > 0) {
@@ -65,7 +70,7 @@ export class TestTreeViewProvider implements ITestTreeViewProvider, ITestDataIte
      * from our internal emitter.
      */
     public dispose() {
-        this.disposables.forEach(d => d.dispose());
+        this.disposables.forEach((d) => d.dispose());
         this._onDidChangeTreeData.dispose();
     }
 
@@ -76,7 +81,9 @@ export class TestTreeViewProvider implements ITestTreeViewProvider, ITestDataIte
      * @return [TreeItem](#TreeItem) representation of the element
      */
     public async getTreeItem(element: TestDataItem): Promise<TreeItem> {
-        const defaultCollapsibleState = await this.shouldElementBeExpandedByDefault(element) ? TreeItemCollapsibleState.Expanded : undefined;
+        const defaultCollapsibleState = (await this.shouldElementBeExpandedByDefault(element))
+            ? TreeItemCollapsibleState.Expanded
+            : undefined;
         return new TestTreeItem(element.resource, element, defaultCollapsibleState);
     }
 
@@ -92,7 +99,12 @@ export class TestTreeViewProvider implements ITestTreeViewProvider, ITestDataIte
                 let tests = this.testStore.getTests(element.workspaceFolder.uri);
                 if (!tests && !this.discovered.has(element.workspaceFolder.uri.fsPath)) {
                     this.discovered.add(element.workspaceFolder.uri.fsPath);
-                    await this.commandManager.executeCommand(Commands.Tests_Discover, element, CommandSource.testExplorer, undefined);
+                    await this.commandManager.executeCommand(
+                        Commands.Tests_Discover,
+                        element,
+                        CommandSource.testExplorer,
+                        undefined
+                    );
                     tests = this.testStore.getTests(element.workspaceFolder.uri);
                 }
                 return this.getRootNodes(tests);
@@ -104,7 +116,9 @@ export class TestTreeViewProvider implements ITestTreeViewProvider, ITestDataIte
             return [];
         }
 
-        sendTelemetryEvent(EventName.UNITTEST_EXPLORER_WORK_SPACE_COUNT, undefined, { count: this.workspace.workspaceFolders.length });
+        sendTelemetryEvent(EventName.UNITTEST_EXPLORER_WORK_SPACE_COUNT, undefined, {
+            count: this.workspace.workspaceFolders.length
+        });
 
         // If we are in a single workspace
         if (this.workspace.workspaceFolders.length === 1) {
@@ -114,8 +128,7 @@ export class TestTreeViewProvider implements ITestTreeViewProvider, ITestDataIte
 
         // If we are in a mult-root workspace, then nest the test data within a
         // virtual node, represending the workspace folder.
-        return this.workspace.workspaceFolders
-            .map(workspaceFolder => new TestWorkspaceFolder(workspaceFolder));
+        return this.workspace.workspaceFolders.map((workspaceFolder) => new TestWorkspaceFolder(workspaceFolder));
     }
 
     /**

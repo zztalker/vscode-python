@@ -15,7 +15,6 @@ import { DebugAdapterExecutable, DebugAdapterServer, DebugConfiguration, DebugSe
 import { ApplicationEnvironment } from '../../../../client/common/application/applicationEnvironment';
 import { ApplicationShell } from '../../../../client/common/application/applicationShell';
 import { IApplicationShell } from '../../../../client/common/application/types';
-import { WorkspaceService } from '../../../../client/common/application/workspace';
 import { ConfigurationService } from '../../../../client/common/configuration/service';
 import { CryptoUtils } from '../../../../client/common/crypto';
 import { DebugAdapterNewPtvsd } from '../../../../client/common/experimentGroups';
@@ -45,8 +44,22 @@ suite('Debugging - Adapter Factory', () => {
     let spiedInstance: ExperimentsManager;
 
     const nodeExecutable = { command: 'node', args: [] };
-    const ptvsdAdapterPathWithWheels = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'lib', 'python', 'new_ptvsd', 'wheels', 'ptvsd', 'adapter');
-    const ptvsdAdapterPathWithoutWheels = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'lib', 'python', 'new_ptvsd', 'no_wheels', 'ptvsd', 'adapter');
+    const ptvsdAdapterPathWithWheels = path.join(
+        EXTENSION_ROOT_DIR,
+        'pythonFiles',
+        'lib',
+        'python',
+        'debugpy',
+        'adapter'
+    );
+    const ptvsdAdapterPathWithoutWheels = path.join(
+        EXTENSION_ROOT_DIR,
+        'pythonFiles',
+        'lib',
+        'python',
+        'debugpy',
+        'adapter'
+    );
     const pythonPath = path.join('path', 'to', 'python', 'interpreter');
     const interpreter = {
         architecture: Architecture.Unknown,
@@ -85,7 +98,6 @@ suite('Debugging - Adapter Factory', () => {
         rewiremock.enable();
         rewiremock('vscode-extension-telemetry').with({ default: Reporter });
 
-        const workspaceService = mock(WorkspaceService);
         const httpClient = mock(HttpClient);
         const crypto = mock(CryptoUtils);
         const appEnvironment = mock(ApplicationEnvironment);
@@ -93,11 +105,12 @@ suite('Debugging - Adapter Factory', () => {
         const output = mock(MockOutputChannel);
         const configurationService = mock(ConfigurationService);
         const fs = mock(FileSystem);
-        // tslint:disable-next-line: no-any
-        when(configurationService.getSettings(undefined)).thenReturn(({ experiments: { enabled: true } } as any) as IPythonSettings);
+        when(configurationService.getSettings(undefined)).thenReturn(({
+            experiments: { enabled: true }
+            // tslint:disable-next-line: no-any
+        } as any) as IPythonSettings);
         experimentsManager = new ExperimentsManager(
             instance(persistentStateFactory),
-            instance(workspaceService),
             instance(httpClient),
             instance(crypto),
             instance(appEnvironment),
@@ -113,7 +126,11 @@ suite('Debugging - Adapter Factory', () => {
         when(interpreterService.getInterpreterDetails(pythonPath)).thenResolve(interpreter);
         when(interpreterService.getInterpreters(anything())).thenResolve([interpreter]);
 
-        factory = new DebugAdapterDescriptorFactory(instance(interpreterService), instance(appShell), experimentsManager);
+        factory = new DebugAdapterDescriptorFactory(
+            instance(interpreterService),
+            instance(appShell),
+            experimentsManager
+        );
     });
 
     teardown(() => {
@@ -182,34 +199,59 @@ suite('Debugging - Adapter Factory', () => {
         assert.deepEqual(descriptor, nodeExecutable);
     });
 
-    test('Return Debug Adapter server if attach configuration and we are in experiment', async () => {
+    test('Return Debug Adapter server if in DA experiment, request is "attach", and port is specified directly', async () => {
         const session = createSession({ request: 'attach', port: 5678, host: 'localhost' });
         const debugServer = new DebugAdapterServer(session.configuration.port, session.configuration.host);
 
         when(spiedInstance.inExperiment(DebugAdapterNewPtvsd.experiment)).thenReturn(true);
         const descriptor = await factory.createDebugAdapterDescriptor(session, nodeExecutable);
 
-        // Interpreter not needed for attach
+        // Interpreter not needed for host/port
         verify(interpreterService.getInterpreters(anything())).never();
         assert.deepEqual(descriptor, debugServer);
     });
 
-    test('Throw error if configuration is attach and in experiment and port is 0', async () => {
-        const session = createSession({ request: 'attach', port: 0, host: 'localhost' });
+    test('Return Debug Adapter server if in DA experiment, request is "attach", and connect is specified', async () => {
+        const session = createSession({ request: 'attach', connect: { port: 5678, host: 'localhost' } });
+        const debugServer = new DebugAdapterServer(
+            session.configuration.connect.port,
+            session.configuration.connect.host
+        );
 
         when(spiedInstance.inExperiment(DebugAdapterNewPtvsd.experiment)).thenReturn(true);
-        const promise = factory.createDebugAdapterDescriptor(session, nodeExecutable);
+        const descriptor = await factory.createDebugAdapterDescriptor(session, nodeExecutable);
 
-        await expect(promise).to.eventually.be.rejectedWith('Port must be specified for request type attach');
+        // Interpreter not needed for connect
+        verify(interpreterService.getInterpreters(anything())).never();
+        assert.deepEqual(descriptor, debugServer);
     });
 
-    test('Throw error if configuration is attach and in experiment and port is not specified', async () => {
-        const session = createSession({ request: 'attach', port: undefined });
+    test('Return Debug Adapter executable if in DA experiment, request is "attach", and listen is specified', async () => {
+        const session = createSession({ request: 'attach', listen: { port: 5678, host: 'localhost' } });
+        const debugExecutable = new DebugAdapterExecutable(pythonPath, [ptvsdAdapterPathWithWheels]);
+
+        when(spiedInstance.inExperiment(DebugAdapterNewPtvsd.experiment)).thenReturn(true);
+        when(interpreterService.getActiveInterpreter(anything())).thenResolve(interpreter);
+
+        const descriptor = await factory.createDebugAdapterDescriptor(session, nodeExecutable);
+        assert.deepEqual(descriptor, debugExecutable);
+    });
+
+    test('Throw error if in DA experiment, request is "attach", and neither port, processId, listen, nor connect is specified', async () => {
+        const session = createSession({
+            request: 'attach',
+            port: undefined,
+            processId: undefined,
+            listen: undefined,
+            connect: undefined
+        });
 
         when(spiedInstance.inExperiment(DebugAdapterNewPtvsd.experiment)).thenReturn(true);
         const promise = factory.createDebugAdapterDescriptor(session, nodeExecutable);
 
-        await expect(promise).to.eventually.be.rejectedWith('Port must be specified for request type attach');
+        await expect(promise).to.eventually.be.rejectedWith(
+            '"request":"attach" requires either "connect", "listen", or "processId"'
+        );
     });
 
     test('Return old node debugger when not in the experiment', async () => {
@@ -219,6 +261,19 @@ suite('Debugging - Adapter Factory', () => {
         assert.deepEqual(descriptor, nodeExecutable);
     });
 
+    test('Return Python debug adapter without wheels executable if configuration is attach, process ID is specified and active interpreter is not Python 3.7', async () => {
+        const debugExecutable = new DebugAdapterExecutable(python36Path, [ptvsdAdapterPathWithoutWheels]);
+        const session = createSession({ request: 'attach', processId: 1234 });
+
+        when(spiedInstance.inExperiment(DebugAdapterNewPtvsd.experiment)).thenReturn(true);
+        when(interpreterService.getInterpreters(anything())).thenResolve([interpreterPython36Details]);
+        when(interpreterService.getInterpreterDetails(python36Path)).thenResolve(interpreterPython36Details);
+
+        const descriptor = await factory.createDebugAdapterDescriptor(session, nodeExecutable);
+
+        assert.deepEqual(descriptor, debugExecutable);
+    });
+
     test('Return Python debug adapter without wheels executable when the active interpreter is not Python 3.7', async () => {
         const debugExecutable = new DebugAdapterExecutable(python36Path, [ptvsdAdapterPathWithoutWheels]);
         const session = createSession({});
@@ -226,6 +281,17 @@ suite('Debugging - Adapter Factory', () => {
         when(spiedInstance.inExperiment(DebugAdapterNewPtvsd.experiment)).thenReturn(true);
         when(interpreterService.getInterpreters(anything())).thenResolve([interpreterPython36Details]);
         when(interpreterService.getInterpreterDetails(python36Path)).thenResolve(interpreterPython36Details);
+
+        const descriptor = await factory.createDebugAdapterDescriptor(session, nodeExecutable);
+
+        assert.deepEqual(descriptor, debugExecutable);
+    });
+
+    test('Return Python debug adapter with wheels executable if configuration is attach, process ID is specified and active interpreter is Python 3.7', async () => {
+        const debugExecutable = new DebugAdapterExecutable(pythonPath, [ptvsdAdapterPathWithWheels]);
+        const session = createSession({ request: 'attach', processId: 1234 });
+
+        when(spiedInstance.inExperiment(DebugAdapterNewPtvsd.experiment)).thenReturn(true);
 
         const descriptor = await factory.createDebugAdapterDescriptor(session, nodeExecutable);
 
@@ -252,7 +318,11 @@ suite('Debugging - Adapter Factory', () => {
 
     test('Pass the --log-dir argument to PTVSD if configuration.logToFile is set, with active interpreter Python 3.7', async () => {
         const session = createSession({ logToFile: true });
-        const debugExecutable = new DebugAdapterExecutable(pythonPath, [ptvsdAdapterPathWithWheels, '--log-dir', EXTENSION_ROOT_DIR]);
+        const debugExecutable = new DebugAdapterExecutable(pythonPath, [
+            ptvsdAdapterPathWithWheels,
+            '--log-dir',
+            EXTENSION_ROOT_DIR
+        ]);
 
         when(spiedInstance.inExperiment(DebugAdapterNewPtvsd.experiment)).thenReturn(true);
 
@@ -263,7 +333,11 @@ suite('Debugging - Adapter Factory', () => {
 
     test('Pass the --log-dir argument to PTVSD if configuration.logToFile is set, with active interpreter not Python 3.7', async () => {
         const session = createSession({ logToFile: true });
-        const debugExecutable = new DebugAdapterExecutable(python36Path, [ptvsdAdapterPathWithoutWheels, '--log-dir', EXTENSION_ROOT_DIR]);
+        const debugExecutable = new DebugAdapterExecutable(python36Path, [
+            ptvsdAdapterPathWithoutWheels,
+            '--log-dir',
+            EXTENSION_ROOT_DIR
+        ]);
 
         when(spiedInstance.inExperiment(DebugAdapterNewPtvsd.experiment)).thenReturn(true);
         when(interpreterService.getInterpreters(anything())).thenResolve([interpreterPython36Details]);
@@ -274,7 +348,7 @@ suite('Debugging - Adapter Factory', () => {
         assert.deepEqual(descriptor, debugExecutable);
     });
 
-    test('Don\'t pass the --log-dir argument to PTVSD if configuration.logToFile is not set, with active interpreter Python 3.7', async () => {
+    test("Don't pass the --log-dir argument to PTVSD if configuration.logToFile is not set, with active interpreter Python 3.7", async () => {
         const session = createSession({});
         const debugExecutable = new DebugAdapterExecutable(pythonPath, [ptvsdAdapterPathWithWheels]);
 
@@ -285,7 +359,7 @@ suite('Debugging - Adapter Factory', () => {
         assert.deepEqual(descriptor, debugExecutable);
     });
 
-    test('Don\'t pass the --log-dir argument to PTVSD if configuration.logToFile is not set, with active interpreter not Python 3.7', async () => {
+    test("Don't pass the --log-dir argument to PTVSD if configuration.logToFile is not set, with active interpreter not Python 3.7", async () => {
         const session = createSession({});
         const debugExecutable = new DebugAdapterExecutable(python36Path, [ptvsdAdapterPathWithoutWheels]);
 
@@ -298,7 +372,7 @@ suite('Debugging - Adapter Factory', () => {
         assert.deepEqual(descriptor, debugExecutable);
     });
 
-    test('Don\'t pass the --log-dir argument to PTVSD if configuration.logToFile is set but false, with active interpreter Python 3.7', async () => {
+    test("Don't pass the --log-dir argument to PTVSD if configuration.logToFile is set but false, with active interpreter Python 3.7", async () => {
         const session = createSession({ logToFile: false });
         const debugExecutable = new DebugAdapterExecutable(pythonPath, [ptvsdAdapterPathWithWheels]);
 
@@ -309,7 +383,7 @@ suite('Debugging - Adapter Factory', () => {
         assert.deepEqual(descriptor, debugExecutable);
     });
 
-    test('Don\'t pass the --log-dir argument to PTVSD if configuration.logToFile is set but false, with active interpreter not Python 3.7', async () => {
+    test("Don't pass the --log-dir argument to PTVSD if configuration.logToFile is set but false, with active interpreter not Python 3.7", async () => {
         const session = createSession({ logToFile: false });
         const debugExecutable = new DebugAdapterExecutable(python36Path, [ptvsdAdapterPathWithoutWheels]);
 
@@ -324,29 +398,52 @@ suite('Debugging - Adapter Factory', () => {
 
     test('Send experiment group telemetry if inside the wheels experiment, with active interpreter Python 3.7', async () => {
         const session = createSession({});
-        when(spiedInstance.userExperiments).thenReturn([{ name: DebugAdapterNewPtvsd.experiment, salt: DebugAdapterNewPtvsd.experiment, min: 0, max: 0 }]);
+        when(spiedInstance.userExperiments).thenReturn([
+            { name: DebugAdapterNewPtvsd.experiment, salt: DebugAdapterNewPtvsd.experiment, min: 0, max: 0 }
+        ]);
 
         await factory.createDebugAdapterDescriptor(session, nodeExecutable);
 
-        assert.deepEqual(Reporter.eventNames, [EventName.PYTHON_EXPERIMENTS, EventName.DEBUG_ADAPTER_USING_WHEELS_PATH]);
+        assert.deepEqual(Reporter.eventNames, [
+            EventName.PYTHON_EXPERIMENTS,
+            EventName.DEBUG_ADAPTER_USING_WHEELS_PATH
+        ]);
         assert.deepEqual(Reporter.properties, [{ expName: DebugAdapterNewPtvsd.experiment }, { usingWheels: 'true' }]);
     });
 
-    test('Send experiment group telemetry if inside the wheels experiment, with active interpreter not Python 3.6', async () => {
+    test('Send experiment group telemetry if inside the wheels experiment, with active interpreter not Python 3.7', async () => {
         const session = createSession({});
-        when(spiedInstance.userExperiments).thenReturn([{ name: DebugAdapterNewPtvsd.experiment, salt: DebugAdapterNewPtvsd.experiment, min: 0, max: 0 }]);
+        when(spiedInstance.userExperiments).thenReturn([
+            { name: DebugAdapterNewPtvsd.experiment, salt: DebugAdapterNewPtvsd.experiment, min: 0, max: 0 }
+        ]);
         when(interpreterService.getInterpreters(anything())).thenResolve([interpreterPython36Details]);
         when(interpreterService.getInterpreterDetails(python36Path)).thenResolve(interpreterPython36Details);
 
         await factory.createDebugAdapterDescriptor(session, nodeExecutable);
 
-        assert.deepEqual(Reporter.eventNames, [EventName.PYTHON_EXPERIMENTS, EventName.DEBUG_ADAPTER_USING_WHEELS_PATH]);
-        assert.deepEqual(Reporter.properties, [{ expName: DebugAdapterNewPtvsd.experiment }, { usingWheels: 'false' }]);
+        assert.deepEqual(Reporter.eventNames, [
+            EventName.PYTHON_EXPERIMENTS,
+            EventName.DEBUG_ADAPTER_USING_WHEELS_PATH
+        ]);
+        assert.deepEqual(Reporter.properties, [{ expName: DebugAdapterNewPtvsd.experiment }, { usingWheels: 'true' }]);
+    });
+
+    test('Send attach to local process telemetry if inside the DA experiment and attaching to a local process', async () => {
+        const session = createSession({ request: 'attach', processId: 1234 });
+        when(spiedInstance.userExperiments).thenReturn([
+            { name: DebugAdapterNewPtvsd.experiment, salt: DebugAdapterNewPtvsd.experiment, min: 0, max: 0 }
+        ]);
+
+        await factory.createDebugAdapterDescriptor(session, nodeExecutable);
+
+        assert.ok(Reporter.eventNames.includes(EventName.DEBUGGER_ATTACH_TO_LOCAL_PROCESS));
     });
 
     test('Send control group telemetry if inside the DA experiment control group', async () => {
         const session = createSession({});
-        when(spiedInstance.userExperiments).thenReturn([{ name: DebugAdapterNewPtvsd.control, salt: DebugAdapterNewPtvsd.control, min: 0, max: 0 }]);
+        when(spiedInstance.userExperiments).thenReturn([
+            { name: DebugAdapterNewPtvsd.control, salt: DebugAdapterNewPtvsd.control, min: 0, max: 0 }
+        ]);
 
         await factory.createDebugAdapterDescriptor(session, nodeExecutable);
 
@@ -354,7 +451,7 @@ suite('Debugging - Adapter Factory', () => {
         assert.deepEqual(Reporter.properties, [{ expName: DebugAdapterNewPtvsd.control }]);
     });
 
-    test('Don\'t send any telemetry if not inside the DA experiment nor control group', async () => {
+    test("Don't send any telemetry if not inside the DA experiment nor control group", async () => {
         const session = createSession({});
         when(spiedInstance.userExperiments).thenReturn([]);
 
@@ -362,5 +459,16 @@ suite('Debugging - Adapter Factory', () => {
 
         assert.deepEqual(Reporter.eventNames, []);
         assert.deepEqual(Reporter.properties, []);
+    });
+
+    test('Use custom debug adapter path when specified', async () => {
+        const customAdapterPath = 'custom/debug/adapter/path';
+        const session = createSession({ debugAdapterPath: customAdapterPath });
+        const debugExecutable = new DebugAdapterExecutable(pythonPath, [customAdapterPath]);
+
+        when(spiedInstance.inExperiment(DebugAdapterNewPtvsd.experiment)).thenReturn(true);
+        const descriptor = await factory.createDebugAdapterDescriptor(session, nodeExecutable);
+
+        assert.deepEqual(descriptor, debugExecutable);
     });
 });

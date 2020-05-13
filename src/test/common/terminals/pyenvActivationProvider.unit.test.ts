@@ -22,7 +22,9 @@ suite('Terminal Environment Activation pyenv', () => {
     setup(() => {
         serviceContainer = TypeMoq.Mock.ofType<IServiceContainer>();
         interpreterService = TypeMoq.Mock.ofType<IInterpreterService>();
-        serviceContainer.setup(c => c.get(TypeMoq.It.isValue(IInterpreterService), TypeMoq.It.isAny())).returns(() => interpreterService.object);
+        serviceContainer
+            .setup((c) => c.get(TypeMoq.It.isValue(IInterpreterService), TypeMoq.It.isAny()))
+            .returns(() => interpreterService.object);
 
         activationProvider = new PyEnvActivationCommandProvider(serviceContainer.object);
     });
@@ -35,7 +37,7 @@ suite('Terminal Environment Activation pyenv', () => {
 
     test('Ensure no activation commands are returned if intrepreter info is not found', async () => {
         interpreterService
-            .setup(i => i.getActiveInterpreter(TypeMoq.It.isAny()))
+            .setup((i) => i.getActiveInterpreter(TypeMoq.It.isAny()))
             .returns(() => Promise.resolve(undefined))
             .verifiable(TypeMoq.Times.once());
 
@@ -53,7 +55,7 @@ suite('Terminal Environment Activation pyenv', () => {
             type: InterpreterType.Unknown
         };
         interpreterService
-            .setup(i => i.getActiveInterpreter(TypeMoq.It.isAny()))
+            .setup((i) => i.getActiveInterpreter(TypeMoq.It.isAny()))
             .returns(() => Promise.resolve(intepreterInfo))
             .verifiable(TypeMoq.Times.once());
 
@@ -71,7 +73,7 @@ suite('Terminal Environment Activation pyenv', () => {
             type: InterpreterType.Pyenv
         };
         interpreterService
-            .setup(i => i.getActiveInterpreter(TypeMoq.It.isAny()))
+            .setup((i) => i.getActiveInterpreter(TypeMoq.It.isAny()))
             .returns(() => Promise.resolve(intepreterInfo))
             .verifiable(TypeMoq.Times.once());
 
@@ -90,11 +92,14 @@ suite('Terminal Environment Activation pyenv', () => {
             envName: 'my env name'
         };
         interpreterService
-            .setup(i => i.getActiveInterpreter(TypeMoq.It.isAny()))
+            .setup((i) => i.getActiveInterpreter(TypeMoq.It.isAny()))
             .returns(() => Promise.resolve(intepreterInfo))
             .verifiable(TypeMoq.Times.once());
 
         const activationCommands = await activationProvider.getActivationCommands(undefined, TerminalShellType.bash);
-        expect(activationCommands).to.deep.equal([`pyenv shell "${intepreterInfo.envName}"`], 'Invalid Activation command');
+        expect(activationCommands).to.deep.equal(
+            [`pyenv shell "${intepreterInfo.envName}"`],
+            'Invalid Activation command'
+        );
     });
 });

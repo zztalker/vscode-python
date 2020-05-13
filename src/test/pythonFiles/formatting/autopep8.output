@@ -1,6 +1,7 @@
---- original//Users/donjayamanne/.vscode/extensions/pythonVSCode/src/test/pythonFiles/formatting/autoPep8FileToFormat.py
-+++ fixed//Users/donjayamanne/.vscode/extensions/pythonVSCode/src/test/pythonFiles/formatting/autoPep8FileToFormat.py
-@@ -1,21 +1,31 @@
+--- original/C:\GIT\issues\s p\vscode-python\src\test\pythonFiles\formatting\fileToformat.py
++++ fixed/C:\GIT\issues\s p\vscode-python\src\test\pythonFiles\formatting\fileToformat.py
+@@ -1,22 +1,32 @@
+
 -import math, sys;
 +import math
 +import sys
@@ -30,7 +31,7 @@
 +
 +
 +def example2(): return {'has_key() is deprecated': True}.has_key(
-+    {'f': 2}.has_key(''));
++    {'f': 2}.has_key(''))
 +
 +
 +class Example3(object):

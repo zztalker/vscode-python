@@ -6,35 +6,45 @@ import { expect } from 'chai';
 import { anything, instance, mock, verify, when } from 'ts-mockito';
 import * as TypeMoq from 'typemoq';
 import { Terminal, Uri } from 'vscode';
-import { DocumentManager } from '../../../client/common/application/documentManager';
+import { ActiveResourceService } from '../../../client/common/application/activeResource';
 import { TerminalManager } from '../../../client/common/application/terminalManager';
-import { IDocumentManager, ITerminalManager, IWorkspaceService } from '../../../client/common/application/types';
-import { WorkspaceService } from '../../../client/common/application/workspace';
+import { IActiveResourceService, ITerminalManager } from '../../../client/common/application/types';
 import { TerminalActivator } from '../../../client/common/terminal/activator';
 import { ITerminalActivator } from '../../../client/common/terminal/types';
 import { IDisposable } from '../../../client/common/types';
 import { TerminalAutoActivation } from '../../../client/terminals/activation';
 import { ITerminalAutoActivation } from '../../../client/terminals/types';
+import { noop } from '../../core';
 
+// tslint:disable-next-line: max-func-body-length
 suite('Terminal Auto Activation', () => {
     let activator: ITerminalActivator;
-    let documentManager: IDocumentManager;
     let terminalManager: ITerminalManager;
     let terminalAutoActivation: ITerminalAutoActivation;
-    let workspaceService: IWorkspaceService;
+    let activeResourceService: IActiveResourceService;
+    const resource = Uri.parse('a');
+    let terminal: Terminal;
 
     setup(() => {
+        terminal = {
+            dispose: noop,
+            hide: noop,
+            name: 'Python',
+            creationOptions: {},
+            processId: Promise.resolve(0),
+            sendText: noop,
+            show: noop,
+            exitStatus: { code: 0 }
+        };
         terminalManager = mock(TerminalManager);
-        documentManager = mock(DocumentManager);
         activator = mock(TerminalActivator);
-        workspaceService = mock(WorkspaceService);
+        activeResourceService = mock(ActiveResourceService);
 
         terminalAutoActivation = new TerminalAutoActivation(
             instance(terminalManager),
             [],
-            instance(documentManager),
             instance(activator),
-            instance(workspaceService)
+            instance(activeResourceService)
         );
     });
 
@@ -42,70 +52,89 @@ suite('Terminal Auto Activation', () => {
         type EventHandler = (e: Terminal) => void;
         let handler: undefined | EventHandler;
         const handlerDisposable = TypeMoq.Mock.ofType<IDisposable>();
-        const terminal = TypeMoq.Mock.ofType<Terminal>();
         const onDidOpenTerminal = (cb: EventHandler) => {
             handler = cb;
             return handlerDisposable.object;
         };
+        when(activeResourceService.getActiveResource()).thenReturn(resource);
         when(terminalManager.onDidOpenTerminal).thenReturn(onDidOpenTerminal);
-        when(activator.activateEnvironmentInTerminal(anything(), anything(), anything())).thenResolve();
-        when(workspaceService.hasWorkspaceFolders).thenReturn(false);
+        when(activator.activateEnvironmentInTerminal(anything(), anything())).thenResolve();
 
         terminalAutoActivation.register();
 
         expect(handler).not.to.be.an('undefined', 'event handler not initialized');
 
-        handler!.bind(terminalAutoActivation)(terminal.object);
+        handler!.bind(terminalAutoActivation)(terminal);
 
-        verify(activator.activateEnvironmentInTerminal(terminal.object, undefined)).once();
+        verify(activator.activateEnvironmentInTerminal(terminal, anything())).once();
+    });
+    test('New Terminals should not be activated if hidden from user', async () => {
+        terminal = {
+            dispose: noop,
+            hide: noop,
+            name: 'Python',
+            creationOptions: { hideFromUser: true },
+            processId: Promise.resolve(0),
+            sendText: noop,
+            show: noop,
+            exitStatus: { code: 0 }
+        };
+        type EventHandler = (e: Terminal) => void;
+        let handler: undefined | EventHandler;
+        const handlerDisposable = TypeMoq.Mock.ofType<IDisposable>();
+        const onDidOpenTerminal = (cb: EventHandler) => {
+            handler = cb;
+            return handlerDisposable.object;
+        };
+        when(activeResourceService.getActiveResource()).thenReturn(resource);
+        when(terminalManager.onDidOpenTerminal).thenReturn(onDidOpenTerminal);
+        when(activator.activateEnvironmentInTerminal(anything(), anything())).thenResolve();
+
+        terminalAutoActivation.register();
+
+        expect(handler).not.to.be.an('undefined', 'event handler not initialized');
+
+        handler!.bind(terminalAutoActivation)(terminal);
+
+        verify(activator.activateEnvironmentInTerminal(terminal, anything())).never();
     });
     test('New Terminals should be activated with resource of single workspace', async () => {
         type EventHandler = (e: Terminal) => void;
         let handler: undefined | EventHandler;
         const handlerDisposable = TypeMoq.Mock.ofType<IDisposable>();
-        const terminal = TypeMoq.Mock.ofType<Terminal>();
         const onDidOpenTerminal = (cb: EventHandler) => {
             handler = cb;
             return handlerDisposable.object;
         };
-        const resource = Uri.file(__filename);
+        when(activeResourceService.getActiveResource()).thenReturn(resource);
         when(terminalManager.onDidOpenTerminal).thenReturn(onDidOpenTerminal);
-        when(activator.activateEnvironmentInTerminal(anything(), anything(), anything())).thenResolve();
-        when(workspaceService.hasWorkspaceFolders).thenReturn(true);
-        when(workspaceService.workspaceFolders).thenReturn([{ index: 0, name: '', uri: resource }]);
+        when(activator.activateEnvironmentInTerminal(anything(), anything())).thenResolve();
 
         terminalAutoActivation.register();
 
         expect(handler).not.to.be.an('undefined', 'event handler not initialized');
 
-        handler!.bind(terminalAutoActivation)(terminal.object);
+        handler!.bind(terminalAutoActivation)(terminal);
 
-        verify(activator.activateEnvironmentInTerminal(terminal.object, resource)).once();
+        verify(activator.activateEnvironmentInTerminal(terminal, anything())).once();
     });
     test('New Terminals should be activated with resource of main workspace', async () => {
         type EventHandler = (e: Terminal) => void;
         let handler: undefined | EventHandler;
         const handlerDisposable = TypeMoq.Mock.ofType<IDisposable>();
-        const terminal = TypeMoq.Mock.ofType<Terminal>();
         const onDidOpenTerminal = (cb: EventHandler) => {
             handler = cb;
             return handlerDisposable.object;
         };
-        const resource = Uri.file(__filename);
+        when(activeResourceService.getActiveResource()).thenReturn(resource);
         when(terminalManager.onDidOpenTerminal).thenReturn(onDidOpenTerminal);
-        when(activator.activateEnvironmentInTerminal(anything(), anything(), anything())).thenResolve();
-        when(workspaceService.hasWorkspaceFolders).thenReturn(true);
-        when(workspaceService.workspaceFolders).thenReturn([
-            { index: 0, name: '', uri: resource },
-            { index: 2, name: '2', uri: Uri.file('1234') }
-        ]);
-
+        when(activator.activateEnvironmentInTerminal(anything(), anything())).thenResolve();
         terminalAutoActivation.register();
 
         expect(handler).not.to.be.an('undefined', 'event handler not initialized');
 
-        handler!.bind(terminalAutoActivation)(terminal.object);
+        handler!.bind(terminalAutoActivation)(terminal);
 
-        verify(activator.activateEnvironmentInTerminal(terminal.object, resource)).once();
+        verify(activator.activateEnvironmentInTerminal(terminal, anything())).once();
     });
 });

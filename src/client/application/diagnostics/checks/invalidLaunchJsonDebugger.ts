@@ -18,23 +18,30 @@ import { DiagnosticCommandPromptHandlerServiceId, MessageCommandPrompt } from '.
 import { DiagnosticScope, IDiagnostic, IDiagnosticHandlerService } from '../types';
 
 const messages = {
-    [DiagnosticCodes.InvalidDebuggerTypeDiagnostic]:
-        Diagnostics.invalidDebuggerTypeDiagnostic(),
-    [DiagnosticCodes.JustMyCodeDiagnostic]:
-        Diagnostics.justMyCodeDiagnostic(),
-    [DiagnosticCodes.ConsoleTypeDiagnostic]:
-        Diagnostics.consoleTypeDiagnostic()
+    [DiagnosticCodes.InvalidDebuggerTypeDiagnostic]: Diagnostics.invalidDebuggerTypeDiagnostic(),
+    [DiagnosticCodes.JustMyCodeDiagnostic]: Diagnostics.justMyCodeDiagnostic(),
+    [DiagnosticCodes.ConsoleTypeDiagnostic]: Diagnostics.consoleTypeDiagnostic(),
+    [DiagnosticCodes.ConfigPythonPathDiagnostic]: ''
 };
 
 export class InvalidLaunchJsonDebuggerDiagnostic extends BaseDiagnostic {
-    constructor(code: DiagnosticCodes.InvalidDebuggerTypeDiagnostic | DiagnosticCodes.JustMyCodeDiagnostic | DiagnosticCodes.ConsoleTypeDiagnostic, resource: Resource) {
+    constructor(
+        code:
+            | DiagnosticCodes.InvalidDebuggerTypeDiagnostic
+            | DiagnosticCodes.JustMyCodeDiagnostic
+            | DiagnosticCodes.ConsoleTypeDiagnostic
+            | DiagnosticCodes.ConfigPythonPathDiagnostic,
+        resource: Resource,
+        shouldShowPrompt: boolean = true
+    ) {
         super(
             code,
             messages[code],
             DiagnosticSeverity.Error,
             DiagnosticScope.WorkspaceFolder,
             resource,
-            'always'
+            'always',
+            shouldShowPrompt
         );
     }
 }
@@ -52,17 +59,29 @@ export class InvalidLaunchJsonDebuggerService extends BaseDiagnosticsService {
         @named(DiagnosticCommandPromptHandlerServiceId)
         private readonly messageService: IDiagnosticHandlerService<MessageCommandPrompt>
     ) {
-        super([DiagnosticCodes.InvalidDebuggerTypeDiagnostic, DiagnosticCodes.JustMyCodeDiagnostic, DiagnosticCodes.ConsoleTypeDiagnostic], serviceContainer, disposableRegistry, true);
+        super(
+            [
+                DiagnosticCodes.InvalidDebuggerTypeDiagnostic,
+                DiagnosticCodes.JustMyCodeDiagnostic,
+                DiagnosticCodes.ConsoleTypeDiagnostic,
+                DiagnosticCodes.ConfigPythonPathDiagnostic
+            ],
+            serviceContainer,
+            disposableRegistry,
+            true
+        );
     }
     public async diagnose(resource: Resource): Promise<IDiagnostic[]> {
         if (!this.workspaceService.hasWorkspaceFolders) {
             return [];
         }
-        const workspaceFolder = resource ? this.workspaceService.getWorkspaceFolder(resource)! : this.workspaceService.workspaceFolders![0];
+        const workspaceFolder = resource
+            ? this.workspaceService.getWorkspaceFolder(resource)!
+            : this.workspaceService.workspaceFolders![0];
         return this.diagnoseWorkspace(workspaceFolder, resource);
     }
     protected async onHandle(diagnostics: IDiagnostic[]): Promise<void> {
-        diagnostics.forEach(diagnostic => this.handleDiagnostic(diagnostic));
+        diagnostics.forEach((diagnostic) => this.handleDiagnostic(diagnostic));
     }
     protected async fixLaunchJson(code: DiagnosticCodes) {
         if (!this.workspaceService.hasWorkspaceFolders) {
@@ -70,7 +89,9 @@ export class InvalidLaunchJsonDebuggerService extends BaseDiagnosticsService {
         }
 
         await Promise.all(
-            this.workspaceService.workspaceFolders!.map(workspaceFolder => this.fixLaunchJsonInWorkspace(code, workspaceFolder))
+            this.workspaceService.workspaceFolders!.map((workspaceFolder) =>
+                this.fixLaunchJsonInWorkspace(code, workspaceFolder)
+            )
         );
     }
     private async diagnoseWorkspace(workspaceFolder: WorkspaceFolder, resource: Resource) {
@@ -82,7 +103,9 @@ export class InvalidLaunchJsonDebuggerService extends BaseDiagnosticsService {
         const fileContents = await this.fs.readFile(launchJson);
         const diagnostics: IDiagnostic[] = [];
         if (fileContents.indexOf('"pythonExperimental"') > 0) {
-            diagnostics.push(new InvalidLaunchJsonDebuggerDiagnostic(DiagnosticCodes.InvalidDebuggerTypeDiagnostic, resource));
+            diagnostics.push(
+                new InvalidLaunchJsonDebuggerDiagnostic(DiagnosticCodes.InvalidDebuggerTypeDiagnostic, resource)
+            );
         }
         if (fileContents.indexOf('"debugStdLib"') > 0) {
             diagnostics.push(new InvalidLaunchJsonDebuggerDiagnostic(DiagnosticCodes.JustMyCodeDiagnostic, resource));
@@ -90,11 +113,19 @@ export class InvalidLaunchJsonDebuggerService extends BaseDiagnosticsService {
         if (fileContents.indexOf('"console": "none"') > 0) {
             diagnostics.push(new InvalidLaunchJsonDebuggerDiagnostic(DiagnosticCodes.ConsoleTypeDiagnostic, resource));
         }
+        if (fileContents.indexOf('{config:python.pythonPath}') > 0) {
+            diagnostics.push(
+                new InvalidLaunchJsonDebuggerDiagnostic(DiagnosticCodes.ConfigPythonPathDiagnostic, resource, false)
+            );
+        }
         return diagnostics;
     }
     private async handleDiagnostic(diagnostic: IDiagnostic): Promise<void> {
         if (!this.canHandle(diagnostic)) {
             return;
+        }
+        if (!diagnostic.shouldShowPrompt) {
+            return this.fixLaunchJson(diagnostic.code);
         }
         const commandPrompts = [
             {
@@ -132,6 +163,14 @@ export class InvalidLaunchJsonDebuggerService extends BaseDiagnosticsService {
             }
             case DiagnosticCodes.ConsoleTypeDiagnostic: {
                 fileContents = this.findAndReplace(fileContents, '"console": "none"', '"console": "internalConsole"');
+                break;
+            }
+            case DiagnosticCodes.ConfigPythonPathDiagnostic: {
+                fileContents = this.findAndReplace(
+                    fileContents,
+                    '{config:python.pythonPath}',
+                    '{config:python.interpreterPath}'
+                );
                 break;
             }
             default: {

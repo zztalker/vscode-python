@@ -15,14 +15,21 @@ import { InteractiveWindowMessages, InteractiveWindowRemoteMessages } from './in
 
 // This class listens to messages that come from the local Python Interactive window
 export class InteractiveWindowMessageListener implements IWebPanelMessageListener {
-    private postOffice : PostOffice;
-    private disposedCallback : () => void;
-    private callback :  (message: string, payload: any) => void;
+    private postOffice: PostOffice;
+    private disposedCallback: () => void;
+    private callback: (message: string, payload: any) => void;
     private viewChanged: (panel: IWebPanel) => void;
-    private interactiveWindowMessages : string[] = [];
+    private interactiveWindowMessages: string[] = [];
 
-    constructor(liveShare: ILiveShareApi, callback: (message: string, payload: any) => void, viewChanged: (panel: IWebPanel) => void, disposed: () => void) {
-        this.postOffice = new PostOffice(LiveShare.WebPanelMessageService, liveShare, (api, _command, role, args) => this.translateHostArgs(api, role, args));
+    constructor(
+        liveShare: ILiveShareApi,
+        callback: (message: string, payload: any) => void,
+        viewChanged: (panel: IWebPanel) => void,
+        disposed: () => void
+    ) {
+        this.postOffice = new PostOffice(LiveShare.WebPanelMessageService, liveShare, (api, _command, role, args) =>
+            this.translateHostArgs(api, role, args)
+        );
 
         // Save our dispose callback so we remove our interactive window
         this.disposedCallback = disposed;
@@ -37,7 +44,7 @@ export class InteractiveWindowMessageListener implements IWebPanelMessageListene
         this.interactiveWindowMessages = this.getInteractiveWindowMessages();
 
         // We need to register callbacks for all interactive window messages.
-        this.interactiveWindowMessages.forEach(m => {
+        this.interactiveWindowMessages.forEach((m) => {
             this.postOffice.registerCallback(m, (a) => callback(m, a)).ignoreErrors();
         });
     }
@@ -59,13 +66,11 @@ export class InteractiveWindowMessageListener implements IWebPanelMessageListene
 
     public onChangeViewState(panel: IWebPanel) {
         // Forward this onto our callback
-        if (this.viewChanged) {
-            this.viewChanged(panel);
-        }
+        this.viewChanged(panel);
     }
 
-    private getInteractiveWindowMessages() : string [] {
-        return Object.keys(InteractiveWindowMessages).map(k => (InteractiveWindowMessages as any)[k].toString());
+    private getInteractiveWindowMessages(): string[] {
+        return Object.keys(InteractiveWindowMessages).map((k) => (InteractiveWindowMessages as any)[k].toString());
     }
 
     private translateHostArgs(api: vsls.LiveShare | null, role: vsls.Role, args: any[]) {
@@ -76,7 +81,7 @@ export class InteractiveWindowMessageListener implements IWebPanelMessageListene
             // See if the trueArg has a 'file' name or not
             if (trueArg) {
                 const keys = Object.keys(trueArg);
-                keys.forEach(k => {
+                keys.forEach((k) => {
                     if (k.includes('file')) {
                         if (typeof trueArg[k] === 'string') {
                             // Pull out the string. We need to convert it to a file or vsls uri based on our role
@@ -84,12 +89,14 @@ export class InteractiveWindowMessageListener implements IWebPanelMessageListene
 
                             // Skip the empty file
                             if (file !== Identifiers.EmptyFileName) {
-                                const uri = role === vsls.Role.Host ? vscode.Uri.file(file) : vscode.Uri.parse(`vsls:${file}`);
+                                const uri =
+                                    role === vsls.Role.Host ? vscode.Uri.file(file) : vscode.Uri.parse(`vsls:${file}`);
 
                                 // Translate this into the other side.
-                                trueArg[k] = role === vsls.Role.Host ?
-                                    api.convertLocalUriToShared(uri).fsPath :
-                                    api.convertSharedUriToLocal(uri).fsPath;
+                                trueArg[k] =
+                                    role === vsls.Role.Host
+                                        ? api.convertLocalUriToShared(uri).fsPath
+                                        : api.convertSharedUriToLocal(uri).fsPath;
                             }
                         }
                     }

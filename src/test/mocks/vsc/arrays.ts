@@ -54,7 +54,8 @@ export namespace vscMockArrays {
      * @returns the least x for which p(x) is true or array.length if no element fullfills the given function.
      */
     export function findFirst<T>(array: T[], p: (x: T) => boolean): number {
-        let low = 0, high = array.length;
+        let low = 0,
+            high = array.length;
         if (high === 0) {
             return 0; // no children
         }
@@ -126,9 +127,10 @@ export namespace vscMockArrays {
         return result;
     }
 
-    type IMutableSplice<T> = Array<T> & any & {
-        deleteCount: number;
-    }
+    type IMutableSplice<T> = Array<T> &
+        any & {
+            deleteCount: number;
+        };
     type ISplice<T> = Array<T> & any;
 
     /**
@@ -193,7 +195,7 @@ export namespace vscMockArrays {
      * @param after
      * @param compare
      */
-    export function delta<T>(before: T[], after: T[], compare: (a: T, b: T) => number): { removed: T[], added: T[] } {
+    export function delta<T>(before: T[], after: T[], compare: (a: T, b: T) => number): { removed: T[]; added: T[] } {
         const splices = sortedDiff(before, after, compare);
         const removed: T[] = [];
         const added: T[] = [];
@@ -230,7 +232,7 @@ export namespace vscMockArrays {
             const element = array[i];
             if (compare(element, result[n - 1]) < 0) {
                 result.pop();
-                const j = findFirst(result, e => compare(element, e) < 0);
+                const j = findFirst(result, (e) => compare(element, e) < 0);
                 result.splice(j, 0, element);
             }
         }
@@ -244,7 +246,7 @@ export namespace vscMockArrays {
             return array;
         }
 
-        return array.filter(e => !!e);
+        return array.filter((e) => !!e);
     }
 
     /**
@@ -289,7 +291,7 @@ export namespace vscMockArrays {
     export function uniqueFilter<T>(keyFn: (t: T) => string): (t: T) => boolean {
         const seen: Record<string, boolean> = Object.create(null);
 
-        return element => {
+        return (element) => {
             const key = keyFn(element);
 
             if (seen[key]) {
@@ -318,7 +320,11 @@ export namespace vscMockArrays {
         return index < 0 ? notFoundValue : array[index];
     }
 
-    export function commonPrefixLength<T>(one: T[], other: T[], equals: (a: T, b: T) => boolean = (a, b) => a === b): number {
+    export function commonPrefixLength<T>(
+        one: T[],
+        other: T[],
+        equals: (a: T, b: T) => boolean = (a, b) => a === b
+    ): number {
         let result = 0;
 
         for (let i = 0, len = Math.min(one.length, other.length); i < len && equals(one[i], other[i]); i++) {
@@ -370,7 +376,11 @@ export namespace vscMockArrays {
 
     export function index<T>(array: T[], indexer: (t: T) => string): Record<string, T>;
     export function index<T, R>(array: T[], indexer: (t: T) => string, merger?: (t: T, r: R) => R): Record<string, R>;
-    export function index<T, R>(array: T[], indexer: (t: T) => string, merger: (t: T, r: R) => R = t => t as any): Record<string, R> {
+    export function index<T, R>(
+        array: T[],
+        indexer: (t: T) => string,
+        merger: (t: T, r: R) => R = (t) => t as any
+    ): Record<string, R> {
         return array.reduce((r, t) => {
             const key = indexer(t);
             r[key] = merger(t, r[key]);

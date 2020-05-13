@@ -5,7 +5,12 @@
 
 import * as typemoq from 'typemoq';
 import { IgnoreDiagnosticCommand } from '../../../../client/application/diagnostics/commands/ignore';
-import { DiagnosticScope, IDiagnostic, IDiagnosticCommand, IDiagnosticFilterService } from '../../../../client/application/diagnostics/types';
+import {
+    DiagnosticScope,
+    IDiagnostic,
+    IDiagnosticCommand,
+    IDiagnosticFilterService
+} from '../../../../client/application/diagnostics/types';
 import { IServiceContainer } from '../../../../client/ioc/types';
 
 // tslint:disable:no-any
@@ -23,12 +28,16 @@ suite('Application Diagnostics - Commands Ignore', () => {
 
     test('Invoking Command should invoke the filter Service', async () => {
         const filterService = typemoq.Mock.ofType<IDiagnosticFilterService>();
-        serviceContainer.setup(s => s.get(typemoq.It.isValue(IDiagnosticFilterService)))
+        serviceContainer
+            .setup((s) => s.get(typemoq.It.isValue(IDiagnosticFilterService)))
             .returns(() => filterService.object)
             .verifiable(typemoq.Times.once());
-        diagnostic.setup(d => d.code).returns(() => 'xyz' as any)
+        diagnostic
+            .setup((d) => d.code)
+            .returns(() => 'xyz' as any)
             .verifiable(typemoq.Times.once());
-        filterService.setup(s => s.ignoreDiagnostic(typemoq.It.isValue('xyz'), typemoq.It.isValue(DiagnosticScope.Global)))
+        filterService
+            .setup((s) => s.ignoreDiagnostic(typemoq.It.isValue('xyz'), typemoq.It.isValue(DiagnosticScope.Global)))
             .verifiable(typemoq.Times.once());
 
         await ignoreCommand.invoke();

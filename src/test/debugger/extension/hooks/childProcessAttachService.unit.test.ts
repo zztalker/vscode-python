@@ -27,7 +27,11 @@ suite('Debug - Attach to Child Process', () => {
         shell = mock(ApplicationShell);
         debugService = mock(DebugService);
         workspaceService = mock(WorkspaceService);
-        attachService = new ChildProcessAttachService(instance(shell), instance(debugService), instance(workspaceService));
+        attachService = new ChildProcessAttachService(
+            instance(shell),
+            instance(debugService),
+            instance(workspaceService)
+        );
     });
 
     test('Message is not displayed if debugger is launched', async () => {
@@ -258,7 +262,9 @@ suite('Debug - Attach to Child Process', () => {
             request: 'launch',
             type: 'python',
             name: '',
-            pythonPath: '', args: [], envFile: ''
+            pythonPath: '',
+            args: [],
+            envFile: ''
         };
 
         attachService.fixPathMappings(args);
@@ -272,7 +278,9 @@ suite('Debug - Attach to Child Process', () => {
             type: 'python',
             name: '',
             workspaceFolder: __dirname,
-            pythonPath: '', args: [], envFile: '',
+            pythonPath: '',
+            args: [],
+            envFile: '',
             pathMappings: pathMappings
         };
 
@@ -287,7 +295,9 @@ suite('Debug - Attach to Child Process', () => {
             type: 'python',
             name: '',
             workspaceFolder: __dirname,
-            pythonPath: '', args: [], envFile: ''
+            pythonPath: '',
+            args: [],
+            envFile: ''
         };
 
         attachService.fixPathMappings(args);
@@ -302,7 +312,9 @@ suite('Debug - Attach to Child Process', () => {
             name: '',
             cwd: path.join('hello', 'world'),
             workspaceFolder: __dirname,
-            pythonPath: '', args: [], envFile: ''
+            pythonPath: '',
+            args: [],
+            envFile: ''
         };
 
         attachService.fixPathMappings(args);
@@ -318,7 +330,9 @@ suite('Debug - Attach to Child Process', () => {
             // tslint:disable-next-line: no-invalid-template-strings
             cwd: path.join('${workspaceFolder}', 'hello', 'world'),
             workspaceFolder: __dirname,
-            pythonPath: '', args: [], envFile: ''
+            pythonPath: '',
+            args: [],
+            envFile: ''
         };
 
         attachService.fixPathMappings(args);

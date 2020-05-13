@@ -16,11 +16,15 @@ import { noop, sleep } from '../core';
 
 export class MockProcessService implements IProcessService {
     private execResults: { file: string; args: (string | RegExp)[]; result(): Promise<ExecutionResult<string>> }[] = [];
-    private execObservableResults: { file: string; args: (string | RegExp)[]; result(): ObservableExecutionResult<string> }[] = [];
+    private execObservableResults: {
+        file: string;
+        args: (string | RegExp)[];
+        result(): ObservableExecutionResult<string>;
+    }[] = [];
     private timeDelay: number | undefined;
 
     public execObservable(file: string, args: string[], _options: SpawnOptions): ObservableExecutionResult<string> {
-        const match = this.execObservableResults.find(f => this.argsMatch(f.args, args) && f.file === file);
+        const match = this.execObservableResults.find((f) => this.argsMatch(f.args, args) && f.file === file);
         if (match) {
             return match.result();
         }
@@ -29,7 +33,7 @@ export class MockProcessService implements IProcessService {
     }
 
     public async exec(file: string, args: string[], options: SpawnOptions): Promise<ExecutionResult<string>> {
-        const match = this.execResults.find(f => this.argsMatch(f.args, args) && f.file === file);
+        const match = this.execResults.find((f) => this.argsMatch(f.args, args) && f.file === file);
         if (match) {
             // Might need a delay before executing to mimic it taking a while.
             if (this.timeDelay) {
@@ -57,7 +61,11 @@ export class MockProcessService implements IProcessService {
         this.execResults.splice(0, 0, { file: file, args: args, result: result });
     }
 
-    public addExecObservableResult(file: string, args: (string | RegExp)[], result: () => ObservableExecutionResult<string>) {
+    public addExecObservableResult(
+        file: string,
+        args: (string | RegExp)[],
+        result: () => ObservableExecutionResult<string>
+    ) {
         this.execObservableResults.splice(0, 0, { file: file, args: args, result: result });
     }
 
@@ -84,7 +92,9 @@ export class MockProcessService implements IProcessService {
     }
 
     private defaultObservable(args: string[]): ObservableExecutionResult<string> {
-        const output = new Observable<Output<string>>(subscriber => { subscriber.next({ out: `Invalid call to ${args.join(' ')}`, source: 'stderr' }); });
+        const output = new Observable<Output<string>>((subscriber) => {
+            subscriber.next({ out: `Invalid call to ${args.join(' ')}`, source: 'stderr' });
+        });
         return {
             proc: undefined,
             out: output,
@@ -95,5 +105,4 @@ export class MockProcessService implements IProcessService {
     private defaultExecutionResult(args: string[]): Promise<ExecutionResult<string>> {
         return Promise.resolve({ stderr: `Invalid call to ${args.join(' ')}`, stdout: '' });
     }
-
 }

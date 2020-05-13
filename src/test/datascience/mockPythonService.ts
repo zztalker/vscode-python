@@ -11,7 +11,7 @@ import {
 import { PythonInterpreter } from '../../client/interpreter/contracts';
 import { MockProcessService } from './mockProcessService';
 
-export class MockPythonService implements IPythonExecutionService  {
+export class MockPythonService implements IPythonExecutionService {
     private interpreter: PythonInterpreter;
     private procService: MockProcessService = new MockProcessService();
 
@@ -34,7 +34,11 @@ export class MockPythonService implements IPythonExecutionService  {
     public execObservable(args: string[], options: SpawnOptions): ObservableExecutionResult<string> {
         return this.procService.execObservable(this.interpreter.path, args, options);
     }
-    public execModuleObservable(moduleName: string, args: string[], options: SpawnOptions): ObservableExecutionResult<string> {
+    public execModuleObservable(
+        moduleName: string,
+        args: string[],
+        options: SpawnOptions
+    ): ObservableExecutionResult<string> {
         return this.procService.execObservable(this.interpreter.path, ['-m', moduleName, ...args], options);
     }
     public exec(args: string[], options: SpawnOptions): Promise<ExecutionResult<string>> {
@@ -49,7 +53,11 @@ export class MockPythonService implements IPythonExecutionService  {
         this.procService.addExecResult(this.interpreter.path, args, result);
     }
 
-    public addExecModuleResult(moduleName: string, args: (string | RegExp)[], result: () => Promise<ExecutionResult<string>>) {
+    public addExecModuleResult(
+        moduleName: string,
+        args: (string | RegExp)[],
+        result: () => Promise<ExecutionResult<string>>
+    ) {
         this.procService.addExecResult(this.interpreter.path, ['-m', moduleName, ...args], result);
     }
 
@@ -57,11 +65,19 @@ export class MockPythonService implements IPythonExecutionService  {
         this.procService.addExecObservableResult(this.interpreter.path, args, result);
     }
 
-    public addExecModuleObservableResult(moduleName: string, args: (string | RegExp)[], result: () => ObservableExecutionResult<string>) {
+    public addExecModuleObservableResult(
+        moduleName: string,
+        args: (string | RegExp)[],
+        result: () => ObservableExecutionResult<string>
+    ) {
         this.procService.addExecObservableResult(this.interpreter.path, ['-m', moduleName, ...args], result);
     }
 
     public setDelay(timeout: number | undefined) {
         this.procService.setDelay(timeout);
+    }
+
+    public getExecutionInfo(args: string[]) {
+        return { command: this.interpreter.path, args, python: [this.interpreter.path] };
     }
 }

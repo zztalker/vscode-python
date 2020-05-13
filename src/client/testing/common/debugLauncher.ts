@@ -6,6 +6,7 @@ import { IApplicationShell, IDebugService, IWorkspaceService } from '../../commo
 import { EXTENSION_ROOT_DIR } from '../../common/constants';
 import { traceError } from '../../common/logger';
 import { IFileSystem } from '../../common/platform/types';
+import * as internalScripts from '../../common/process/internal/scripts';
 import { IConfigurationService, IPythonSettings } from '../../common/types';
 import { noop } from '../../common/utils/misc';
 import { DebuggerTypeName } from '../../debugger/constants';
@@ -21,7 +22,9 @@ export class DebugLauncher implements ITestDebugLauncher {
     private readonly fs: IFileSystem;
     constructor(
         @inject(IServiceContainer) private serviceContainer: IServiceContainer,
-        @inject(IDebugConfigurationResolver) @named('launch') private readonly launchResolver: IDebugConfigurationResolver<LaunchRequestArguments>
+        @inject(IDebugConfigurationResolver)
+        @named('launch')
+        private readonly launchResolver: IDebugConfigurationResolver<LaunchRequestArguments>
     ) {
         this.configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
         this.workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
@@ -40,8 +43,9 @@ export class DebugLauncher implements ITestDebugLauncher {
             this.configService.getSettings(workspaceFolder.uri)
         );
         const debugManager = this.serviceContainer.get<IDebugService>(IDebugService);
-        return debugManager.startDebugging(workspaceFolder, launchArgs)
-            .then(noop, ex => traceError('Failed to start debugging tests', ex));
+        return debugManager
+            .startDebugging(workspaceFolder, launchArgs)
+            .then(noop, (ex) => traceError('Failed to start debugging tests', ex));
     }
     public async readAllDebugConfigs(workspaceFolder: WorkspaceFolder): Promise<DebugConfiguration[]> {
         const filename = path.join(workspaceFolder.uri.fsPath, '.vscode', 'launch.json');
@@ -113,11 +117,7 @@ export class DebugLauncher implements ITestDebugLauncher {
         }
         return undefined;
     }
-    private applyDefaults(
-        cfg: ITestDebugConfig,
-        workspaceFolder: WorkspaceFolder,
-        configSettings: IPythonSettings
-    ) {
+    private applyDefaults(cfg: ITestDebugConfig, workspaceFolder: WorkspaceFolder, configSettings: IPythonSettings) {
         // cfg.pythonPath is handled by LaunchConfigurationResolver.
 
         // Default value of justMyCode is not provided intentionally, for now we derive its value required for launchArgs using debugStdLib
@@ -157,8 +157,11 @@ export class DebugLauncher implements ITestDebugLauncher {
     ): Promise<LaunchRequestArguments> {
         const configArgs = debugConfig as LaunchRequestArguments;
 
-        configArgs.program = this.getTestLauncherScript(options.testProvider);
-        configArgs.args = this.fixArgs(options.args, options.testProvider);
+        const testArgs = this.fixArgs(options.args, options.testProvider);
+        const script = this.getTestLauncherScript(options.testProvider);
+        const args = script(testArgs);
+        configArgs.program = args[0];
+        configArgs.args = args.slice(1);
         // We leave configArgs.request as "test" so it will be sent in telemetry.
 
         const launchArgs = await this.launchResolver.resolveDebugConfiguration(
@@ -176,7 +179,7 @@ export class DebugLauncher implements ITestDebugLauncher {
 
     private fixArgs(args: string[], testProvider: TestProvider): string[] {
         if (testProvider === 'unittest') {
-            return args.filter(item => item !== '--debug');
+            return args.filter((item) => item !== '--debug');
         } else {
             return args;
         }
@@ -185,11 +188,11 @@ export class DebugLauncher implements ITestDebugLauncher {
     private getTestLauncherScript(testProvider: TestProvider) {
         switch (testProvider) {
             case 'unittest': {
-                return path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'visualstudio_py_testlauncher.py');
+                return internalScripts.visualstudio_py_testlauncher;
             }
             case 'pytest':
             case 'nosetest': {
-                return path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'testlauncher.py');
+                return internalScripts.testlauncher;
             }
             default: {
                 throw new Error(`Unknown test provider '${testProvider}'`);

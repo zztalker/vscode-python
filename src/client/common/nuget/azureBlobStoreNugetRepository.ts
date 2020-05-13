@@ -3,7 +3,7 @@
 
 'use strict';
 
-import { inject, injectable, unmanaged } from 'inversify';
+import { injectable, unmanaged } from 'inversify';
 import { IServiceContainer } from '../../ioc/types';
 import { captureTelemetry } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
@@ -15,12 +15,13 @@ import { INugetRepository, INugetService, NugetPackage } from './types';
 @injectable()
 export class AzureBlobStoreNugetRepository implements INugetRepository {
     constructor(
-        @inject(IServiceContainer) private readonly serviceContainer: IServiceContainer,
+        @unmanaged() private readonly serviceContainer: IServiceContainer,
         @unmanaged() protected readonly azureBlobStorageAccount: string,
         @unmanaged() protected readonly azureBlobStorageContainer: string,
         @unmanaged() protected readonly azureCDNBlobStorageAccount: string,
         private getBlobStore: (uri: string) => Promise<IAZBlobStore> = _getAZBlobStore
-    ) { }
+    ) {}
+
     public async getPackages(packageName: string, resource: Resource): Promise<NugetPackage[]> {
         return this.listPackages(
             this.azureBlobStorageAccount,
@@ -46,7 +47,7 @@ export class AzureBlobStoreNugetRepository implements INugetRepository {
             packageName
         );
         const nugetService = this.serviceContainer.get<INugetService>(INugetService);
-        return results.map(item => {
+        return results.map((item) => {
             return {
                 package: item.name,
                 uri: `${azureCDNBlobStorageAccount}/${azureBlobStorageContainer}/${item.name}`,
@@ -65,13 +66,12 @@ export class AzureBlobStoreNugetRepository implements INugetRepository {
             // We must pass undefined according to docs, but type definition doesn't all it to be undefined or null!!!
             // tslint:disable-next-line:no-any
             const token = undefined as any;
-            blobStore.listBlobsSegmentedWithPrefix(azureBlobStorageContainer, packageName, token,
-                (error, result) => {
-                    if (error) {
-                        return reject(error);
-                    }
-                    resolve(result.entries);
-                });
+            blobStore.listBlobsSegmentedWithPrefix(azureBlobStorageContainer, packageName, token, (error, result) => {
+                if (error) {
+                    return reject(error);
+                }
+                resolve(result.entries);
+            });
         });
     }
     private fixBlobStoreURI(uri: string, resource: Resource) {
@@ -116,6 +116,6 @@ interface IAZBlobStore {
 
 async function _getAZBlobStore(uri: string): Promise<IAZBlobStore> {
     // tslint:disable-next-line:no-require-imports
-    const az = await import('azure-storage') as typeof import('azure-storage');
+    const az = (await import('azure-storage')) as typeof import('azure-storage');
     return az.createBlobServiceAnonymous(uri);
 }

@@ -17,7 +17,41 @@
                 "${workspaceFolder}/out/**/*"
             ],
             "preLaunchTask": "Compile",
-            "skipFiles": ["<node_internals>/**"]
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "env": {
+                // Enable this to turn on redux logging during debugging
+                "XVSC_PYTHON_FORCE_LOGGING": "1",
+                // Enable this to try out new experiments locally
+                "XVSC_PYTHON_LOAD_EXPERIMENTS_FROM_FILE" : "1",
+                // Enable this to log telemetry to the output during debugging
+                "XVSC_PYTHON_LOG_TELEMETRY": "1",
+                // Enable this to log debugger output. Directory must exist ahead of time
+                "XDEBUGPY_LOG_DIR": "${workspaceRoot}/tmp/Debug_Output_Ex"
+            }
+        },
+        {
+            "name": "Extension (DS UI in Browser)",
+            "type": "extensionHost",
+            "request": "launch",
+            "runtimeExecutable": "${execPath}",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}"
+            ],
+            "stopOnEntry": false,
+            "smartStep": true,
+            "sourceMaps": true,
+            "outFiles": [
+                "${workspaceFolder}/out/**/*"
+            ],
+            "preLaunchTask": "Inject DS WebBrowser UI",
+            "env": {
+                "VSC_PYTHON_DS_UI_PROMPT": "1"
+            },
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
         },
         {
             "name": "Extension inside container",
@@ -69,7 +103,9 @@
             ],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "Compile",
-            "skipFiles": ["<node_internals>/**"]
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
         },
         {
             "name": "Tests (Debugger, VS Code, *.test.ts)",
@@ -92,7 +128,35 @@
             "env": {
                 "IS_CI_SERVER_TEST_DEBUGGER": "1"
             },
-            "skipFiles": ["<node_internals>/**"]
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        },
+        {
+            // Note, for the smoke test you want to debug, you may need to copy the file,
+            // rename it and remove a check for only smoke tests.
+            "name": "Tests (Smoke, VS Code, *.test.ts)",
+            "type": "extensionHost",
+            "request": "launch",
+            "runtimeExecutable": "${execPath}",
+            "args": [
+                "${workspaceFolder}/src/testMultiRootWkspc/smokeTests",
+                "--disable-extensions",
+                "--extensionDevelopmentPath=${workspaceFolder}",
+                "--extensionTestsPath=${workspaceFolder}/out/test"
+            ],
+            "env": {
+                "VSC_PYTHON_CI_TEST_GREP": "Smoke Test"
+            },
+            "stopOnEntry": false,
+            "sourceMaps": true,
+            "outFiles": [
+                "${workspaceFolder}/out/**/*.js"
+            ],
+            "preLaunchTask": "Compile",
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
         },
         {
             "name": "Tests (Single Workspace, VS Code, *.test.ts)",
@@ -114,7 +178,9 @@
                 "${workspaceFolder}/out/**/*.js"
             ],
             "preLaunchTask": "Compile",
-            "skipFiles": ["<node_internals>/**"]
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
         },
         {
             "name": "Tests (Multiroot, VS Code, *.test.ts)",
@@ -134,7 +200,9 @@
                 "${workspaceFolder}/out/**/*"
             ],
             "preLaunchTask": "Compile",
-            "skipFiles": ["<node_internals>/**"]
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
         },
         {
             "name": "Unit Tests (without VS Code, *.unit.test.ts)",
@@ -156,7 +224,9 @@
                 "${workspaceFolder}/out/**/*.js"
             ],
             "preLaunchTask": "Compile",
-            "skipFiles": ["<node_internals>/**"]
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
         },
         {
             "name": "Unit Tests (fast, without VS Code and without react/monaco, *.unit.test.ts)",
@@ -171,7 +241,7 @@
                 "--ui=tdd",
                 "--recursive",
                 "--colors",
-                //"--grep", "<suite name>",
+                // "--grep", "<suite name>",
                 "--timeout=300000",
                 "--fast"
             ],
@@ -179,7 +249,9 @@
                 "${workspaceFolder}/out/**/*.js"
             ],
             "preLaunchTask": "Compile",
-            "skipFiles": ["<node_internals>/**"]
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
         },
         {
             "name": "Functional Tests (without VS Code, *.functional.test.ts)",
@@ -197,11 +269,60 @@
                 //"--grep", "<suite name>",
                 "--timeout=300000"
             ],
+            "env": {
+                // Remove `X` prefix to test with real browser to host DS ui (for DS functional tests).
+                "xVSC_PYTHON_DS_UI_BROWSER": "1",
+                // Remove `X` prefix to test with real python (for DS functional tests).
+                "XVSCODE_PYTHON_ROLLING": "1",
+                // Remove 'X' to turn on all logging in the debug output
+                "XVSC_PYTHON_FORCE_LOGGING": "1",
+                // Remove `X` prefix and update path to test with real python interpreter (for DS functional tests).
+                "XCI_PYTHON_PATH": "<Python Path>",
+                // Remove 'X' prefix to dump output for debugger. Directory has to exist prior to launch
+                "XDEBUGPY_LOG_DIR": "${workspaceRoot}/tmp/Debug_Output"
+            },
             "outFiles": [
                 "${workspaceFolder}/out/**/*.js"
             ],
             "preLaunchTask": "Compile",
-            "skipFiles": ["<node_internals>/**"]
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        },
+        {
+            "name": "Functional DS UI Tests (without VS Code, *.ui.functional.test.ts)",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
+            "stopOnEntry": false,
+            "sourceMaps": true,
+            "args": [
+                "./out/test/**/*.ui.functional.test.js",
+                "--require=out/test/unittests.js",
+                "--ui=tdd",
+                "--recursive",
+                "--colors",
+                //"--grep", "<suite>",
+                "--timeout=300000",
+                "--fast"
+            ],
+            "env": {
+                // Remove `X` prefix to test with real browser to host DS ui (for DS functional tests).
+                "XVSC_PYTHON_DS_UI_BROWSER": "1",
+                // Remove `X` prefix to test with real python (for DS functional tests).
+                "XVSCODE_PYTHON_ROLLING": "1",
+                // Remove 'X' to turn on all logging in the debug output
+                "XVSC_PYTHON_FORCE_LOGGING": "1",
+                // Remove `X` prefix and update path to test with real python interpreter (for DS functional tests).
+                "XCI_PYTHON_PATH": "<Python Path>"
+            },
+            "outFiles": [
+                "${workspaceFolder}/out/**/*.js"
+            ],
+            "preLaunchTask": "Compile",
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
         },
         {
             "type": "node",
@@ -211,24 +332,9 @@
             "args": [
                 "watch"
             ],
-            "skipFiles": ["<node_internals>/**"]
-        },
-        {
-            "name": "Behave Smoke Tests",
-            "type": "python",
-            "request": "launch",
-            "program": "${workspaceFolder}/uitests/__main__.py",
-            "args": [
-                "test",
-                "--",
-                "--format",
-                "progress3",
-                // Change the tag `@wip` to what ever you want to run.
-                // Default is assumed to be somethign that's a work in progress (wip).
-                "--tags=@wip"
-            ],
-            "justMyCode": false,
-            "console": "internalConsole"
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
         }
     ],
     "compounds": [

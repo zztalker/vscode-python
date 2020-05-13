@@ -1,6 +1,11 @@
 import {
-    CancellationToken, DebugConfiguration, DiagnosticCollection,
-    Disposable, Event, OutputChannel, Uri
+    CancellationToken,
+    DebugConfiguration,
+    DiagnosticCollection,
+    Disposable,
+    Event,
+    OutputChannel,
+    Uri
 } from 'vscode';
 import { ITestingSettings, Product } from '../../common/types';
 import { DebuggerTypeName } from '../../debugger/constants';
@@ -246,8 +251,19 @@ export interface ITestManager extends Disposable {
     readonly onDidStatusChange: Event<WorkspaceTestStatus>;
     stop(): void;
     resetTestResults(): void;
-    discoverTests(cmdSource: CommandSource, ignoreCache?: boolean, quietMode?: boolean, userInitiated?: boolean, clearTestStatus?: boolean): Promise<Tests>;
-    runTest(cmdSource: CommandSource, testsToRun?: TestsToRun, runFailedTests?: boolean, debug?: boolean): Promise<Tests>;
+    discoverTests(
+        cmdSource: CommandSource,
+        ignoreCache?: boolean,
+        quietMode?: boolean,
+        userInitiated?: boolean,
+        clearTestStatus?: boolean
+    ): Promise<Tests>;
+    runTest(
+        cmdSource: CommandSource,
+        testsToRun?: TestsToRun,
+        runFailedTests?: boolean,
+        debug?: boolean
+    ): Promise<Tests>;
 }
 
 export const ITestDiscoveryService = Symbol('ITestDiscoveryService');
@@ -298,7 +314,7 @@ export interface ITestDebugConfig extends DebugConfiguration {
     // converted to DebugOptions:
     stopOnEntry?: boolean;
     showReturnValue?: boolean;
-    redirectOutput?: boolean;  // default: true
+    redirectOutput?: boolean; // default: true
     debugStdLib?: boolean;
     justMyCode?: boolean;
     subProcess?: boolean;

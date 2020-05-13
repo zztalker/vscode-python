@@ -13,7 +13,6 @@ import { IStringDictionary, ISystemVariables } from './types';
 /* tslint:disable:rule1 no-any no-unnecessary-callback-wrapper jsdoc-format no-for-in prefer-const no-increment-decrement */
 
 abstract class AbstractSystemVariables implements ISystemVariables {
-
     public resolve(value: string): string;
     public resolve(value: string[]): string[];
     public resolve(value: IStringDictionary<string>): IStringDictionary<string>;
@@ -59,9 +58,11 @@ abstract class AbstractSystemVariables implements ISystemVariables {
         });
     }
 
-    private __resolveLiteral(values: IStringDictionary<string | IStringDictionary<string> | string[]>): IStringDictionary<string | IStringDictionary<string> | string[]> {
+    private __resolveLiteral(
+        values: IStringDictionary<string | IStringDictionary<string> | string[]>
+    ): IStringDictionary<string | IStringDictionary<string> | string[]> {
         const result: IStringDictionary<string | IStringDictionary<string> | string[]> = Object.create(null);
-        Object.keys(values).forEach(key => {
+        Object.keys(values).forEach((key) => {
             const value = values[key];
             // tslint:disable-next-line:no-any
             result[key] = <any>this.resolve(<any>value);
@@ -73,7 +74,7 @@ abstract class AbstractSystemVariables implements ISystemVariables {
     // tslint:disable-next-line:no-any
     private __resolveAnyLiteral(values: any): any {
         const result: IStringDictionary<string | IStringDictionary<string> | string[]> = Object.create(null);
-        Object.keys(values).forEach(key => {
+        Object.keys(values).forEach((key) => {
             const value = values[key];
             // tslint:disable-next-line:no-any
             result[key] = <any>this.resolveAny(<any>value);
@@ -82,13 +83,13 @@ abstract class AbstractSystemVariables implements ISystemVariables {
     }
 
     private __resolveArray(value: string[]): string[] {
-        return value.map(s => this.__resolveString(s));
+        return value.map((s) => this.__resolveString(s));
     }
 
     private __resolveAnyArray<T>(value: T[]): T[];
     // tslint:disable-next-line:no-any
     private __resolveAnyArray(value: any[]): any[] {
-        return value.map(s => this.resolveAny(s));
+        return value.map((s) => this.resolveAny(s));
     }
 }
 
@@ -100,7 +101,12 @@ export class SystemVariables extends AbstractSystemVariables {
     private _selectedText: string | undefined;
     private _execPath: string;
 
-    constructor(file: Uri | undefined, rootFolder: string | undefined, workspace?: IWorkspaceService, documentManager?: IDocumentManager) {
+    constructor(
+        file: Uri | undefined,
+        rootFolder: string | undefined,
+        workspace?: IWorkspaceService,
+        documentManager?: IDocumentManager
+    ) {
         super();
         const workspaceFolder = workspace && file ? workspace.getWorkspaceFolder(file) : undefined;
         this._workspaceFolder = workspaceFolder ? workspaceFolder.uri.fsPath : rootFolder || __dirname;
@@ -108,11 +114,19 @@ export class SystemVariables extends AbstractSystemVariables {
         this._filePath = file ? file.fsPath : undefined;
         if (documentManager && documentManager.activeTextEditor) {
             this._lineNumber = documentManager.activeTextEditor.selection.anchor.line + 1;
-            this._selectedText = documentManager.activeTextEditor.document.getText(new Range(documentManager.activeTextEditor.selection.start, documentManager.activeTextEditor.selection.end));
+            this._selectedText = documentManager.activeTextEditor.document.getText(
+                new Range(
+                    documentManager.activeTextEditor.selection.start,
+                    documentManager.activeTextEditor.selection.end
+                )
+            );
         }
         this._execPath = process.execPath;
-        Object.keys(process.env).forEach(key => {
-            (this as any as Record<string, string | undefined>)[`env:${key}`] = (this as any as Record<string, string | undefined>)[`env.${key}`] = process.env[key];
+        Object.keys(process.env).forEach((key) => {
+            ((this as any) as Record<string, string | undefined>)[`env:${key}`] = ((this as any) as Record<
+                string,
+                string | undefined
+            >)[`env.${key}`] = process.env[key];
         });
     }
 

@@ -4,16 +4,30 @@
 
 import { Socket } from 'net';
 import { Request as RequestResult } from 'request';
-import { ConfigurationTarget, DiagnosticSeverity, Disposable, DocumentSymbolProvider, Event, Extension, ExtensionContext, OutputChannel, Uri, WorkspaceEdit } from 'vscode';
+import {
+    CancellationToken,
+    ConfigurationTarget,
+    DiagnosticSeverity,
+    Disposable,
+    DocumentSymbolProvider,
+    Event,
+    Extension,
+    ExtensionContext,
+    OutputChannel,
+    Uri,
+    WorkspaceEdit
+} from 'vscode';
+import { LanguageServerType } from '../activation/types';
 import { CommandsWithoutArgs } from './application/commands';
 import { ExtensionChannels } from './insidersBuild/types';
+import { InterpreterUri } from './installer/types';
 import { EnvironmentVariables } from './variables/types';
 export const IOutputChannel = Symbol('IOutputChannel');
-export interface IOutputChannel extends OutputChannel { }
+export interface IOutputChannel extends OutputChannel {}
 export const IDocumentSymbolProvider = Symbol('IDocumentSymbolProvider');
-export interface IDocumentSymbolProvider extends DocumentSymbolProvider { }
+export interface IDocumentSymbolProvider extends DocumentSymbolProvider {}
 export const IsWindows = Symbol('IS_WINDOWS');
-export const IDisposableRegistry = Symbol('IDiposableRegistry');
+export const IDisposableRegistry = Symbol('IDisposableRegistry');
 export type IDisposableRegistry = { push(disposable: Disposable): void };
 export const IMemento = Symbol('IGlobalMemento');
 export const GLOBAL_MEMENTO = Symbol('IGlobalMemento');
@@ -33,6 +47,10 @@ export type Version = {
     prerelease: string[];
 };
 
+export type ReadWrite<T> = {
+    -readonly [P in keyof T]: T[P];
+};
+
 export const IPersistentStateFactory = Symbol('IPersistentStateFactory');
 
 export interface IPersistentStateFactory {
@@ -46,23 +64,6 @@ export type ExecutionInfo = {
     args: string[];
     product?: Product;
 };
-
-export enum LogLevel {
-    Information = 'Information',
-    Error = 'Error',
-    Warning = 'Warning'
-}
-
-export const ILogger = Symbol('ILogger');
-
-export interface ILogger {
-    // tslint:disable-next-line: no-any
-    logError(...args: any[]): void;
-    // tslint:disable-next-line: no-any
-    logWarning(...args: any[]): void;
-    // tslint:disable-next-line: no-any
-    logInformation(...args: any[]): void;
-}
 
 export enum InstallerResponse {
     Installed,
@@ -97,7 +98,12 @@ export enum Product {
     isort = 15,
     black = 16,
     bandit = 17,
-    jupyter = 18
+    jupyter = 18,
+    ipykernel = 19,
+    notebook = 20,
+    kernelspec = 21,
+    nbconvert = 22,
+    pandas = 23
 }
 
 export enum ModuleNamePurpose {
@@ -108,14 +114,19 @@ export enum ModuleNamePurpose {
 export const IInstaller = Symbol('IInstaller');
 
 export interface IInstaller {
-    promptToInstall(product: Product, resource?: Uri): Promise<InstallerResponse>;
-    install(product: Product, resource?: Uri): Promise<InstallerResponse>;
-    isInstalled(product: Product, resource?: Uri): Promise<boolean | undefined>;
+    promptToInstall(
+        product: Product,
+        resource?: InterpreterUri,
+        cancel?: CancellationToken
+    ): Promise<InstallerResponse>;
+    install(product: Product, resource?: InterpreterUri, cancel?: CancellationToken): Promise<InstallerResponse>;
+    isInstalled(product: Product, resource?: InterpreterUri): Promise<boolean | undefined>;
     translateProductToModuleName(product: Product, purpose: ModuleNamePurpose): string;
 }
 
+// tslint:disable-next-line:no-suspicious-comment
+// TODO(GH-8542): Drop IPathUtils in favor of IFileSystemPathUtils.
 export const IPathUtils = Symbol('IPathUtils');
-
 export interface IPathUtils {
     readonly delimiter: string;
     readonly home: string;
@@ -173,6 +184,8 @@ export interface IPythonSettings {
     readonly datascience: IDataScienceSettings;
     readonly onDidChange: Event<void>;
     readonly experiments: IExperiments;
+    readonly languageServer: LanguageServerType;
+    readonly defaultInterpreterPath: string;
 }
 export interface ISortImportSettings {
     readonly path: string;
@@ -282,11 +295,22 @@ export interface ITerminalSettings {
 export interface IExperiments {
     /**
      * Return `true` if experiments are enabled, else `false`.
-     *
-     * @type {boolean}
-     * @memberof IExperiments
      */
     readonly enabled: boolean;
+    /**
+     * Experiments user requested to opt into manually
+     */
+    readonly optInto: string[];
+    /**
+     * Experiments user requested to opt out from manually
+     */
+    readonly optOutFrom: string[];
+}
+
+export enum AnalysisSettingsLogLevel {
+    Information = 'Information',
+    Error = 'Error',
+    Warning = 'Warning'
 }
 
 export type LanguageServerDownloadChannels = 'stable' | 'beta' | 'daily';
@@ -300,13 +324,13 @@ export interface IAnalysisSettings {
     readonly information: string[];
     readonly disabled: string[];
     readonly traceLogging: boolean;
-    readonly logLevel: LogLevel;
+    readonly logLevel: AnalysisSettingsLogLevel;
 }
 
-interface IGatherRule {
-    objectName?: string;
-    functionName: string;
-    doesNotModify: string[] | number[];
+export interface IVariableQuery {
+    language: string;
+    query: string;
+    parseExpr: string;
 }
 
 export interface IDataScienceSettings {
@@ -324,9 +348,10 @@ export interface IDataScienceSettings {
     showCellInputCode: boolean;
     collapseCellInputCodeByDefault: boolean;
     maxOutputSize: number;
+    enableScrollingForCellOutputs: boolean;
     enableGather?: boolean;
     gatherToScript?: boolean;
-    gatherRules?: IGatherRule[];
+    gatherSpecPath?: string;
     sendSelectionToInteractiveWindow: boolean;
     markdownRegularExpression: string;
     codeRegularExpression: string;
@@ -359,14 +384,28 @@ export interface IDataScienceSettings {
     defaultCellMarker?: string;
     verboseLogging?: boolean;
     themeMatplotlibPlots?: boolean;
+    useWebViewServer?: boolean;
+    variableQueries: IVariableQuery[];
+    disableJupyterAutoStart?: boolean;
+    jupyterCommandLineArguments: string[];
+    widgetScriptSources: WidgetCDNs[];
+    alwaysScrollOnNewCell?: boolean;
 }
+
+export type WidgetCDNs = 'unpkg.com' | 'jsdelivr.com';
 
 export const IConfigurationService = Symbol('IConfigurationService');
 export interface IConfigurationService {
     getSettings(resource?: Uri): IPythonSettings;
     isTestExecution(): boolean;
     updateSetting(setting: string, value?: {}, resource?: Uri, configTarget?: ConfigurationTarget): Promise<void>;
-    updateSectionSetting(section: string, setting: string, value?: {}, resource?: Uri, configTarget?: ConfigurationTarget): Promise<void>;
+    updateSectionSetting(
+        section: string,
+        setting: string,
+        value?: {},
+        resource?: Uri,
+        configTarget?: ConfigurationTarget
+    ): Promise<void>;
 }
 
 export const ISocketServer = Symbol('ISocketServer');
@@ -425,10 +464,14 @@ export interface IHttpClient {
      * @param strict Set `false` to allow trailing comma and comments in the JSON, defaults to `true`
      */
     getJSON<T>(uri: string, strict?: boolean): Promise<T>;
+    /**
+     * Returns the url is valid (i.e. return status code of 200).
+     */
+    exists(uri: string): Promise<boolean>;
 }
 
 export const IExtensionContext = Symbol('ExtensionContext');
-export interface IExtensionContext extends ExtensionContext { }
+export interface IExtensionContext extends ExtensionContext {}
 
 export const IExtensions = Symbol('IExtensions');
 export interface IExtensions {
@@ -513,8 +556,8 @@ export interface IAsyncDisposable {
  * Stores hash formats
  */
 export interface IHashFormat {
-    'number': number; // If hash format is a number
-    'string': string; // If hash format is a string
+    number: number; // If hash format is a number
+    string: string; // If hash format is a string
 }
 
 /**
@@ -528,7 +571,11 @@ export interface ICryptoUtils {
      * @param data The string to hash
      * @param hashFormat Return format of the hash, number or string
      */
-    createHash<E extends keyof IHashFormat>(data: string, hashFormat: E, algorithm?: 'SHA512' | 'FNV'): IHashFormat[E];
+    createHash<E extends keyof IHashFormat>(
+        data: string,
+        hashFormat: E,
+        algorithm?: 'SHA512' | 'SHA256' | 'FNV'
+    ): IHashFormat[E];
 }
 
 export const IAsyncDisposableRegistry = Symbol('IAsyncDisposableRegistry');
@@ -543,8 +590,8 @@ export interface IAsyncDisposableRegistry extends IAsyncDisposable {
 export type ABExperiments = {
     name: string; // Name of the experiment
     salt: string; // Salt string for the experiment
-    min: number;  // Lower limit for the experiment
-    max: number;  // Upper limit for the experiment
+    min: number; // Lower limit for the experiment
+    max: number; // Upper limit for the experiment
 }[];
 
 /**
@@ -569,4 +616,23 @@ export interface IExperimentsManager {
      * @param experimentName Name of the experiment
      */
     sendTelemetryIfInExperiment(experimentName: string): void;
+}
+
+export type InterpreterConfigurationScope = { uri: Resource; configTarget: ConfigurationTarget };
+export type InspectInterpreterSettingType = {
+    globalValue?: string;
+    workspaceValue?: string;
+    workspaceFolderValue?: string;
+};
+
+/**
+ * Interface used to access current Interpreter Path
+ */
+export const IInterpreterPathService = Symbol('IInterpreterPathService');
+export interface IInterpreterPathService {
+    onDidChange: Event<InterpreterConfigurationScope>;
+    get(resource: Resource): string;
+    inspect(resource: Resource): InspectInterpreterSettingType;
+    update(resource: Resource, configTarget: ConfigurationTarget, value: string | undefined): Promise<void>;
+    copyOldInterpreterStorageValuesToNew(resource: Uri | undefined): Promise<void>;
 }

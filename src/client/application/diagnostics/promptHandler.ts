@@ -7,7 +7,7 @@ import { inject, injectable } from 'inversify';
 import { DiagnosticSeverity } from 'vscode';
 import { IApplicationShell } from '../../common/application/types';
 import { IServiceContainer } from '../../ioc/types';
-import { IDiagnostic, IDiagnosticCommand, IDiagnosticHandlerService } from './types';
+import { IDiagnostic, IDiagnosticCommand, IDiagnosticHandlerService, IDiagnosticMessageOnCloseHandler } from './types';
 
 export type MessageCommandPrompt = {
     commandPrompts: {
@@ -15,6 +15,7 @@ export type MessageCommandPrompt = {
         command?: IDiagnosticCommand;
     }[];
     message?: string;
+    onClose?: IDiagnosticMessageOnCloseHandler;
 };
 
 export const DiagnosticCommandPromptHandlerServiceId = 'DiagnosticCommandPromptHandlerServiceId';
@@ -25,18 +26,32 @@ export class DiagnosticCommandPromptHandlerService implements IDiagnosticHandler
     constructor(@inject(IServiceContainer) serviceContainer: IServiceContainer) {
         this.appShell = serviceContainer.get<IApplicationShell>(IApplicationShell);
     }
-    public async handle(diagnostic: IDiagnostic, options: MessageCommandPrompt = { commandPrompts: [] }): Promise<void> {
-        const prompts = options.commandPrompts.map(option => option.prompt);
-        const response = await this.displayMessage(options.message ? options.message : diagnostic.message, diagnostic.severity, prompts);
+    public async handle(
+        diagnostic: IDiagnostic,
+        options: MessageCommandPrompt = { commandPrompts: [] }
+    ): Promise<void> {
+        const prompts = options.commandPrompts.map((option) => option.prompt);
+        const response = await this.displayMessage(
+            options.message ? options.message : diagnostic.message,
+            diagnostic.severity,
+            prompts
+        );
+        if (options.onClose) {
+            options.onClose(response);
+        }
         if (!response) {
             return;
         }
-        const selectedOption = options.commandPrompts.find(option => option.prompt === response);
+        const selectedOption = options.commandPrompts.find((option) => option.prompt === response);
         if (selectedOption && selectedOption.command) {
             await selectedOption.command.invoke();
         }
     }
-    private async displayMessage(message: string, severity: DiagnosticSeverity, prompts: string[]): Promise<string | undefined> {
+    private async displayMessage(
+        message: string,
+        severity: DiagnosticSeverity,
+        prompts: string[]
+    ): Promise<string | undefined> {
         switch (severity) {
             case DiagnosticSeverity.Error: {
                 return this.appShell.showErrorMessage(message, ...prompts);

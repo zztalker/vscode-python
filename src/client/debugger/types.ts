@@ -26,6 +26,11 @@ export type PathMapping = {
     localRoot: string;
     remoteRoot: string;
 };
+export type Connection = {
+    host: string;
+    port: number;
+};
+
 interface ICommonDebugArguments {
     redirectOutput?: boolean;
     django?: boolean;
@@ -50,9 +55,12 @@ export interface IKnownAttachDebugArguments extends ICommonDebugArguments {
     localRoot?: string;
     remoteRoot?: string;
 
-    // Internal files used to attach to subprocess using python debug adapter
+    // Internal field used to attach to subprocess using python debug adapter
     subProcessId?: number;
 
+    processId?: number | string;
+    connect?: Connection;
+    listen?: Connection;
 }
 
 export interface IKnownLaunchRequestArguments extends ICommonDebugArguments {
@@ -71,19 +79,28 @@ export interface IKnownLaunchRequestArguments extends ICommonDebugArguments {
     env?: Record<string, string | undefined>;
     envFile: string;
     console?: ConsoleType;
+
+    // Internal field used to set custom python debug adapter (for testing)
+    debugAdapterPath?: string;
 }
 // tslint:disable-next-line:interface-name
-export interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments, IKnownLaunchRequestArguments, DebugConfiguration {
+export interface LaunchRequestArguments
+    extends DebugProtocol.LaunchRequestArguments,
+        IKnownLaunchRequestArguments,
+        DebugConfiguration {
     type: typeof DebuggerTypeName;
 }
 
 // tslint:disable-next-line:interface-name
-export interface AttachRequestArguments extends DebugProtocol.AttachRequestArguments, IKnownAttachDebugArguments, DebugConfiguration {
+export interface AttachRequestArguments
+    extends DebugProtocol.AttachRequestArguments,
+        IKnownAttachDebugArguments,
+        DebugConfiguration {
     type: typeof DebuggerTypeName;
 }
 
 // tslint:disable-next-line:interface-name
-export interface DebugConfigurationArguments extends LaunchRequestArguments, AttachRequestArguments { }
+export interface DebugConfigurationArguments extends LaunchRequestArguments, AttachRequestArguments {}
 
 export type ConsoleType = 'internalConsole' | 'integratedTerminal' | 'externalTerminal';
 

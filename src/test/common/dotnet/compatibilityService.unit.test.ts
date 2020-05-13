@@ -13,8 +13,8 @@ import { getNamesAndValues } from '../../../client/common/utils/enum';
 import { OSType } from '../../../client/common/utils/platform';
 
 suite('DOT.NET', () => {
-    getNamesAndValues<OSType>(OSType).forEach(osType => {
-        [true, false].forEach(supported => {
+    getNamesAndValues<OSType>(OSType).forEach((osType) => {
+        [true, false].forEach((supported) => {
             test(`Test ${osType.name} support = ${supported}`, async () => {
                 const unknownService = mock(UnknownOSDotNetCompatibilityService);
                 const macService = mock(UnknownOSDotNetCompatibilityService);
@@ -28,9 +28,13 @@ suite('DOT.NET', () => {
                 mappedServices.set(OSType.Windows, winService);
                 mappedServices.set(OSType.Linux, linuxService);
 
-                const service = new DotNetCompatibilityService(instance(unknownService), instance(macService),
-                    instance(winService), instance(linuxService),
-                    instance(platformService));
+                const service = new DotNetCompatibilityService(
+                    instance(unknownService),
+                    instance(macService),
+                    instance(winService),
+                    instance(linuxService),
+                    instance(platformService)
+                );
 
                 when(platformService.osType).thenReturn(osType.value);
                 const osService = mappedServices.get(osType.value)!;

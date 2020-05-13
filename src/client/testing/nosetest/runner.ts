@@ -7,8 +7,14 @@ import { IServiceContainer } from '../../ioc/types';
 import { NOSETEST_PROVIDER } from '../common/constants';
 import { Options } from '../common/runner';
 import {
-    ITestDebugLauncher, ITestManager, ITestResultsService, ITestRunner,
-    IXUnitParser, LaunchOptions, TestRunOptions, Tests
+    ITestDebugLauncher,
+    ITestManager,
+    ITestResultsService,
+    ITestRunner,
+    IXUnitParser,
+    LaunchOptions,
+    TestRunOptions,
+    Tests
 } from '../common/types';
 import { IArgumentsHelper, IArgumentsService, ITestManagerRunner } from '../types';
 
@@ -29,19 +35,23 @@ export class TestManagerRunner implements ITestManagerRunner {
         this.xUnitParser = this.serviceContainer.get<IXUnitParser>(IXUnitParser);
         this.fs = this.serviceContainer.get<IFileSystem>(IFileSystem);
     }
-    public async runTest(testResultsService: ITestResultsService, options: TestRunOptions, _: ITestManager): Promise<Tests> {
+    public async runTest(
+        testResultsService: ITestResultsService,
+        options: TestRunOptions,
+        _: ITestManager
+    ): Promise<Tests> {
         let testPaths: string[] = [];
         if (options.testsToRun && options.testsToRun.testFolder) {
-            testPaths = testPaths.concat(options.testsToRun.testFolder.map(f => f.nameToRun));
+            testPaths = testPaths.concat(options.testsToRun.testFolder.map((f) => f.nameToRun));
         }
         if (options.testsToRun && options.testsToRun.testFile) {
-            testPaths = testPaths.concat(options.testsToRun.testFile.map(f => f.nameToRun));
+            testPaths = testPaths.concat(options.testsToRun.testFile.map((f) => f.nameToRun));
         }
         if (options.testsToRun && options.testsToRun.testSuite) {
-            testPaths = testPaths.concat(options.testsToRun.testSuite.map(f => f.nameToRun));
+            testPaths = testPaths.concat(options.testsToRun.testSuite.map((f) => f.nameToRun));
         }
         if (options.testsToRun && options.testsToRun.testFunction) {
-            testPaths = testPaths.concat(options.testsToRun.testFunction.map(f => f.nameToRun));
+            testPaths = testPaths.concat(options.testsToRun.testFunction.map((f) => f.nameToRun));
         }
 
         let deleteJUnitXmlFile: Function = noop;
@@ -65,7 +75,13 @@ export class TestManagerRunner implements ITestManagerRunner {
             if (options.debug === true) {
                 const debugLauncher = this.serviceContainer.get<ITestDebugLauncher>(ITestDebugLauncher);
                 const debuggerArgs = [options.cwd, 'nose'].concat(testArgs);
-                const launchOptions: LaunchOptions = { cwd: options.cwd, args: debuggerArgs, token: options.token, outChannel: options.outChannel, testProvider: NOSETEST_PROVIDER };
+                const launchOptions: LaunchOptions = {
+                    cwd: options.cwd,
+                    args: debuggerArgs,
+                    token: options.token,
+                    outChannel: options.outChannel,
+                    testProvider: NOSETEST_PROVIDER
+                };
                 await debugLauncher.launchDebugger(launchOptions);
             } else {
                 const runOptions: Options = {
@@ -78,7 +94,9 @@ export class TestManagerRunner implements ITestManagerRunner {
                 await this.testRunner.run(NOSETEST_PROVIDER, runOptions);
             }
 
-            return options.debug ? options.tests : await this.updateResultsFromLogFiles(options.tests, xmlLogFile, testResultsService);
+            return options.debug
+                ? options.tests
+                : await this.updateResultsFromLogFiles(options.tests, xmlLogFile, testResultsService);
         } catch (ex) {
             return Promise.reject<Tests>(ex);
         } finally {
@@ -86,7 +104,11 @@ export class TestManagerRunner implements ITestManagerRunner {
         }
     }
 
-    private async updateResultsFromLogFiles(tests: Tests, outputXmlFile: string, testResultsService: ITestResultsService): Promise<Tests> {
+    private async updateResultsFromLogFiles(
+        tests: Tests,
+        outputXmlFile: string,
+        testResultsService: ITestResultsService
+    ): Promise<Tests> {
         await this.xUnitParser.updateResultsFromXmlLogFile(tests, outputXmlFile);
         testResultsService.updateResults(tests);
         return tests;

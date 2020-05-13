@@ -39,9 +39,14 @@ body, html {
     max-height: 100%;
     overflow: auto;
 }
+
 #main-panel-footer {
     grid-area: footer;
     overflow: hidden;
+}
+
+#content-panel-div.content-panel-scrollBeyondLastLine {
+    margin-bottom: 100vh;
 }
 
 .hide {
@@ -74,11 +79,12 @@ body, html {
 /* Cell */
 .cell-wrapper {
     margin: 0px;
-    padding: 2px;
+    padding: 2px 5px 2px 2px;
     display: block;
 }
 
 .cell-wrapper:focus {
+    outline-width: 0px;
     outline-color:var(--override-selection-background, var(--vscode-editor-selectionBackground));
 }
 
@@ -96,6 +102,13 @@ body, html {
     content: "";
     clear: both;
     display: block;
+}
+
+.edit-panel-colorized .cell-wrapper:focus {
+    outline-width: 0px;
+}
+.edit-panel .cell-wrapper:focus {
+    outline-width: 0px;
 }
 
 .cell-outer {
@@ -146,9 +159,20 @@ body, html {
 
 .cell-output-text {
     white-space: pre-wrap;
+    font-family: var(--vscode-editor-font-family);
+    font-weight: var(--vscode-editor-font-weight);
 }
+
 .cell-output-text pre {
     white-space: pre-wrap;
+    font-family: var(--vscode-editor-font-family);
+    font-weight: var(--vscode-editor-font-weight);
+}
+
+.cell-output-text xmp {
+    white-space: pre-wrap;
+    font-family: var(--vscode-editor-font-family);
+    font-weight: var(--vscode-editor-font-weight);
 }
 
 .cell-output-html {
@@ -160,6 +184,10 @@ body, html {
     background:white;
     display: inline-block;
     margin: 3px;
+}
+
+.cell-output-ipywidget-background {
+    background:white !important;
 }
 
 .cell-output-plot-background * {
@@ -241,10 +269,14 @@ body, html {
 .code-watermark {
     position: absolute;
     top: 3px;
-    left: 30px;
+    left: 3px;
     z-index: 500;
     font-style: italic;
     color: var(--override-watermark-color, var(--vscode-panelTitle-inactiveForeground));
+}
+
+.code-watermark:focus {
+    outline-width: 0;
 }
 
 .collapse-input-svg-rotate {
@@ -282,12 +314,8 @@ body, html {
 }
 
 #cell-table {
-    display: table;
+    display: block;
     width: 100%;
-}
-
-#cell-table-body {
-    display: table-row-group;
 }
 
 .flash {
@@ -437,6 +465,83 @@ body, html {
     border-bottom-width: 2px;
 }
 .toolbar-menu-bar {
-    display: flex;
+    display: inline-flex;
     width: 100%;
+}
+
+.kernel-status {
+    display: flex;
+    margin-left: auto;
+}
+
+.kernel-status-section {
+    padding: 0px 5px;
+    align-self: center;
+    margin-top: 1px;
+    margin-bottom: 2px;
+}
+
+.kernel-status-section-hoverable:hover {
+    background-color: var(--override-badge-background, var(--vscode-badge-background));
+    cursor:pointer;
+}
+
+.kernel-status-divider {
+    border-left: 1px solid var(--vscode-badge-background);
+    flex: 1;
+    max-width: 1px;
+}
+
+.kernel-status-text {
+    padding-right: 5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    text-align: end;
+}
+
+.kernel-status-server {
+    display: grid;
+    grid-template-columns: 1fr auto;
+}
+
+.kernel-status-status {
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.kernel-status-icon {
+    width: 16px;
+    height: 0px;
+    padding: 1px;
+    margin-top: 2px;
+}
+
+.image-button-image {
+    cursor: pointer;
+}
+
+.codicon-button {
+    cursor: pointer;
+    color: var(--vscode-editor-foreground);
+}
+
+.image-button-inner-disabled-filter .image-button-image {
+    cursor: unset;
+}
+
+.outputTrimmedSettingsLink {
+    text-decoration: underline;
+}
+
+.toolbar-menu-bar .image-button {
+    margin-top: 8px;
+    margin-bottom: 9px;
+    margin-left: 7px;
+    margin-right: 7px;
+}
+
+.image-button:focus {
+    outline: none;
 }

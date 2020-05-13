@@ -16,28 +16,34 @@ import { SystemVariables } from '../../../../common/variables/systemVariables';
 import { sendTelemetryEvent } from '../../../../telemetry';
 import { EventName } from '../../../../telemetry/constants';
 import { DebuggerTelemetry } from '../../../../telemetry/types';
-import {
-    AttachRequestArguments, DebugOptions, LaunchRequestArguments, PathMapping
-} from '../../../types';
+import { AttachRequestArguments, DebugOptions, LaunchRequestArguments, PathMapping } from '../../../types';
 import { PythonPathSource } from '../../types';
 import { IDebugConfigurationResolver } from '../types';
 
 @injectable()
-export abstract class BaseConfigurationResolver<T extends DebugConfiguration> implements IDebugConfigurationResolver<T> {
+export abstract class BaseConfigurationResolver<T extends DebugConfiguration>
+    implements IDebugConfigurationResolver<T> {
     protected pythonPathSource: PythonPathSource = PythonPathSource.launchJson;
     constructor(
         protected readonly workspaceService: IWorkspaceService,
         protected readonly documentManager: IDocumentManager,
         protected readonly platformService: IPlatformService,
         protected readonly configurationService: IConfigurationService
-    ) { }
-    public abstract resolveDebugConfiguration(folder: WorkspaceFolder | undefined, debugConfiguration: DebugConfiguration, token?: CancellationToken): Promise<T | undefined>;
+    ) {}
+    public abstract resolveDebugConfiguration(
+        folder: WorkspaceFolder | undefined,
+        debugConfiguration: DebugConfiguration,
+        token?: CancellationToken
+    ): Promise<T | undefined>;
     protected getWorkspaceFolder(folder: WorkspaceFolder | undefined): Uri | undefined {
         if (folder) {
             return folder.uri;
         }
         const program = this.getProgram();
-        if (!Array.isArray(this.workspaceService.workspaceFolders) || this.workspaceService.workspaceFolders.length === 0) {
+        if (
+            !Array.isArray(this.workspaceService.workspaceFolders) ||
+            this.workspaceService.workspaceFolders.length === 0
+        ) {
             return program ? Uri.file(path.dirname(program)) : undefined;
         }
         if (this.workspaceService.workspaceFolders.length === 1) {
@@ -56,24 +62,36 @@ export abstract class BaseConfigurationResolver<T extends DebugConfiguration> im
             return editor.document.fileName;
         }
     }
-    protected resolveAndUpdatePaths(workspaceFolder: Uri | undefined, debugConfiguration: LaunchRequestArguments): void {
+    protected resolveAndUpdatePaths(
+        workspaceFolder: Uri | undefined,
+        debugConfiguration: LaunchRequestArguments
+    ): void {
         this.resolveAndUpdateEnvFilePath(workspaceFolder, debugConfiguration);
         this.resolveAndUpdatePythonPath(workspaceFolder, debugConfiguration);
     }
-    protected resolveAndUpdateEnvFilePath(workspaceFolder: Uri | undefined, debugConfiguration: LaunchRequestArguments): void {
+    protected resolveAndUpdateEnvFilePath(
+        workspaceFolder: Uri | undefined,
+        debugConfiguration: LaunchRequestArguments
+    ): void {
         if (!debugConfiguration) {
             return;
         }
         if (debugConfiguration.envFile && (workspaceFolder || debugConfiguration.cwd)) {
-            const systemVariables = new SystemVariables(undefined, (workspaceFolder ? workspaceFolder.fsPath : undefined) || debugConfiguration.cwd);
+            const systemVariables = new SystemVariables(
+                undefined,
+                (workspaceFolder ? workspaceFolder.fsPath : undefined) || debugConfiguration.cwd
+            );
             debugConfiguration.envFile = systemVariables.resolveAny(debugConfiguration.envFile);
         }
     }
-    protected resolveAndUpdatePythonPath(workspaceFolder: Uri | undefined, debugConfiguration: LaunchRequestArguments): void {
+    protected resolveAndUpdatePythonPath(
+        workspaceFolder: Uri | undefined,
+        debugConfiguration: LaunchRequestArguments
+    ): void {
         if (!debugConfiguration) {
             return;
         }
-        if (debugConfiguration.pythonPath === '${config:python.pythonPath}' || !debugConfiguration.pythonPath) {
+        if (debugConfiguration.pythonPath === '${config:python.interpreterPath}' || !debugConfiguration.pythonPath) {
             const pythonPath = this.configurationService.getSettings(workspaceFolder).pythonPath;
             debugConfiguration.pythonPath = pythonPath;
             this.pythonPathSource = PythonPathSource.settingsJson;
@@ -89,7 +107,7 @@ export abstract class BaseConfigurationResolver<T extends DebugConfiguration> im
     }
     protected isLocalHost(hostName?: string) {
         const LocalHosts = ['localhost', '127.0.0.1', '::1'];
-        return (hostName && LocalHosts.indexOf(hostName.toLowerCase()) >= 0) ? true : false;
+        return hostName && LocalHosts.indexOf(hostName.toLowerCase()) >= 0 ? true : false;
     }
     protected fixUpPathMappings(
         pathMappings: PathMapping[],
@@ -136,9 +154,12 @@ export abstract class BaseConfigurationResolver<T extends DebugConfiguration> im
         return pathMappings;
     }
     protected isDebuggingFlask(debugConfiguration: Partial<LaunchRequestArguments & AttachRequestArguments>) {
-        return (debugConfiguration.module && debugConfiguration.module.toUpperCase() === 'FLASK') ? true : false;
+        return debugConfiguration.module && debugConfiguration.module.toUpperCase() === 'FLASK' ? true : false;
     }
-    protected sendTelemetry(trigger: 'launch' | 'attach' | 'test', debugConfiguration: Partial<LaunchRequestArguments & AttachRequestArguments>) {
+    protected sendTelemetry(
+        trigger: 'launch' | 'attach' | 'test',
+        debugConfiguration: Partial<LaunchRequestArguments & AttachRequestArguments>
+    ) {
         const name = debugConfiguration.name || '';
         const moduleName = debugConfiguration.module || '';
         const telemetryProps: DebuggerTelemetry = {
@@ -163,5 +184,4 @@ export abstract class BaseConfigurationResolver<T extends DebugConfiguration> im
         };
         sendTelemetryEvent(EventName.DEBUGGER, undefined, telemetryProps);
     }
-
 }

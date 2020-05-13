@@ -24,11 +24,21 @@ export class LiveShareParticipantDefault implements IAsyncDisposable {
 }
 
 export function LiveShareParticipantGuest<T extends ClassType<IAsyncDisposable>>(SuperClass: T, serviceName: string) {
-    return LiveShareParticipantMixin<T, vsls.SharedServiceProxy | null>(SuperClass, vsls.Role.Guest, serviceName, waitForGuestService);
+    return LiveShareParticipantMixin<T, vsls.SharedServiceProxy | null>(
+        SuperClass,
+        vsls.Role.Guest,
+        serviceName,
+        waitForGuestService
+    );
 }
 
 export function LiveShareParticipantHost<T extends ClassType<IAsyncDisposable>>(SuperClass: T, serviceName: string) {
-    return LiveShareParticipantMixin<T, vsls.SharedService | null>(SuperClass, vsls.Role.Host, serviceName, waitForHostService);
+    return LiveShareParticipantMixin<T, vsls.SharedService | null>(
+        SuperClass,
+        vsls.Role.Host,
+        serviceName,
+        waitForHostService
+    );
 }
 
 /**
@@ -62,7 +72,8 @@ function LiveShareParticipantMixin<T extends ClassType<IAsyncDisposable>, S>(
     SuperClass: T,
     expectedRole: vsls.Role,
     serviceName: string,
-    serviceWaiter: (api: vsls.LiveShare, name: string) => Promise<S>) {
+    serviceWaiter: (api: vsls.LiveShare, name: string) => Promise<S>
+) {
     return class extends SuperClass implements ILiveShareParticipant {
         protected finishedApi: vsls.LiveShare | null | undefined;
         protected api: Promise<vsls.LiveShare | null>;
@@ -77,10 +88,12 @@ function LiveShareParticipantMixin<T extends ClassType<IAsyncDisposable>, S>(
             if (rest.length > 0) {
                 const liveShare = rest[0] as ILiveShareApi;
                 this.api = liveShare.getApi();
-                this.api.then(a => {
-                    this.finishedApi = a;
-                    this.onSessionChange(a).ignoreErrors();
-                }).ignoreErrors();
+                this.api
+                    .then((a) => {
+                        this.finishedApi = a;
+                        this.onSessionChange(a).ignoreErrors();
+                    })
+                    .ignoreErrors();
             } else {
                 this.api = Promise.resolve(null);
             }
@@ -112,8 +125,7 @@ function LiveShareParticipantMixin<T extends ClassType<IAsyncDisposable>, S>(
 
         public async onSessionChange(api: vsls.LiveShare | null): Promise<void> {
             this.servicePromise = undefined;
-            const newRole = api !== null && api.session ?
-                api.session.role : vsls.Role.None;
+            const newRole = api !== null && api.session ? api.session.role : vsls.Role.None;
             if (newRole !== this.actualRole) {
                 this.actualRole = newRole;
                 if (newRole === this.wantedRole) {
@@ -129,7 +141,7 @@ function LiveShareParticipantMixin<T extends ClassType<IAsyncDisposable>, S>(
                 return this.servicePromise;
             }
             const api = await this.api;
-            if (!api || (api.session.role !== this.wantedRole)) {
+            if (!api || api.session.role !== this.wantedRole) {
                 this.servicePromise = Promise.resolve(undefined);
             } else {
                 this.serviceFullName = this.sanitizeServiceName(await this.waitForServiceName());

@@ -3,15 +3,24 @@ import { Disposable, Event, EventEmitter, Uri } from 'vscode';
 import { IWorkspaceService } from '../../../common/application/types';
 import { IDisposableRegistry } from '../../../common/types';
 import { TestDataItem } from '../../types';
-import { FlattenedTestFunction, FlattenedTestSuite, ITestCollectionStorageService, TestFunction, Tests, TestSuite } from './../types';
+import {
+    FlattenedTestFunction,
+    FlattenedTestSuite,
+    ITestCollectionStorageService,
+    TestFunction,
+    Tests,
+    TestSuite
+} from './../types';
 
 @injectable()
 export class TestCollectionStorageService implements ITestCollectionStorageService {
     private readonly _onDidChange = new EventEmitter<{ uri: Uri; data?: TestDataItem }>();
     private readonly testsIndexedByWorkspaceUri = new Map<string, Tests | undefined>();
 
-    constructor(@inject(IDisposableRegistry) disposables: Disposable[],
-        @inject(IWorkspaceService) private readonly workspaceService: IWorkspaceService) {
+    constructor(
+        @inject(IDisposableRegistry) disposables: Disposable[],
+        @inject(IWorkspaceService) private readonly workspaceService: IWorkspaceService
+    ) {
         disposables.push(this);
     }
     public get onDidChange(): Event<{ uri: Uri; data?: TestDataItem }> {
@@ -19,7 +28,9 @@ export class TestCollectionStorageService implements ITestCollectionStorageServi
     }
     public getTests(resource: Uri): Tests | undefined {
         const workspaceFolder = this.workspaceService.getWorkspaceFolderIdentifier(resource);
-        return this.testsIndexedByWorkspaceUri.has(workspaceFolder) ? this.testsIndexedByWorkspaceUri.get(workspaceFolder) : undefined;
+        return this.testsIndexedByWorkspaceUri.has(workspaceFolder)
+            ? this.testsIndexedByWorkspaceUri.get(workspaceFolder)
+            : undefined;
     }
     public storeTests(resource: Uri, tests: Tests | undefined): void {
         const workspaceFolder = this.workspaceService.getWorkspaceFolderIdentifier(resource);
@@ -31,14 +42,14 @@ export class TestCollectionStorageService implements ITestCollectionStorageServi
         if (!tests) {
             return;
         }
-        return tests.testFunctions.find(f => f.testFunction === func);
+        return tests.testFunctions.find((f) => f.testFunction === func);
     }
     public findFlattendTestSuite(resource: Uri, suite: TestSuite): FlattenedTestSuite | undefined {
         const tests = this.getTests(resource);
         if (!tests) {
             return;
         }
-        return tests.testSuites.find(f => f.testSuite === suite);
+        return tests.testSuites.find((f) => f.testSuite === suite);
     }
     public dispose() {
         this.testsIndexedByWorkspaceUri.clear();

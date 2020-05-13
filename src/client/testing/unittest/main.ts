@@ -27,34 +27,57 @@ export class TestManager extends BaseTestManager {
         const args = this.settings.testing.unittestArgs.slice(0);
         return {
             workspaceFolder: this.workspaceFolder,
-            cwd: this.rootDirectory, args,
-            token: this.testDiscoveryCancellationToken!, ignoreCache,
+            cwd: this.rootDirectory,
+            args,
+            token: this.testDiscoveryCancellationToken!,
+            ignoreCache,
             outChannel: this.outputChannel
         };
     }
-    public async runTest(cmdSource: CommandSource, testsToRun?: TestsToRun, runFailedTests?: boolean, debug?: boolean): Promise<Tests> {
+    public async runTest(
+        cmdSource: CommandSource,
+        testsToRun?: TestsToRun,
+        runFailedTests?: boolean,
+        debug?: boolean
+    ): Promise<Tests> {
         if (runFailedTests === true && this.tests) {
             testsToRun = { testFile: [], testFolder: [], testSuite: [], testFunction: [] };
-            testsToRun.testFunction = this.tests.testFunctions.filter(fn => {
-                return fn.testFunction.status === TestStatus.Error || fn.testFunction.status === TestStatus.Fail;
-            }).map(fn => fn.testFunction);
+            testsToRun.testFunction = this.tests.testFunctions
+                .filter((fn) => {
+                    return fn.testFunction.status === TestStatus.Error || fn.testFunction.status === TestStatus.Fail;
+                })
+                .map((fn) => fn.testFunction);
         }
         return super.runTest(cmdSource, testsToRun, runFailedTests, debug);
     }
-    public async runTestImpl(tests: Tests, testsToRun?: TestsToRun, _runFailedTests?: boolean, debug?: boolean): Promise<Tests> {
+    public async runTestImpl(
+        tests: Tests,
+        testsToRun?: TestsToRun,
+        _runFailedTests?: boolean,
+        debug?: boolean
+    ): Promise<Tests> {
         let args: string[];
 
         const runAllTests = this.helper.shouldRunAllTests(testsToRun);
         if (debug) {
-            args = this.argsService.filterArguments(this.settings.testing.unittestArgs, runAllTests ? TestFilter.debugAll : TestFilter.debugSpecific);
+            args = this.argsService.filterArguments(
+                this.settings.testing.unittestArgs,
+                runAllTests ? TestFilter.debugAll : TestFilter.debugSpecific
+            );
         } else {
-            args = this.argsService.filterArguments(this.settings.testing.unittestArgs, runAllTests ? TestFilter.runAll : TestFilter.runSpecific);
+            args = this.argsService.filterArguments(
+                this.settings.testing.unittestArgs,
+                runAllTests ? TestFilter.runAll : TestFilter.runSpecific
+            );
         }
 
         const options: TestRunOptions = {
             workspaceFolder: this.workspaceFolder,
             cwd: this.rootDirectory,
-            tests, args, testsToRun, debug,
+            tests,
+            args,
+            testsToRun,
+            debug,
             token: this.testRunnerCancellationToken!,
             outChannel: this.outputChannel
         };

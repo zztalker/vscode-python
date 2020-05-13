@@ -4,6 +4,7 @@
 import * as vscode from 'vscode';
 import { ICommandManager, IDocumentManager, IWorkspaceService } from '../common/application/types';
 import { IConfigurationService } from '../common/types';
+import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
 import { AutoPep8Formatter } from './../formatters/autoPep8Formatter';
 import { BaseFormatter } from './../formatters/baseFormatter';
@@ -11,7 +12,8 @@ import { BlackFormatter } from './../formatters/blackFormatter';
 import { DummyFormatter } from './../formatters/dummyFormatter';
 import { YapfFormatter } from './../formatters/yapfFormatter';
 
-export class PythonFormattingEditProvider implements vscode.DocumentFormattingEditProvider, vscode.DocumentRangeFormattingEditProvider, vscode.Disposable {
+export class PythonFormattingEditProvider
+    implements vscode.DocumentFormattingEditProvider, vscode.DocumentRangeFormattingEditProvider, vscode.Disposable {
     private readonly config: IConfigurationService;
     private readonly workspace: IWorkspaceService;
     private readonly documentManager: IDocumentManager;
@@ -38,18 +40,37 @@ export class PythonFormattingEditProvider implements vscode.DocumentFormattingEd
         this.workspace = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
         this.documentManager = serviceContainer.get<IDocumentManager>(IDocumentManager);
         this.config = serviceContainer.get<IConfigurationService>(IConfigurationService);
-        this.disposables.push(this.documentManager.onDidSaveTextDocument(async document => this.onSaveDocument(document)));
+        const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
+        this.disposables.push(
+            this.documentManager.onDidSaveTextDocument(async (document) => this.onSaveDocument(document))
+        );
+        this.disposables.push(
+            interpreterService.onDidChangeInterpreter(async () => {
+                if (this.documentManager.activeTextEditor) {
+                    return this.onSaveDocument(this.documentManager.activeTextEditor.document);
+                }
+            })
+        );
     }
 
     public dispose() {
-        this.disposables.forEach(d => d.dispose());
+        this.disposables.forEach((d) => d.dispose());
     }
 
-    public provideDocumentFormattingEdits(document: vscode.TextDocument, options: vscode.FormattingOptions, token: vscode.CancellationToken): Promise<vscode.TextEdit[]> {
+    public provideDocumentFormattingEdits(
+        document: vscode.TextDocument,
+        options: vscode.FormattingOptions,
+        token: vscode.CancellationToken
+    ): Promise<vscode.TextEdit[]> {
         return this.provideDocumentRangeFormattingEdits(document, undefined, options, token);
     }
 
-    public async provideDocumentRangeFormattingEdits(document: vscode.TextDocument, range: vscode.Range | undefined, options: vscode.FormattingOptions, token: vscode.CancellationToken): Promise<vscode.TextEdit[]> {
+    public async provideDocumentRangeFormattingEdits(
+        document: vscode.TextDocument,
+        range: vscode.Range | undefined,
+        options: vscode.FormattingOptions,
+        token: vscode.CancellationToken
+    ): Promise<vscode.TextEdit[]> {
         // Workaround for https://github.com/Microsoft/vscode/issues/41194
         // VSC rejects 'format on save' promise in 750 ms. Python formatting may take quite a bit longer.
         // Workaround is to resolve promise to nothing here, then execute format document and force new save.
@@ -81,9 +102,11 @@ export class PythonFormattingEditProvider implements vscode.DocumentFormattingEd
         // Don't format inside the event handler, do it on timeout
         setTimeout(() => {
             try {
-                if (this.formatterMadeChanges
-                    && !document.isDirty
-                    && document.version === this.documentVersionBeforeFormatting) {
+                if (
+                    this.formatterMadeChanges &&
+                    !document.isDirty &&
+                    document.version === this.documentVersionBeforeFormatting
+                ) {
                     // Formatter changes were not actually applied due to the timeout on save.
                     // Force formatting now and then save the document.
                     this.commands.executeCommand('editor.action.formatDocument').then(async () => {

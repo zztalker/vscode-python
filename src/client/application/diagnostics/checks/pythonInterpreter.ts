@@ -9,11 +9,19 @@ import '../../../common/extensions';
 import { IConfigurationService, IDisposableRegistry, Resource } from '../../../common/types';
 import { IInterpreterService } from '../../../interpreter/contracts';
 import { IServiceContainer } from '../../../ioc/types';
+import { sendTelemetryEvent } from '../../../telemetry';
+import { EventName } from '../../../telemetry/constants';
 import { BaseDiagnostic, BaseDiagnosticsService } from '../base';
 import { IDiagnosticsCommandFactory } from '../commands/types';
 import { DiagnosticCodes } from '../constants';
 import { DiagnosticCommandPromptHandlerServiceId, MessageCommandPrompt } from '../promptHandler';
-import { DiagnosticScope, IDiagnostic, IDiagnosticCommand, IDiagnosticHandlerService } from '../types';
+import {
+    DiagnosticScope,
+    IDiagnostic,
+    IDiagnosticCommand,
+    IDiagnosticHandlerService,
+    IDiagnosticMessageOnCloseHandler
+} from '../types';
 
 const messages = {
     [DiagnosticCodes.NoPythonInterpretersDiagnostic]:
@@ -23,7 +31,12 @@ const messages = {
 };
 
 export class InvalidPythonInterpreterDiagnostic extends BaseDiagnostic {
-    constructor(code: DiagnosticCodes.NoPythonInterpretersDiagnostic | DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic, resource: Resource) {
+    constructor(
+        code:
+            | DiagnosticCodes.NoPythonInterpretersDiagnostic
+            | DiagnosticCodes.NoCurrentlySelectedPythonInterpreterDiagnostic,
+        resource: Resource
+    ) {
         super(code, messages[code], DiagnosticSeverity.Error, DiagnosticScope.WorkspaceFolder, resource);
     }
 }
@@ -32,8 +45,10 @@ export const InvalidPythonInterpreterServiceId = 'InvalidPythonInterpreterServic
 
 @injectable()
 export class InvalidPythonInterpreterService extends BaseDiagnosticsService {
-    constructor(@inject(IServiceContainer) serviceContainer: IServiceContainer,
-        @inject(IDisposableRegistry) disposableRegistry: IDisposableRegistry) {
+    constructor(
+        @inject(IServiceContainer) serviceContainer: IServiceContainer,
+        @inject(IDisposableRegistry) disposableRegistry: IDisposableRegistry
+    ) {
         super(
             [
                 DiagnosticCodes.NoPythonInterpretersDiagnostic,
@@ -79,12 +94,13 @@ export class InvalidPythonInterpreterService extends BaseDiagnosticsService {
             DiagnosticCommandPromptHandlerServiceId
         );
         await Promise.all(
-            diagnostics.map(async diagnostic => {
+            diagnostics.map(async (diagnostic) => {
                 if (!this.canHandle(diagnostic)) {
                     return;
                 }
                 const commandPrompts = this.getCommandPrompts(diagnostic);
-                return messageService.handle(diagnostic, { commandPrompts, message: diagnostic.message });
+                const onClose = this.getOnCloseHandler(diagnostic);
+                return messageService.handle(diagnostic, { commandPrompts, message: diagnostic.message, onClose });
             })
         );
     }
@@ -114,8 +130,19 @@ export class InvalidPythonInterpreterService extends BaseDiagnosticsService {
                 ];
             }
             default: {
-                throw new Error('Invalid diagnostic for \'InvalidPythonInterpreterService\'');
+                throw new Error("Invalid diagnostic for 'InvalidPythonInterpreterService'");
             }
         }
+    }
+    private getOnCloseHandler(diagnostic: IDiagnostic): IDiagnosticMessageOnCloseHandler | undefined {
+        if (diagnostic.code === DiagnosticCodes.NoPythonInterpretersDiagnostic) {
+            return (response?: string) => {
+                sendTelemetryEvent(EventName.PYTHON_NOT_INSTALLED_PROMPT, undefined, {
+                    selection: response ? 'Download' : 'Ignore'
+                });
+            };
+        }
+
+        return;
     }
 }

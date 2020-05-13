@@ -3,6 +3,8 @@
 'use strict';
 import * as React from 'react';
 
+import * as fastDeepEqual from 'fast-deep-equal';
+import { IDataScienceExtraSettings } from '../../client/datascience/types';
 import { InputHistory } from './inputHistory';
 import { ICellViewModel } from './mainState';
 
@@ -14,13 +16,14 @@ const throttle = require('lodash/throttle') as typeof import('lodash/throttle');
 export interface IContentPanelProps {
     baseTheme: string;
     cellVMs: ICellViewModel[];
-    newCellVM?: ICellViewModel;
     history?: InputHistory;
     testMode?: boolean;
+    settings?: IDataScienceExtraSettings;
     codeTheme: string;
     submittedText: boolean;
     skipNextScroll: boolean;
     editable: boolean;
+    scrollBeyondLastLine: boolean;
     renderCell(cellVM: ICellViewModel, index: number): JSX.Element | null;
     scrollToBottom(div: HTMLDivElement): void;
 }
@@ -32,42 +35,50 @@ export class ContentPanel extends React.Component<IContentPanelProps> {
     constructor(prop: IContentPanelProps) {
         super(prop);
     }
-
     public componentDidMount() {
         this.scrollToBottom();
     }
+    public componentWillReceiveProps(prevProps: IContentPanelProps) {
+        // Scroll if we suddenly finished or updated a cell. This should happen on
+        // finish, updating output, etc.
+        if (!fastDeepEqual(prevProps.cellVMs.map(this.outputCheckable), this.props.cellVMs.map(this.outputCheckable))) {
+            this.scrollToBottom();
+        }
+    }
 
-    public componentDidUpdate() {
-        this.scrollToBottom();
+    public computeIsAtBottom(parent: HTMLDivElement): boolean {
+        if (this.bottomRef.current) {
+            // if the bottom div is on the screen, the content is at the bottom
+            return this.bottomRef.current.offsetTop - parent.offsetTop - 2 < parent.clientHeight + parent.scrollTop;
+        }
+        return false;
     }
 
     public render() {
-        return(
-            <div id='content-panel-div' ref={this.containerRef}>
-                <div id='cell-table'>
-                    <div id='cell-table-body' role='list'>
-                        {this.renderCells()}
-                        {this.renderEdit()}
-                    </div>
+        const className = `${this.props.scrollBeyondLastLine ? 'content-panel-scrollBeyondLastLine' : ''}`;
+        return (
+            <div id="content-panel-div" ref={this.containerRef} className={className}>
+                <div id="cell-table" role="list">
+                    {this.renderCells()}
                 </div>
-                <div ref={this.bottomRef}/>
+                <div id="bottomDiv" ref={this.bottomRef} />
             </div>
         );
     }
+
+    private outputCheckable = (cellVM: ICellViewModel) => {
+        // Return the properties that if they change means a cell updated something
+        return {
+            outputs: cellVM.cell.data.outputs,
+            state: cellVM.cell.state
+        };
+    };
 
     private renderCells = () => {
         return this.props.cellVMs.map((cellVM: ICellViewModel, index: number) => {
             return this.props.renderCell(cellVM, index);
         });
-    }
-
-    private renderEdit = () => {
-        if (this.props.editable && this.props.newCellVM) {
-            return this.props.renderCell(this.props.newCellVM, 0);
-        } else {
-            return null;
-        }
-    }
+    };
 
     private scrollIntoView() {
         if (this.bottomRef.current && this.props.scrollToBottom) {
@@ -81,5 +92,4 @@ export class ContentPanel extends React.Component<IContentPanelProps> {
             this.throttledScrollIntoView();
         }
     }
-
 }

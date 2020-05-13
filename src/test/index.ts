@@ -15,7 +15,13 @@ import * as glob from 'glob';
 import * as Mocha from 'mocha';
 import * as path from 'path';
 import { IS_CI_SERVER_TEST_DEBUGGER, MOCHA_REPORTER_JUNIT } from './ciConstants';
-import { IS_MULTI_ROOT_TEST, IS_SMOKE_TEST, MAX_EXTENSION_ACTIVATION_TIME, TEST_RETRYCOUNT, TEST_TIMEOUT } from './constants';
+import {
+    IS_MULTI_ROOT_TEST,
+    IS_SMOKE_TEST,
+    MAX_EXTENSION_ACTIVATION_TIME,
+    TEST_RETRYCOUNT,
+    TEST_TIMEOUT
+} from './constants';
 import { initialize } from './initialize';
 
 type SetupOptions = Mocha.MochaOptions & {
@@ -102,14 +108,16 @@ function configure(): SetupOptions {
  * @returns
  */
 function activatePythonExtensionScript() {
-    const ex = new Error('Failed to initialize Python extension for tests after 2 minutes');
+    const ex = new Error('Failed to initialize Python extension for tests after 3 minutes');
     let timer: NodeJS.Timer | undefined;
     const failed = new Promise((_, reject) => {
         timer = setTimeout(() => reject(ex), MAX_EXTENSION_ACTIVATION_TIME);
     });
-    const promise = Promise.race([initialize(), failed]);
-    promise.then(() => clearTimeout(timer!)).catch(() => clearTimeout(timer!));
-    return promise;
+    const initializationPromise = initialize();
+    const promise = Promise.race([initializationPromise, failed]);
+    // tslint:disable-next-line: no-console
+    promise.finally(() => clearTimeout(timer!)).catch((e) => console.error(e));
+    return initializationPromise;
 }
 
 /**
@@ -135,22 +143,33 @@ export async function run(): Promise<void> {
     }
 
     const testFiles = await new Promise<string[]>((resolve, reject) => {
-        glob(`**/**.${options.testFilesSuffix}.js`, { ignore: ['**/**.unit.test.js', '**/**.functional.test.js'], cwd: testsRoot }, (error, files) => {
-            if (error) {
-                return reject(error);
+        glob(
+            `**/**.${options.testFilesSuffix}.js`,
+            { ignore: ['**/**.unit.test.js', '**/**.functional.test.js'], cwd: testsRoot },
+            (error, files) => {
+                if (error) {
+                    return reject(error);
+                }
+                resolve(files);
             }
-            resolve(files);
-        });
+        );
     });
 
     // Setup test files that need to be run.
-    testFiles.forEach(file => mocha.addFile(path.join(testsRoot, file)));
+    testFiles.forEach((file) => mocha.addFile(path.join(testsRoot, file)));
 
-    await activatePythonExtensionScript();
+    // tslint:disable: no-console
+    console.time('Time taken to activate the extension');
+    try {
+        await activatePythonExtensionScript();
+        console.timeEnd('Time taken to activate the extension');
+    } catch (ex) {
+        console.error('Failed to activate python extension without errors', ex);
+    }
 
     // Run the tests.
     await new Promise<void>((resolve, reject) => {
-        mocha.run(failures => {
+        mocha.run((failures) => {
             if (failures > 0) {
                 return reject(new Error(`${failures} total failures`));
             }

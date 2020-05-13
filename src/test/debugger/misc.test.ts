@@ -19,7 +19,6 @@ const EXPERIMENTAL_DEBUG_ADAPTER = path.join(__dirname, '..', '..', 'client', 'd
 const testAdapterFilePath = EXPERIMENTAL_DEBUG_ADAPTER;
 const debuggerType = DebuggerTypeName;
 suite(`Standard Debugging - Misc tests: ${debuggerType}`, () => {
-
     let debugClient: DebugClient;
     // All tests in this suite are failed
     // Check https://github.com/Microsoft/vscode-python/issues/4067
@@ -30,7 +29,7 @@ suite(`Standard Debugging - Misc tests: ${debuggerType}`, () => {
             // tslint:disable-next-line:no-invalid-this
             return this.skip();
         }
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         debugClient = createDebugAdapter();
         debugClient.defaultTimeout = DEBUGGER_TIMEOUT;
         await debugClient.start();
@@ -41,7 +40,7 @@ suite(`Standard Debugging - Misc tests: ${debuggerType}`, () => {
         try {
             await debugClient.stop().catch(noop);
             // tslint:disable-next-line:no-empty
-        } catch (ex) { }
+        } catch (ex) {}
         await sleep(1000);
     });
     /**
@@ -51,10 +50,14 @@ suite(`Standard Debugging - Misc tests: ${debuggerType}`, () => {
     function createDebugAdapter(): DebugClient {
         return new DebugClient(process.env.NODE_PATH || 'node', testAdapterFilePath, debuggerType);
     }
-    function buildLaunchArgs(pythonFile: string, stopOnEntry: boolean = false, showReturnValue: boolean = true): LaunchRequestArguments {
+    function buildLaunchArgs(
+        pythonFile: string,
+        stopOnEntry: boolean = false,
+        showReturnValue: boolean = true
+    ): LaunchRequestArguments {
         const env = { PYTHONPATH: PTVSD_PATH };
         // tslint:disable-next-line:no-unnecessary-local-variable
-        const options = {
+        const options = ({
             program: path.join(debugFilesPath, pythonFile),
             cwd: debugFilesPath,
             stopOnEntry,
@@ -66,7 +69,7 @@ suite(`Standard Debugging - Misc tests: ${debuggerType}`, () => {
             envFile: '',
             logToFile: false,
             type: debuggerType
-        } as any as LaunchRequestArguments;
+        } as any) as LaunchRequestArguments;
 
         return options;
     }

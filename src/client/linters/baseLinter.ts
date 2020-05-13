@@ -7,14 +7,12 @@ import * as vscode from 'vscode';
 import { IWorkspaceService } from '../common/application/types';
 import { isTestExecution } from '../common/constants';
 import '../common/extensions';
+import { traceError } from '../common/logger';
 import { IPythonToolExecutionService } from '../common/process/types';
-import { ExecutionInfo, IConfigurationService, ILogger, IPythonSettings, Product } from '../common/types';
+import { ExecutionInfo, IConfigurationService, IPythonSettings, Product } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
 import { ErrorHandler } from './errorHandlers/errorHandler';
-import {
-    ILinter, ILinterInfo, ILinterManager, ILintMessage,
-    LinterId, LintMessageSeverity
-} from './types';
+import { ILinter, ILinterInfo, ILinterManager, ILintMessage, LinterId, LintMessageSeverity } from './types';
 
 // tslint:disable-next-line:no-require-imports no-var-requires no-any
 const namedRegexp = require('named-js-regexp');
@@ -78,10 +76,12 @@ export abstract class BaseLinter implements ILinter {
         return this._pythonSettings;
     }
 
-    constructor(product: Product,
+    constructor(
+        product: Product,
         protected readonly outputChannel: vscode.OutputChannel,
         protected readonly serviceContainer: IServiceContainer,
-        protected readonly columnOffset = 0) {
+        protected readonly columnOffset = 0
+    ) {
         this._info = serviceContainer.get<ILinterManager>(ILinterManager).getLinterInfo(product);
         this.errorHandler = new ErrorHandler(this.info.product, outputChannel, serviceContainer);
         this.configService = serviceContainer.get<IConfigurationService>(IConfigurationService);
@@ -99,13 +99,14 @@ export abstract class BaseLinter implements ILinter {
 
     protected getWorkspaceRootPath(document: vscode.TextDocument): string {
         const workspaceFolder = this.workspace.getWorkspaceFolder(document.uri);
-        const workspaceRootPath = (workspaceFolder && typeof workspaceFolder.uri.fsPath === 'string') ? workspaceFolder.uri.fsPath : undefined;
+        const workspaceRootPath =
+            workspaceFolder && typeof workspaceFolder.uri.fsPath === 'string' ? workspaceFolder.uri.fsPath : undefined;
         return typeof workspaceRootPath === 'string' ? workspaceRootPath : path.dirname(document.uri.fsPath);
     }
-    protected get logger(): ILogger {
-        return this.serviceContainer.get<ILogger>(ILogger);
-    }
-    protected abstract runLinter(document: vscode.TextDocument, cancellation: vscode.CancellationToken): Promise<ILintMessage[]>;
+    protected abstract runLinter(
+        document: vscode.TextDocument,
+        cancellation: vscode.CancellationToken
+    ): Promise<ILintMessage[]>;
 
     // tslint:disable-next-line:no-any
     protected parseMessagesSeverity(error: string, categorySeverity: any): LintMessageSeverity {
@@ -123,7 +124,7 @@ export abstract class BaseLinter implements ILinter {
                 default: {
                     if (LintMessageSeverity[severityName]) {
                         // tslint:disable-next-line:no-any
-                        return <LintMessageSeverity><any>LintMessageSeverity[severityName];
+                        return <LintMessageSeverity>(<any>LintMessageSeverity[severityName]);
                     }
                 }
             }
@@ -131,15 +132,26 @@ export abstract class BaseLinter implements ILinter {
         return LintMessageSeverity.Information;
     }
 
-    protected async run(args: string[], document: vscode.TextDocument, cancellation: vscode.CancellationToken, regEx: string = REGEX): Promise<ILintMessage[]> {
+    protected async run(
+        args: string[],
+        document: vscode.TextDocument,
+        cancellation: vscode.CancellationToken,
+        regEx: string = REGEX
+    ): Promise<ILintMessage[]> {
         if (!this.info.isEnabled(document.uri)) {
             return [];
         }
         const executionInfo = this.info.getExecutionInfo(args, document.uri);
         const cwd = this.getWorkspaceRootPath(document);
-        const pythonToolsExecutionService = this.serviceContainer.get<IPythonToolExecutionService>(IPythonToolExecutionService);
+        const pythonToolsExecutionService = this.serviceContainer.get<IPythonToolExecutionService>(
+            IPythonToolExecutionService
+        );
         try {
-            const result = await pythonToolsExecutionService.exec(executionInfo, { cwd, token: cancellation, mergeStdOutErr: false }, document.uri);
+            const result = await pythonToolsExecutionService.exec(
+                executionInfo,
+                { cwd, token: cancellation, mergeStdOutErr: false },
+                document.uri
+            );
             this.displayLinterResultHeader(result.stdout);
             return await this.parseMessages(result.stdout, document, cancellation, regEx);
         } catch (error) {
@@ -148,18 +160,23 @@ export abstract class BaseLinter implements ILinter {
         }
     }
 
-    protected async parseMessages(output: string, _document: vscode.TextDocument, _token: vscode.CancellationToken, regEx: string) {
+    protected async parseMessages(
+        output: string,
+        _document: vscode.TextDocument,
+        _token: vscode.CancellationToken,
+        regEx: string
+    ) {
         const outputLines = output.splitLines({ removeEmptyEntries: false, trim: false });
         return this.parseLines(outputLines, regEx);
     }
 
     protected async handleError(error: Error, resource: vscode.Uri, execInfo: ExecutionInfo) {
         if (isTestExecution()) {
-            this.errorHandler.handleError(error, resource, execInfo)
-                .ignoreErrors();
+            this.errorHandler.handleError(error, resource, execInfo).ignoreErrors();
         } else {
-            this.errorHandler.handleError(error, resource, execInfo)
-                .catch(this.logger.logError.bind(this, 'Error in errorHandler.handleError'))
+            this.errorHandler
+                .handleError(error, resource, execInfo)
+                .catch((ex) => traceError('Error in errorHandler.handleError', ex))
                 .ignoreErrors();
         }
     }
@@ -180,7 +197,7 @@ export abstract class BaseLinter implements ILinter {
                     }
                 }
             } catch (ex) {
-                this.logger.logError(`Linter '${this.info.id}' failed to parse the line '${line}.`, ex);
+                traceError(`Linter '${this.info.id}' failed to parse the line '${line}.`, ex);
             }
         }
         return messages;

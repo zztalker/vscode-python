@@ -33,14 +33,16 @@ suite('Application Diagnostics - Check Test Settings', () => {
         workspace = mock(WorkspaceService);
         const stateFactory = mock(PersistentStateFactory);
 
-        when(stateFactory.createGlobalPersistentState('python.unitTest.Settings', anything())).thenReturn(instance(storage));
+        when(stateFactory.createGlobalPersistentState('python.unitTest.Settings', anything())).thenReturn(
+            instance(storage)
+        );
 
         diagnosticService = new UpdateTestSettingService(instance(fs), instance(appEnv), instance(workspace));
     });
     teardown(() => {
         sandbox.restore();
     });
-    [Uri.file(__filename), undefined].forEach(resource => {
+    [Uri.file(__filename), undefined].forEach((resource) => {
         const resourceTitle = resource ? '(with a resource)' : '(without a resource)';
 
         test(`activate method invokes UpdateTestSettings ${resourceTitle}`, async () => {
@@ -117,7 +119,7 @@ suite('Application Diagnostics - Check Test Settings', () => {
         test(`Filter files based on whether they need to be fixed ${resourceTitle}`, async () => {
             const getSettingsFiles = sandbox.stub(UpdateTestSettingService.prototype, 'getSettingsFiles');
             const filterFiles = sandbox.stub(UpdateTestSettingService.prototype, 'doesFileNeedToBeFixed');
-            filterFiles.callsFake(file => Promise.resolve(file === 'file_a' || file === 'file_c'));
+            filterFiles.callsFake((file) => Promise.resolve(file === 'file_a' || file === 'file_c'));
             getSettingsFiles.returns(['file_a', 'file_b', 'file_c', 'file_d']);
 
             diagnosticService = new UpdateTestSettingService(instance(fs), instance(appEnv), instance(workspace));
@@ -148,7 +150,7 @@ suite('Application Diagnostics - Check Test Settings', () => {
             expectedValue: false,
             contents: '{"python.pythonPath":"1234", "python.unittest.unitTestArgs":[]}'
         }
-    ].forEach(item => {
+    ].forEach((item) => {
         test(item.testTitle, async () => {
             when(fs.readFile(__filename)).thenResolve(item.contents);
 
@@ -158,7 +160,7 @@ suite('Application Diagnostics - Check Test Settings', () => {
             verify(fs.readFile(__filename)).once();
         });
     });
-    test('File should not be fixed if there\'s an error in reading the file', async () => {
+    test("File should not be fixed if there's an error in reading the file", async () => {
         when(fs.readFile(__filename)).thenReject(new Error('Kaboom'));
 
         const needsToBeFixed = await diagnosticService.doesFileNeedToBeFixed(__filename);
@@ -175,18 +177,24 @@ suite('Application Diagnostics - Check Test Settings', () => {
         },
         {
             testTitle: 'Should replace python.unitTest.pyTest.',
-            contents: '{"python.pythonPath":"1234", "python.unitTest.pyTestArgs":[], "python.unitTest.pyTestArgs":[], "python.unitTest.pyTestPath":[]}',
-            expectedContents: '{"python.pythonPath":"1234", "python.testing.pytestArgs":[], "python.testing.pytestArgs":[], "python.testing.pytestPath":[]}'
+            contents:
+                '{"python.pythonPath":"1234", "python.unitTest.pyTestArgs":[], "python.unitTest.pyTestArgs":[], "python.unitTest.pyTestPath":[]}',
+            expectedContents:
+                '{"python.pythonPath":"1234", "python.testing.pytestArgs":[], "python.testing.pytestArgs":[], "python.testing.pytestPath":[]}'
         },
         {
             testTitle: 'Should replace python.testing.pyTest.',
-            contents: '{"python.pythonPath":"1234", "python.testing.pyTestArgs":[], "python.testing.pyTestArgs":[], "python.testing.pyTestPath":[]}',
-            expectedContents: '{"python.pythonPath":"1234", "python.testing.pytestArgs":[], "python.testing.pytestArgs":[], "python.testing.pytestPath":[]}'
+            contents:
+                '{"python.pythonPath":"1234", "python.testing.pyTestArgs":[], "python.testing.pyTestArgs":[], "python.testing.pyTestPath":[]}',
+            expectedContents:
+                '{"python.pythonPath":"1234", "python.testing.pytestArgs":[], "python.testing.pytestArgs":[], "python.testing.pytestPath":[]}'
         },
         {
             testTitle: 'Should not make any changes to the file',
-            contents: '{"python.pythonPath":"1234", "python.unittest.unitTestArgs":[], "python.unitTest.pytestArgs":[], "python.testing.pytestArgs":[], "python.testing.pytestPath":[]}',
-            expectedContents: '{"python.pythonPath":"1234", "python.unittest.unitTestArgs":[], "python.testing.pytestArgs":[], "python.testing.pytestArgs":[], "python.testing.pytestPath":[]}'
+            contents:
+                '{"python.pythonPath":"1234", "python.unittest.unitTestArgs":[], "python.unitTest.pytestArgs":[], "python.testing.pytestArgs":[], "python.testing.pytestPath":[]}',
+            expectedContents:
+                '{"python.pythonPath":"1234", "python.unittest.unitTestArgs":[], "python.testing.pytestArgs":[], "python.testing.pytestArgs":[], "python.testing.pytestPath":[]}'
         },
         {
             testTitle: 'Should replace python.jediEnabled.',
@@ -198,7 +206,7 @@ suite('Application Diagnostics - Check Test Settings', () => {
             expectedContents: '{"python.jediEnabled": true}',
             contents: '{"python.languageServer": "jedi"}'
         }
-    ].forEach(item => {
+    ].forEach((item) => {
         test(item.testTitle, async () => {
             when(fs.readFile(__filename)).thenResolve(item.contents);
             when(fs.writeFile(__filename, anything())).thenResolve();
