@@ -159,7 +159,7 @@ def parse_item(
     if kind is None:
         return None, None
     (nodeid, parents, fileid, testfunc, parameterized) = _parse_node_id(
-        item.nodeid, kind
+        getattr(item, "_replace_nodeid", item.nodeid), kind
     )
     # Note: testfunc does not necessarily match item.function.__name__.
     # This can result from importing a test function from another module.
@@ -209,7 +209,7 @@ def parse_item(
 
     test = TestInfo(
         id=nodeid,
-        name=item.name,
+        name=getattr(item, "_replace_name", item.name),
         path=TestPath(
             root=testroot,
             relfile=relfile,
@@ -535,6 +535,13 @@ def _get_item_kind(item):
         return "function", True
     elif isinstance(item, pytest.Function):
         # We *could* be more specific, e.g. "method", "subtest".
+        return "function", False
+    elif (
+        isinstance(item, _pytest.nodes.Item)
+        and isinstance(item, _pytest.nodes.File)
+    ):
+        item._replace_nodeid = item.nodeid + "::" + item.location[2]
+        item._replace_name = item.name[:-3].replace(PATH_SEP, ".")
         return "function", False
     else:
         return None, False
