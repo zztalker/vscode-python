@@ -115,18 +115,30 @@ function updateTests(tests: Tests, testSuiteResult: TestSuiteResult) {
             updateResultInfo(testFunc, testcase);
             updateResultStatus(testFunc, testcase);
         } else {
-            // Possible we're dealing with nosetests, where the file name isn't returned to us
-            // When dealing with nose tests
-            // It is possible to have a test file named x in two separate test sub directories and have same functions/classes
-            // And unforutnately xunit log doesn't ouput the filename
+            // For pytest plugins like PEP8 it generate node for whole file, and classname == '' in it
+            if (testcase.$.classname === '') {
+                const testFuncForPlugin = findTestFunction(tests.testFunctions, testcase.$.name, testcase.$.name);
+                if (testFuncForPlugin) {
+                    if (testcase.$.line === '-1') {
+                        testcase.$.line = '1';
+                    }
+                    updateResultInfo(testFuncForPlugin, testcase);
+                    updateResultStatus(testFuncForPlugin, testcase);
+                }
+            } else {
+                // Possible we're dealing with nosetests, where the file name isn't returned to us
+                // When dealing with nose tests
+                // It is possible to have a test file named x in two separate test sub directories and have same functions/classes
+                // And unforutnately xunit log doesn't ouput the filename
 
-            // result = tests.testFunctions.find(fn => fn.testFunction.name === testcase.$.name &&
-            //     fn.parentTestSuite && fn.parentTestSuite.name === testcase.$.classname);
+                // result = tests.testFunctions.find(fn => fn.testFunction.name === testcase.$.name &&
+                //     fn.parentTestSuite && fn.parentTestSuite.name === testcase.$.classname);
 
-            // Look for failed file test
-            const fileTest = testcase.$.file && tests.testFiles.find((file) => file.nameToRun === testcase.$.file);
-            if (fileTest && testcase.error) {
-                updateResultStatus(fileTest, testcase);
+                // Look for failed file test
+                const fileTest = testcase.$.file && tests.testFiles.find((file) => file.nameToRun === testcase.$.file);
+                if (fileTest && testcase.error) {
+                    updateResultStatus(fileTest, testcase);
+                }
             }
         }
     });

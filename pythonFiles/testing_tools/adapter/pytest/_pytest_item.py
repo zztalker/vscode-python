@@ -155,12 +155,20 @@ def parse_item(
     """
     # _debug_item(item, showsummary=True)
     kind, _ = _get_item_kind(item)
-    # Skip plugin generated tests
+    # Skip unexpected kind tests
     if kind is None:
         return None, None
-    (nodeid, parents, fileid, testfunc, parameterized) = _parse_node_id(
-        item.nodeid, kind
-    )
+
+    if kind == "plugin_node":
+        (nodeid, parents, fileid, testfunc, parameterized) = _parse_node_id(
+            item.nodeid + "::" + item.location[2], kind
+        )
+
+    else:
+
+        (nodeid, parents, fileid, testfunc, parameterized) = _parse_node_id(
+            item.nodeid, kind
+        )
     # Note: testfunc does not necessarily match item.function.__name__.
     # This can result from importing a test function from another module.
 
@@ -394,7 +402,7 @@ def _parse_node_id(
             parents.append(node)
             funcid, funcname, _ = node
             parameterized = testid[len(funcid) :]
-        elif kind == "function":
+        elif kind == "function" or kind == "plugin_node":
             funcname = name
         else:
             raise should_never_reach_here(
@@ -536,6 +544,12 @@ def _get_item_kind(item):
     elif isinstance(item, pytest.Function):
         # We *could* be more specific, e.g. "method", "subtest".
         return "function", False
+    elif isinstance(item, _pytest.nodes.Item) and isinstance(item, _pytest.nodes.File):
+        # item._nodeid = item.nodeid + "::" + item.location[2]
+        item.name = item.name.replace(PATH_SEP, ".")
+        if item.name[-3:] == ".py":
+            item.name = item.name[:-3]
+        return "plugin_node", False
     else:
         return None, False
 
