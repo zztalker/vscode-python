@@ -536,9 +536,8 @@ def _get_item_kind(item):
     elif isinstance(item, pytest.Function):
         # We *could* be more specific, e.g. "method", "subtest".
         return "function", False
-    elif (
-        isinstance(item, _pytest.nodes.Item)
-        and isinstance(item, _pytest.nodes.File)
+    elif isinstance(item, _pytest.nodes.Item) and isinstance(
+        item, _pytest.nodes.File
     ):
         item._replace_nodeid = item.nodeid + "::" + item.location[2]
         item._replace_name = item.name[:-3].replace(PATH_SEP, ".")
