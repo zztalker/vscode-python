@@ -117,13 +117,13 @@ function updateTests(tests: Tests, testSuiteResult: TestSuiteResult) {
         } else {
             // For pytest plugins like PEP8 it generate node for whole file, and classname == '' in it
             if (testcase.$.classname === '') {
-                const testFunc = findTestFunction(tests.testFunctions, testcase.$.name, testcase.$.name);
-                if (testFunc) {
+                const testFuncForPlugin = findTestFunction(tests.testFunctions, testcase.$.name, testcase.$.name);
+                if (testFuncForPlugin) {
                     if (testcase.$.line === '-1') {
                         testcase.$.line = '1';
                     }
-                    updateResultInfo(testFunc, testcase);
-                    updateResultStatus(testFunc, testcase);
+                    updateResultInfo(testFuncForPlugin, testcase);
+                    updateResultStatus(testFuncForPlugin, testcase);
                 }
             } else {
                 // Possible we're dealing with nosetests, where the file name isn't returned to us
